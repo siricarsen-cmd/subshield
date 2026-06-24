@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import pdf = require("pdf-parse"); 
+// Use this modern import syntax instead
+import pdf from "pdf-parse";
 
 export async function POST(request: Request) {
   try {
@@ -11,7 +12,8 @@ export async function POST(request: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const pdfData = await pdf(buffer);
+    // We cast to any because the pdf-parse type definitions can be strict
+    const pdfData = await (pdf as any)(buffer);
     
     return NextResponse.json({ text: pdfData.text });
   } catch (error) {
