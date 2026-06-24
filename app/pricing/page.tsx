@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Check, ChevronDown, ChevronUp, HelpCircle } from "lucide-react";
 import FinalCTA from "../../components/FinalCTA";
-import { createClient } from "@/utils/supabase/client"; // Ensure this import matches your project path
+import { createClient } from "@/lib/supabase/client"; // Ensure this import matches your project path
 
 export default function PricingPage() {
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);

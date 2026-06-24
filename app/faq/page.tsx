@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { HelpCircle, Scale, FileSearch, Clock, Shield, Lock, FileText, ChevronRight } from "lucide-react";
-import FinalCTA from "../components/FinalCTA";
+import FinalCTA from "@/components/FinalCTA";
 
 export default function FAQPage() {
   const faqs = [
