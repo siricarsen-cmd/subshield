@@ -86,7 +86,7 @@ export default function AdvancedIntakeHub() {
         canvas.width = viewport.width;
 
         if (ctx) {
-          await page.render({ canvasContext: ctx, viewport }).promise;
+          await page.render({ canvasContext: ctx, viewport, canvas }).promise;
           const dataUrl = canvas.toDataURL("image/png");
           const { data: { text } } = await worker.recognize(dataUrl);
           ocrText += text + "\n";
