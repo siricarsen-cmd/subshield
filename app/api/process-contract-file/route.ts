@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-// Use this modern import syntax instead
-import pdf from "pdf-parse";
+// Using the exact wildcard import syntax the compiler requested
+import * as pdfParse from "pdf-parse";
 
 export async function POST(request: Request) {
   try {
@@ -12,8 +12,10 @@ export async function POST(request: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    // We cast to any because the pdf-parse type definitions can be strict
-    const pdfData = await (pdf as any)(buffer);
+    
+    // Safely extract the function whether it loads as a module or default export
+    const extractPdf = (pdfParse as any).default || pdfParse;
+    const pdfData = await extractPdf(buffer);
     
     return NextResponse.json({ text: pdfData.text });
   } catch (error) {
