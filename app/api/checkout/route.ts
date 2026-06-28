@@ -1,37 +1,35 @@
 import { NextResponse } from "next/server";
+import { stripe } from "@/lib/stripe";
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const { tier, credits } = await request.json();
+    const { priceId, userId } = await req.json();
 
-    if (!tier) {
-      return NextResponse.json({ error: "No billing tier parameter selected." }, { status: 400 });
-    }
+    // Dynamically set mode based on your specific Price ID
+    const checkoutMode = priceId === "price_1Tlf1HHCtlCRL0oUGy7eUqd6" 
+      ? "subscription" 
+      : "payment";
 
-    // Determine pricing and internal metadata based on your verified packages
-    let unitAmount = tier === "Annual Growth Pack" ? 59900 : 14999; // Stripe prices in cents
-    let productName = tier === "Annual Growth Pack" ? "The Annual Growth Pack (5 Credits)" : "Single Project Scan (1 Credit)";
+    // Use the environment variable for URLs so switching to subshield.net is automatic
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://subshield-mu.vercel.app";
 
-    console.log(`[STRIPE HANDSHAKE INIT] Processing gateway session for ${productName}`);
+    const session = await stripe.checkout.sessions.create({
+      mode: checkoutMode,
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      // Only attach client_reference_id if a user is already logged in
+      ...(userId && { client_reference_id: userId }),
+      success_url: `${baseUrl}/success`,
+      cancel_url: `${baseUrl}/pricing`,
+    });
 
-    // =========================================================================
-    // PRODUCTION CONFIGURATION NOTE:
-    // When you launch live, this block initiates the real Stripe SDK:
-    // const session = await stripe.checkout.sessions.create({ ... })
-    // =========================================================================
-
-    // Generate a secure simulation URL that handles success callbacks smoothly
-    // We append the credits to the success URL so our dashboard can dynamically read it
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const simulatedStripeCheckoutUrl = `${baseUrl}/dashboard?payment_success=true&credits=${credits}&tier=${encodeURIComponent(tier)}`;
-
-    return NextResponse.json({ 
-      success: true, 
-      url: simulatedStripeCheckoutUrl 
-    }, { status: 200 });
-
+    return NextResponse.json({ url: session.url });
   } catch (error: any) {
-    console.error("[STRIPE GATEWAY FAULT]", error);
-    return NextResponse.json({ error: "Internal payment processing exception." }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

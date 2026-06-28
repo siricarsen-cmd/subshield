@@ -1,10 +1,10 @@
 import { stripe } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
 
-// Uses your live Vercel environment variables securely in production
 const supabase = createClient(
-  process.env.SUPABASE_URL || "https://placeholder.supabase.co", 
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder_key"
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 export async function POST(req: Request) {
@@ -12,68 +12,43 @@ export async function POST(req: Request) {
     const body = await req.text();
     const sig = req.headers.get("stripe-signature");
 
-    if (!sig) {
-      return new Response("Missing Stripe signature header", { status: 400 });
-    }
+    if (!sig) return new NextResponse("Missing signature", { status: 400 });
     
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "whsec_placeholder";
-    const event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
+    const event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!);
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as any;
+      const email = session.customer_details?.email;
       
-      // Look inside the line items to find out exactly what Price ID they bought
+      if (!email) {
+        console.error("[WEBHOOK FAULT] Payment succeeded but no email found.");
+        return new NextResponse("Missing email context", { status: 400 });
+      }
+
       const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
       const priceId = lineItems.data[0]?.price?.id;
       
-      // Fallback to checking metadata if user authentication wasn't handled inline
-      const userId = session.metadata?.userId || session.client_reference_id;
-
-      if (!userId) {
-        console.error("[WEBHOOK FAULT] Payment succeeded but no userId was found attached to the session.");
-        return new Response("Missing User ID context", { status: 400 });
-      }
-
-      // Map your verified Stripe Price IDs directly to the correct credit values
       let creditsToAdd = 0;
-      if (priceId === "price_1Tlf0mHCtlCRL0oUEc38O1DB") {
-        creditsToAdd = 1; // Single Project Scan
-      } else if (priceId === "price_1Tlf1HHCtlCRL0oUGy7eUqd6") {
-        creditsToAdd = 3; // Monthly Subscription
-      } else if (priceId === "price_1Tlf20HCtlCRL0oUGtni2RlJ") {
-        creditsToAdd = 30; // Enterprise Plan
-      } else {
-        console.warn(`[WEBHOOK WARNING] Unrecognized Price ID detected: ${priceId}`);
-      }
+      if (priceId === "price_1Tlf0mHCtlCRL0oUEc38O1DB") creditsToAdd = 1;
+      else if (priceId === "price_1Tlf1HHCtlCRL0oUGy7eUqd6") creditsToAdd = 3;
+      else if (priceId === "price_1Tlf20HCtlCRL0oUGtni2RlJ") creditsToAdd = 30;
 
       if (creditsToAdd > 0) {
-        // First, fetch their current credit count to accurately add them together
-        const { data: currentRecord } = await supabase
-          .from('user_credits')
-          .select('credits')
-          .eq('user_id', userId)
-          .single();
-
-        const existingCredits = currentRecord?.credits || 0;
-        const newCreditTotal = existingCredits + creditsToAdd;
-
-        // Save the updated credit total securely to your database
+        // Upsert to a pending_credits table to hold the value until the user registers
         const { error: dbError } = await supabase
-          .from('user_credits')
-          .upsert({ user_id: userId, credits: newCreditTotal }, { onConflict: 'user_id' });
+          .from('pending_credits')
+          .upsert({ email: email.toLowerCase(), credits: creditsToAdd }, { onConflict: 'email' });
 
         if (dbError) {
-          console.error("[DATABASE FAULT] Failed to increment credits for user:", dbError);
-          return new Response("Database execution error", { status: 500 });
+          console.error("[DATABASE FAULT]", dbError);
+          return new NextResponse("Database error", { status: 500 });
         }
-
-        console.log(`[SUCCESS] Provisioned ${creditsToAdd} credits to User: ${userId}. New total: ${newCreditTotal}`);
+        console.log(`[SUCCESS] Provisioned ${creditsToAdd} pending credits for: ${email}`);
       }
     }
 
-    return new Response(null, { status: 200 });
+    return new NextResponse(null, { status: 200 });
   } catch (error: any) {
-    console.error(`[WEBHOOK CRITICAL ERROR] ${error.message}`);
-    return new Response(`Webhook Error: ${error.message}`, { status: 400 });
+    return new NextResponse(`Webhook Error: ${error.message}`, { status: 400 });
   }
 }

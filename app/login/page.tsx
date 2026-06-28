@@ -20,12 +20,31 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    
+    // 1. Perform the sign-in
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    
     if (error) {
       setError(error.message);
-    } else {
-      router.push("/dashboard");
+      return;
     }
+
+    // 2. SUCCESS: Trigger the server-side claim logic
+    if (data.user) {
+      try {
+        await fetch('/api/auth/claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, userId: data.user.id }),
+        });
+      } catch (err) {
+        console.error("Credit claim background process failed:", err);
+        // We continue anyway so the user isn't blocked from the dashboard
+      }
+    }
+
+    // 3. Move to the dashboard
+    router.push("/dashboard");
   };
 
   return (
