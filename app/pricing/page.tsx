@@ -160,4 +160,18 @@ export default function PricingPage() {
         </div>
         <div className="space-y-4">
           {faqData.map((faq, index) => (
-            <div key={index} className="border border-slate-200 rounded
+            <div key={index} className="border border-slate-200 rounded-lg bg-white overflow-hidden">
+              <button onClick={() => toggleFaq(index)} className="w-full flex justify-between items-center p-6 text-left focus:outline-none">
+                <span className="font-bold text-[#1A3668] text-sm tracking-wide">{faq.q}</span>
+                {expandedFaq === index ? <ChevronUp className="h-5 w-5 text-slate-400" /> : <ChevronDown className="h-5 w-5 text-slate-400" />}
+              </button>
+              {expandedFaq === index && (
+                <div className="px-6 pb-6 text-slate-600 text-sm leading-relaxed border-t border-slate-100 pt-4">{faq.a}</div>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
