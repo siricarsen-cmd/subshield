@@ -1,36 +1,37 @@
-import { stripe } from "@/lib/stripe";
 import { NextResponse } from "next/server";
+import { stripe } from "@/lib/stripe";
 
 export async function POST(req: Request) {
-  const { priceId, userId } = await req.json();
-
-  // Validate that the priceId is one of your three products
-  const allowedPrices = [
-    "price_1Tlf0mHCtlCRL0oUEc38O1DB", // Single Scan
-    "price_1Tlf1HHCtlCRL0oUGy7eUqd6", // Monthly
-    "price_1Tlf20HCtlCRL0oUGtni2RlJ"  // Enterprise
-  ];
-
-  if (!allowedPrices.includes(priceId)) {
-    return NextResponse.json({ error: "Invalid Price ID" }, { status: 400 });
-  }
-
-  // Determine mode based on whether it is a subscription
-  // Single Scan is one-time; others are subscriptions
-  const mode = priceId === "price_1Tlf0mHCtlCRL0oUEc38O1DB" ? 'payment' : 'subscription';
-
   try {
+    const { priceId, userId } = await req.json();
+
+    // Dynamically set mode based on your specific Price ID
+    const checkoutMode = priceId === "price_1Tlf1HHCtlCRL0oUGy7eUqd6" 
+      ? "subscription" 
+      : "payment";
+
+    // Use the environment variable for URLs so switching domains is automatic
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://subshield-mu.vercel.app";
+
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [{ price: priceId, quantity: 1 }],
-      mode: mode,
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/report/success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/report/cancel`,
-      metadata: { userId },
+      mode: checkoutMode,
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      // THIS IS CRITICAL: Only attach the user ID to Stripe if they are actually logged in. 
+      // If it's a guest checkout, it safely ignores this line.
+      ...(userId && { client_reference_id: userId }),
+      success_url: `${baseUrl}/success`,
+      cancel_url: `${baseUrl}/pricing`,
     });
 
-    return NextResponse.json({ sessionId: session.id });
+    return NextResponse.json({ url: session.url });
   } catch (error: any) {
+    console.error("Stripe Checkout Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
