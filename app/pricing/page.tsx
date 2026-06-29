@@ -12,23 +12,41 @@ export default function PricingPage() {
   };
 
   const handleCheckout = async (priceId: string) => {
-    // Removed user session check to allow guest checkout
-    // UPDATED: Now pointing to the correct /api/create-checkout route
-    const response = await fetch('/api/create-checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ priceId }),
-    });
+    try {
+      // 1. Tell us the button actually registered the click
+      console.log("Attempting checkout for:", priceId);
 
-    const data = await response.json();
-    
-    if (data.error) {
-      alert("Payment initiation failed: " + data.error);
-      return;
-    }
+      // 2. Send the request to your backend
+      const response = await fetch('/api/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId }),
+      });
 
-    if (data.url) {
-      window.location.href = data.url;
+      // 3. Check if the server crashed before trying to read the data
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server returned ${response.status}: ${errorText}`);
+      }
+
+      // 4. Read the Stripe link from the server
+      const data = await response.json();
+      
+      if (data.error) {
+        alert("Stripe rejected the request: " + data.error);
+        return;
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No Stripe URL was returned.");
+      }
+
+    } catch (error: any) {
+      // 5. If ANYTHING fails, trigger a massive pop-up alert
+      alert("THE BUTTON CRASHED: " + error.message);
+      console.error(error);
     }
   };
 
