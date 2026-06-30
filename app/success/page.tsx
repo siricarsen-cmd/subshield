@@ -1,14 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@supabase/supabase-js";
 import { CheckCircle, Mail, ArrowRight } from "lucide-react";
+
+// Initialize Supabase directly (bypassing the deprecated helpers)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function SuccessPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const supabase = createClientComponentClient();
 
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
