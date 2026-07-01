@@ -25,6 +25,10 @@ export async function POST(req: Request) {
       // THIS IS CRITICAL: Only attach the user ID to Stripe if they are actually logged in. 
       // If it's a guest checkout, it safely ignores this line.
       ...(userId && { client_reference_id: userId }),
+      
+      // Force Stripe to create a customer profile for one-time payments
+      ...(checkoutMode === "payment" && { customer_creation: "always" }),
+      
       success_url: `${baseUrl}/success`,
       cancel_url: `${baseUrl}/pricing`,
     });
