@@ -52,48 +52,105 @@ export async function POST(req: Request) {
     if (isCyber) injectedRules += `- DFARS 252.204-7012 detected. Scan for clauses making the sub solely liable for cyber breach damages.\n`;
     if (isOTA) injectedRules += `- OTA framework detected. Check if the prime claims ownership of subcontractor's background IP.\n`;
 
-    // 3. AUDITOR PROMPT (The Fixed-Schema Enforcer)
+    // 3. AUDITOR PROMPT
     const systemPrompt = `You are an expert GovCon Subcontract Analyst. 
     
     --- JOB 1: REGULATORY TRIGGERS ---
     ${injectedRules ? injectedRules : "No federal codes detected."}
-    If regulatory triggers are listed above, you MUST evaluate them and add them to the "regulatoryTraps" array.
 
-    --- JOB 2: COMMERCIAL RISK TRIGGERS (MANDATORY BOOLEAN EVALUATION) ---
-    You MUST evaluate the document text for ALL 6 of the following commercial traps. You must mark "detected": true if you find matching language, and extract the exact text.
-    1. contingentPayment: Look for "no obligation to pay", "amounts not paid by the Government", or payment contingent on Prime receiving funds.
-    2. blanketFlowDowns: Look for agreements to comply with clauses "whether included or later provided".
-    3. vagueWorkshares: Look for "estimate only", "does not guarantee specific hours", or "no guaranteed revenue".
-    4. primeFavorableTermination: Look for "5 calendar days" notice, immediate termination rights, or waivers of unabsorbed overhead/closeout costs.
-    5. unilateralChanges: Look for deadlines to object within "3 business days", or "failure to provide timely notice waives" rights.
-    6. broadIndemnification: Look for requirements to indemnify for "alleged noncompliance" or broad "arising out of" language covering affiliates/customers.
+    --- JOB 2: COMMERCIAL RISK TRIGGERS (MANDATORY EVALUATION) ---
+    You MUST evaluate the document text for ALL 6 of the following commercial traps. Mark "detected" as true if found, and extract the exact verbatim text.
+    1. contingentPayment: "no obligation to pay", "amounts not paid by Government", or payment contingent on Prime receiving funds.
+    2. blanketFlowDowns: Agreements to comply with clauses "whether included or later provided".
+    3. vagueWorkshares: "estimate only", "does not guarantee specific hours", or "no guaranteed revenue".
+    4. primeFavorableTermination: Short notice (e.g., "5 calendar days"), immediate termination rights, or waivers of closeout costs.
+    5. unilateralChanges: Deadlines to object within "3 business days", or "failure to provide timely notice waives" rights.
+    6. broadIndemnification: Requirements to indemnify for "alleged noncompliance" or broad "arising out of" language covering affiliates/customers.
 
     CRITICAL INSTRUCTIONS:
-    - If 4 or more traps are detected overall, you MUST set riskLevel to "High".
-    - You must evaluate every key in "commercialEvaluations". 
     - REDLINES MUST BE REALISTIC:
-      - For Termination: "Prime may terminate for convenience with at least 30 days' written notice. Subcontractor shall be paid for accepted work performed through the termination date and reasonable, documented closeout costs."
-      - For Changes: "Subcontractor shall have at least 10 business days to notify Prime of any direction that may affect scope, price, or schedule."
+      - Termination: "Prime may terminate for convenience with at least 30 days' written notice. Subcontractor shall be paid for accepted work performed through the termination date and reasonable, documented closeout costs."
+      - Changes: "Subcontractor shall have at least 10 business days to notify Prime of any direction that may affect scope, price, or schedule."
+    - If a trap is NOT detected, set "detected" to false and fill the string fields with "N/A".`;
 
-    REQUIRED JSON SCHEMA:
-    {
-      "riskLevel": "High" | "Medium-High" | "Medium" | "Low",
-      "industryDetected": "e.g., IT Services, Professional Services, etc.",
-      "regulatoryTraps": [
-        { "regulation": "Name", "foundText": "...", "riskAnalysis": "...", "redlineFix": "..." }
-      ],
-      "commercialEvaluations": {
-        "contingentPayment": { "detected": boolean, "regulation": "Contingent Payment Mechanism", "foundText": "...", "riskAnalysis": "...", "redlineFix": "..." },
-        "blanketFlowDowns": { "detected": boolean, "regulation": "Blanket Flow-Downs", "foundText": "...", "riskAnalysis": "...", "redlineFix": "..." },
-        "vagueWorkshares": { "detected": boolean, "regulation": "Vague Workshare", "foundText": "...", "riskAnalysis": "...", "redlineFix": "..." },
-        "primeFavorableTermination": { "detected": boolean, "regulation": "Prime-Favorable Termination Rights", "foundText": "...", "riskAnalysis": "...", "redlineFix": "..." },
-        "unilateralChanges": { "detected": boolean, "regulation": "Short Change-Notice Deadline / Waiver of Rights", "foundText": "...", "riskAnalysis": "...", "redlineFix": "..." },
-        "broadIndemnification": { "detected": boolean, "regulation": "Broad Indemnification", "foundText": "...", "riskAnalysis": "...", "redlineFix": "..." }
-      },
-      "emailDraft": "Firm, collaborative email referencing ALL detected traps."
-    }`;
+    // 4. THE STRICT STRUCTURED OUTPUTS SCHEMA
+    const strictSchema = {
+      name: "contract_analysis",
+      strict: true,
+      schema: {
+        type: "object",
+        properties: {
+          riskLevel: {
+            type: "string",
+            enum: ["High", "Medium-High", "Medium", "Low"],
+            description: "If 4 or more commercial traps are true, set to High or Medium-High."
+          },
+          industryDetected: { type: "string" },
+          regulatoryTraps: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                regulation: { type: "string" },
+                foundText: { type: "string" },
+                riskAnalysis: { type: "string" },
+                redlineFix: { type: "string" }
+              },
+              required: ["regulation", "foundText", "riskAnalysis", "redlineFix"],
+              additionalProperties: false
+            }
+          },
+          commercialEvaluations: {
+            type: "object",
+            properties: {
+              contingentPayment: {
+                type: "object",
+                properties: { detected: { type: "boolean" }, regulation: { type: "string" }, foundText: { type: "string" }, riskAnalysis: { type: "string" }, redlineFix: { type: "string" } },
+                required: ["detected", "regulation", "foundText", "riskAnalysis", "redlineFix"],
+                additionalProperties: false
+              },
+              blanketFlowDowns: {
+                type: "object",
+                properties: { detected: { type: "boolean" }, regulation: { type: "string" }, foundText: { type: "string" }, riskAnalysis: { type: "string" }, redlineFix: { type: "string" } },
+                required: ["detected", "regulation", "foundText", "riskAnalysis", "redlineFix"],
+                additionalProperties: false
+              },
+              vagueWorkshares: {
+                type: "object",
+                properties: { detected: { type: "boolean" }, regulation: { type: "string" }, foundText: { type: "string" }, riskAnalysis: { type: "string" }, redlineFix: { type: "string" } },
+                required: ["detected", "regulation", "foundText", "riskAnalysis", "redlineFix"],
+                additionalProperties: false
+              },
+              primeFavorableTermination: {
+                type: "object",
+                properties: { detected: { type: "boolean" }, regulation: { type: "string" }, foundText: { type: "string" }, riskAnalysis: { type: "string" }, redlineFix: { type: "string" } },
+                required: ["detected", "regulation", "foundText", "riskAnalysis", "redlineFix"],
+                additionalProperties: false
+              },
+              unilateralChanges: {
+                type: "object",
+                properties: { detected: { type: "boolean" }, regulation: { type: "string" }, foundText: { type: "string" }, riskAnalysis: { type: "string" }, redlineFix: { type: "string" } },
+                required: ["detected", "regulation", "foundText", "riskAnalysis", "redlineFix"],
+                additionalProperties: false
+              },
+              broadIndemnification: {
+                type: "object",
+                properties: { detected: { type: "boolean" }, regulation: { type: "string" }, foundText: { type: "string" }, riskAnalysis: { type: "string" }, redlineFix: { type: "string" } },
+                required: ["detected", "regulation", "foundText", "riskAnalysis", "redlineFix"],
+                additionalProperties: false
+              }
+            },
+            required: ["contingentPayment", "blanketFlowDowns", "vagueWorkshares", "primeFavorableTermination", "unilateralChanges", "broadIndemnification"],
+            additionalProperties: false
+          },
+          emailDraft: { type: "string" }
+        },
+        required: ["riskLevel", "industryDetected", "regulatoryTraps", "commercialEvaluations", "emailDraft"],
+        additionalProperties: false
+      }
+    };
 
-    // 4. AI REQUEST
+    // 5. AI REQUEST (Using json_schema)
     const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -101,7 +158,7 @@ export async function POST(req: Request) {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
       body: JSON.stringify({
         model: 'gpt-4o',
-        response_format: { type: "json_object" },
+        response_format: { type: "json_schema", json_schema: strictSchema },
         messages: [
           { role: 'system', content: systemPrompt }, 
           { role: 'user', content: documentText }
@@ -115,29 +172,28 @@ export async function POST(req: Request) {
 
     const aiOutput = JSON.parse(aiData.choices[0].message.content);
 
-    // 5. DATA PACKER (Transforms the fixed boolean object into the arrays the UI expects)
+    // 6. DATA PACKER
     const primaryTraps = [];
     const secondaryConcerns = [];
 
-    // Map regulatory traps if any exist
+    // Pack Regulatory Traps
     if (aiOutput.regulatoryTraps) {
       aiOutput.regulatoryTraps.forEach((trap: any) => {
         primaryTraps.push({ triggerType: "Regulatory Trigger", ...trap });
       });
     }
 
-    // Map the boolean commercial evaluations
-    const evals = aiOutput.commercialEvaluations || {};
+    // Pack Commercial Traps (Only if detected === true)
+    const evals = aiOutput.commercialEvaluations;
     
-    if (evals.contingentPayment?.detected) primaryTraps.push({ triggerType: "Contract Risk Trigger", ...evals.contingentPayment });
-    if (evals.blanketFlowDowns?.detected) primaryTraps.push({ triggerType: "Contract Risk Trigger", ...evals.blanketFlowDowns });
-    if (evals.vagueWorkshares?.detected) primaryTraps.push({ triggerType: "Contract Risk Trigger", ...evals.vagueWorkshares });
-    if (evals.primeFavorableTermination?.detected) primaryTraps.push({ triggerType: "Contract Risk Trigger", ...evals.primeFavorableTermination });
+    if (evals.contingentPayment.detected) primaryTraps.push({ triggerType: "Contract Risk Trigger", ...evals.contingentPayment });
+    if (evals.blanketFlowDowns.detected) primaryTraps.push({ triggerType: "Contract Risk Trigger", ...evals.blanketFlowDowns });
+    if (evals.vagueWorkshares.detected) primaryTraps.push({ triggerType: "Contract Risk Trigger", ...evals.vagueWorkshares });
+    if (evals.primeFavorableTermination.detected) primaryTraps.push({ triggerType: "Contract Risk Trigger", ...evals.primeFavorableTermination });
 
-    if (evals.unilateralChanges?.detected) secondaryConcerns.push({ triggerType: "Contract Risk Trigger", ...evals.unilateralChanges });
-    if (evals.broadIndemnification?.detected) secondaryConcerns.push({ triggerType: "Contract Risk Trigger", ...evals.broadIndemnification });
+    if (evals.unilateralChanges.detected) secondaryConcerns.push({ triggerType: "Contract Risk Trigger", ...evals.unilateralChanges });
+    if (evals.broadIndemnification.detected) secondaryConcerns.push({ triggerType: "Contract Risk Trigger", ...evals.broadIndemnification });
 
-    // Reconstruct the final payload for the frontend
     const finalResult = {
       riskLevel: aiOutput.riskLevel,
       industryDetected: aiOutput.industryDetected,
