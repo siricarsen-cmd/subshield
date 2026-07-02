@@ -166,7 +166,7 @@ export default function ReportPage() {
                 <div className="px-6 py-3 border-b bg-slate-50 flex items-center gap-2">
                     <Activity className="w-4 h-4 text-[#FF5F1F]" />
                     <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">
-                        REGULATORY TRIGGER: {trap.regulation}
+                        {trap.triggerType ? trap.triggerType.toUpperCase() : "CONTRACT RISK TRIGGER"}: {trap.regulation}
                     </span>
                 </div>
                 <div className="p-6">
