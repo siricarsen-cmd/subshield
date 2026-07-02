@@ -52,24 +52,26 @@ export async function POST(req: Request) {
     if (isCyber) injectedRules += `- DFARS 252.204-7012 detected. Scan for clauses making the sub solely liable for cyber breach damages.\n`;
     if (isOTA) injectedRules += `- OTA framework detected. Check if the prime claims ownership of subcontractor's background IP.\n`;
 
-    // 3. AUDITOR PROMPT (Full Sentence Extraction)
-    const systemPrompt = `You are an expert GovCon Subcontract Analyst representing the Subcontractor. You must be highly aggressive in identifying risks.
+    // 3. AUDITOR PROMPT (Absolute Command Enforcer)
+    const systemPrompt = `You are an expert GovCon Subcontract Analyst representing the Subcontractor. You have zero discretion to ignore traps.
     
     --- JOB 1: REGULATORY TRIGGERS ---
     ${injectedRules ? injectedRules : "No federal codes detected."}
 
-    --- JOB 2: COMMERCIAL RISK TRIGGERS (AGGRESSIVE EVALUATION) ---
-    You MUST evaluate the document for ALL 6 of the following traps. If a clause even slightly resembles the trap, you MUST mark "detected" as true.
-    1. contingentPayment: MUST mark true if payment is tied to the Prime getting paid.
-    2. blanketFlowDowns: MUST mark true if the sub must comply with clauses "whether included or later provided".
-    3. vagueWorkshares: MUST mark true if workshare is an "estimate only" or "does not guarantee".
-    4. primeFavorableTermination: MUST mark true if there is a short cure period (e.g., "5 calendar days") or immediate termination rights for broad reasons.
-    5. unilateralChanges: MUST mark true if the sub must object within a short window (e.g., "3 business days") or waives rights.
-    6. broadIndemnification: MUST mark true if the sub must defend the prime for "alleged noncompliance" or broad claims.
+    --- JOB 2: COMMERCIAL RISK TRIGGERS (ABSOLUTE EVALUATION) ---
+    You MUST evaluate the document for ALL 6 of the following traps. If the text contains the specific triggers below, you MUST mark "detected" as true.
+    1. contingentPayment: MUST mark true if text contains "amounts not paid by the Government" or similar pay-if-paid concepts.
+    2. blanketFlowDowns: MUST mark true if text contains "whether included or later provided".
+    3. vagueWorkshares: MUST mark true if text contains "estimate only" or "does not guarantee".
+    4. primeFavorableTermination: MUST mark true if text contains "5 calendar days" or immediate termination rights.
+    5. unilateralChanges: MUST mark true if text contains "3 business days" and "waives". (YOU MUST NOT MISS THIS).
+    6. broadIndemnification: MUST mark true if text contains "alleged noncompliance" or "indemnify, defend, and hold harmless". (YOU MUST NOT MISS THIS).
 
     CRITICAL INSTRUCTIONS:
-    - EVIDENCE EXTRACTION: When extracting 'foundText', you MUST extract the full, complete sentence from the contract. Do NOT extract short fragments (e.g., do not just extract "5 calendar days", extract the entire sentence containing it).
-    - TERMINATION LOGIC: If primeFavorableTermination is true, use this exact analysis: "The Prime has broad termination rights, including short convenience notice, short default cure rights, and immediate termination rights for broad business reasons. This leaves the subcontractor exposed after staffing or performing work." And use this exact redlineFix: "Prime may terminate for convenience with at least 30 days' written notice. Subcontractor shall be paid for accepted work performed through the termination date and reasonable, documented closeout costs. For non-urgent defaults, Subcontractor shall receive at least 10 business days to cure."
+    - RISK LEVEL: If 5 or 6 commercial traps are detected, you MUST set riskLevel strictly to "High".
+    - EVIDENCE EXTRACTION: Extract the FULL, COMPLETE sentence from the contract. Do not truncate or paraphrase.
+    - TERMINATION LOGIC: Use this exact redlineFix: "Prime may terminate for convenience with at least 30 days' written notice. Subcontractor shall be paid for accepted work performed through the termination date and reasonable, documented closeout costs. For non-urgent defaults, Subcontractor shall receive at least 10 business days to cure."
+    - EMAIL DRAFT: Do NOT compress the email. You MUST include a distinct, numbered bullet point for EVERY SINGLE TRAP detected. If 6 traps are detected, the email MUST have 6 distinct numbered bullet points detailing the specific negotiation ask for each.
     - INDUSTRY: If the SOW involves admin support, document coordination, or tracking logs, set industryDetected to "Professional Services / Administrative Support".
     - If a trap is NOT detected, set "detected" to false and fill string fields with empty text.`;
 
@@ -82,8 +84,7 @@ export async function POST(req: Request) {
         properties: {
           riskLevel: {
             type: "string",
-            enum: ["High", "Medium-High", "Medium", "Low"],
-            description: "If 5 or 6 commercial traps are true, you MUST set this strictly to High. If 3 or 4, set to Medium-High."
+            enum: ["High", "Medium-High", "Medium", "Low"]
           },
           industryDetected: { type: "string" },
           regulatoryTraps: {
