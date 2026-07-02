@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, ShieldAlert, AlertTriangle, CheckCircle, Copy, CreditCard, Activity } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, AlertTriangle, CheckCircle, Copy, CreditCard, Activity, Info } from 'lucide-react';
 
 // --- KEYS ---
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fqwkvyypjnxkiojbubdf.supabase.co";
@@ -111,7 +111,9 @@ export default function ReportPage() {
   }
 
   const aiResults = data.ai_results || {};
-  const traps = aiResults.criticalTraps || [];
+  // Handle backward compatibility if older scans just used "criticalTraps"
+  const primaryTraps = aiResults.primaryTraps || aiResults.criticalTraps || [];
+  const secondaryConcerns = aiResults.secondaryConcerns || [];
   const emailDraft = aiResults.emailDraft || "";
   const overallRisk = aiResults.riskLevel || "Low";
   const industry = aiResults.industryDetected || "General Subcontracting";
@@ -140,13 +142,16 @@ export default function ReportPage() {
 
       <div className="max-w-6xl mx-auto px-6 pt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
+          
+          {/* PRIMARY TRAPS HEADER */}
           <div className="flex items-center justify-between mb-2 border-b border-slate-200 pb-2">
             <div className="flex items-center gap-2">
                 <ShieldAlert className="w-5 h-5 text-[#1A3668]" />
-                <h2 className="text-sm font-black text-[#1A3668] uppercase tracking-widest">Active Liability Flags Isolated</h2>
+                <h2 className="text-sm font-black text-[#1A3668] uppercase tracking-widest">Top Active Liability Flags</h2>
             </div>
              <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-sm ${
                 overallRisk === 'High' ? 'bg-red-100 text-red-700 border border-red-200' : 
+                overallRisk === 'Medium-High' ? 'bg-orange-100 text-orange-700 border border-orange-200' :
                 overallRisk === 'Medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 
                 'bg-emerald-100 text-emerald-700 border border-emerald-200'
               }`}>
@@ -154,14 +159,15 @@ export default function ReportPage() {
               </span>
           </div>
 
-          {traps.length === 0 ? (
+          {/* PRIMARY TRAPS CONTENT */}
+          {primaryTraps.length === 0 ? (
             <div className="bg-white rounded-xl border border-emerald-200 p-10 text-center shadow-sm">
               <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
               <h3 className="text-lg font-black text-[#1A3668] uppercase">No Critical Flags Detected</h3>
-              <p className="text-sm text-slate-500 font-medium mt-2">The system did not detect any of the targeted regulatory liabilities in this document.</p>
+              <p className="text-sm text-slate-500 font-medium mt-2">The system did not detect any of the targeted primary liabilities in this document.</p>
             </div>
           ) : (
-            traps.map((trap: any, index: number) => (
+            primaryTraps.map((trap: any, index: number) => (
               <div key={index} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="px-6 py-3 border-b bg-slate-50 flex items-center gap-2">
                     <Activity className="w-4 h-4 text-[#FF5F1F]" />
@@ -191,6 +197,41 @@ export default function ReportPage() {
                 </div>
               </div>
             ))
+          )}
+
+          {/* SECONDARY CONCERNS SECTION */}
+          {secondaryConcerns.length > 0 && (
+            <div className="pt-8">
+              <div className="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2">
+                  <Info className="w-5 h-5 text-slate-500" />
+                  <h2 className="text-sm font-black text-slate-500 uppercase tracking-widest">Additional Contract Concerns</h2>
+              </div>
+              
+              <div className="space-y-4">
+                {secondaryConcerns.map((concern: any, index: number) => (
+                  <div key={index} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="px-6 py-3 border-b bg-slate-50 flex items-center gap-2">
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                            SECONDARY CONCERN: {concern.regulation}
+                        </span>
+                    </div>
+                    <div className="p-6">
+                      <div className="mb-4 pl-4 border-l-2 border-slate-200">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Contract Text Extracted</p>
+                        <p className="text-sm text-slate-500 font-serif italic">"{concern.foundText}"</p>
+                      </div>
+                      <div className="mb-4">
+                        <p className="text-sm text-slate-700 font-medium leading-relaxed">{concern.riskAnalysis}</p>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Suggested Redline</p>
+                        <p className="text-sm text-slate-700 font-mono">{concern.redlineFix}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 

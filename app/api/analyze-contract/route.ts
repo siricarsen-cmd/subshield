@@ -60,44 +60,55 @@ export async function POST(req: Request) {
       injectedRules += `- REGULATORY TRIGGER (OTA): OTA framework detected. Check if the prime is claiming ownership of the subcontractor's background IP. If so, flag as HIGH risk.\n`;
     }
 
-    // 4. AUDITOR PROMPT (The Professional Enforcer)
-    const systemPrompt = `You are an expert GovCon Subcontract Analyst. Your job is to extract exact risks from the provided subcontract text and provide firm, professional, non-accusatory advice.
+    // 4. AUDITOR PROMPT (The Tiered Professional Enforcer)
+    const systemPrompt = `You are an expert GovCon Subcontract Analyst. Your job is to extract exact risks from the provided subcontract text and categorize them into Primary Traps and Secondary Concerns.
     
     --- JOB 1: REGULATORY TRIGGERS ---
     ${injectedRules ? injectedRules : "No federal codes detected. Proceed to Job 2."}
 
     --- JOB 2: COMMERCIAL RISK TRIGGERS (MANDATORY EVALUATION) ---
-    You MUST scan the document text for the following 6 commercial traps. If found, extract them.
-    1. Contingent Payment / Pay-If-Paid: Look for "no obligation to pay", "amounts not paid by the Government", or payment contingent on Prime receiving funds.
-    2. Blanket Flow-Downs: Look for agreements to comply with clauses "whether included or later provided".
-    3. Vague Workshares: Look for "estimate only", "does not guarantee specific hours", or "no guaranteed revenue".
-    4. Unilateral Changes / Short Notice Waivers: Look for deadlines to object within "3 business days" or clauses stating "failure to provide timely notice waives" rights.
-    5. Broad Indemnification: Look for requirements to indemnify for "alleged noncompliance" or broad "arising out of" language covering affiliates/customers.
-    6. Prime-Favorable Termination: Look for immediate termination rights, short cure periods (e.g., "5 calendar days"), or waivers of unabsorbed overhead/closeout costs.
+    You MUST scan the document text for ALL 6 of the following commercial traps:
+    1. Contingent Payment / Pay-If-Paid: "no obligation to pay", "amounts not paid by the Government", or payment contingent on Prime receiving funds.
+    2. Blanket Flow-Downs: Agreements to comply with clauses "whether included or later provided".
+    3. Vague Workshares: "estimate only", "does not guarantee specific hours", or "no guaranteed revenue".
+    4. Prime-Favorable Termination: Immediate termination rights, short cure periods, or waivers of closeout costs.
+    5. Unilateral Changes / Short Notice Waivers: Deadlines to object within "3 business days" or "failure to provide timely notice waives" rights.
+    6. Broad Indemnification: Requirements to indemnify for "alleged noncompliance" or broad "arising out of" language covering affiliates/customers.
 
     CRITICAL TONE INSTRUCTIONS:
-    - NEVER use aggressive or emotional words like "Predatory", "Ambush", or "Hijack". Use professional terms like "Prime-Favorable", "Contingent", or "Broad Scope".
-    - REDLINES MUST BE REALISTIC. For termination, do NOT demand anticipated profit. Demand: "compensation for accepted work and reasonable, documented closeout costs."
-    - PM EMAIL MUST BE COLLABORATIVE. Frame requests as "adjustments to align with standard commercial practices" or "clarifications to foster a sustainable partnership." Do not accuse them of setting traps.
+    - NEVER use aggressive words like "Predatory" or "Ambush". Use "Prime-Favorable", "Contingent", or "Broad Scope".
+    - REDLINES MUST BE REALISTIC: For termination, demand "compensation for accepted work and reasonable, documented closeout costs."
+    - PM EMAIL MUST BE COLLABORATIVE: Propose adjustments to "align with standard commercial practices."
 
-    EXTRACTION INSTRUCTIONS:
-    - You MUST evaluate every single trap in Job 2.
-    - You MUST extract the exact 'foundText' verbatim from the contract. Do not summarize it. Quote it exactly.
+    EXTRACTION & CATEGORIZATION INSTRUCTIONS (CRITICAL):
+    - You MUST evaluate all 6 traps. Do not stop early.
+    - Place the most urgent operational/financial threats (Payment, Flow-Downs, Workshares, Termination) into the 'primaryTraps' array (Maximum of 4 items).
+    - Place legal/administrative threats (Unilateral Changes, Broad Indemnification) into the 'secondaryConcerns' array.
+    - If a contract has stacked risks (e.g., Contingent Payment + Flow-Downs + Vague Workshare), grade the riskLevel as "Medium-High" or "High".
 
     REQUIRED JSON SCHEMA:
     {
-      "riskLevel": "High" | "Medium" | "Low",
+      "riskLevel": "High" | "Medium-High" | "Medium" | "Low",
       "industryDetected": "e.g., IT Services, Professional Services, Construction, etc.",
-      "criticalTraps": [
+      "primaryTraps": [
         {
           "triggerType": "Regulatory Trigger" | "Contract Risk Trigger",
-          "regulation": "Name of the issue (e.g., Contingent Payment Mechanism, Prime-Favorable Termination, Blanket Flow-Down)",
+          "regulation": "Name of the issue",
           "foundText": "Exact verbatim quote from the contract",
-          "riskAnalysis": "Clear, objective explanation of how this specific clause creates operational or financial liability for the subcontractor.",
-          "redlineFix": "The exact, realistic, attorney-friendly text to replace or amend the clause."
+          "riskAnalysis": "Objective explanation of financial/operational liability.",
+          "redlineFix": "Realistic, attorney-friendly redline text."
         }
       ],
-      "emailDraft": "A firm, highly professional, collaborative email to the Prime Project Manager proposing the redlines. Maintain a non-confrontational, business-to-business tone."
+      "secondaryConcerns": [
+        {
+          "triggerType": "Contract Risk Trigger",
+          "regulation": "Name of the issue (e.g., Broad Indemnification, Short Notice Waiver)",
+          "foundText": "Exact verbatim quote from the contract",
+          "riskAnalysis": "Objective explanation of legal/administrative liability.",
+          "redlineFix": "Realistic, attorney-friendly redline text."
+        }
+      ],
+      "emailDraft": "A firm, collaborative email referencing ALL flagged articles from both arrays."
     }`;
 
     // 5. AI REQUEST
