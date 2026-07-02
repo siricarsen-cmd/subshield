@@ -42,76 +42,58 @@ export async function POST(req: Request) {
       pdfParser.parseBuffer(buffer);
     });
 
-    // 2. REGEX PRE-FILTER (The Speed Filter for Specific Federal Codes)
+    // 2. REGEX PRE-FILTER
     const isSCA = /52\.222-41|Service Contract Labor Standards|Service Contract Act/i.test(documentText);
     const isCyber = /252\.204-7012|NIST SP 800-171|CMMC|Controlled Unclassified Information|CUI/i.test(documentText);
     const isOTA = /Other Transaction Authority|OTA|Prototype Agreement|Non-FAR Agreement/i.test(documentText);
 
-    // 3. INJECTING SPECIFIC REGULATORY RULES
     let injectedRules = "";
+    if (isSCA) injectedRules += `- FAR 52.222-41 detected. Check for a Wage Determination attachment. If missing, flag as HIGH risk.\n`;
+    if (isCyber) injectedRules += `- DFARS 252.204-7012 detected. Scan for clauses making the sub solely liable for cyber breach damages.\n`;
+    if (isOTA) injectedRules += `- OTA framework detected. Check if the prime claims ownership of subcontractor's background IP.\n`;
 
-    if (isSCA) {
-      injectedRules += `- REGULATORY TRIGGER (SCA): FAR 52.222-41 detected. Check for a Wage Determination attachment. If missing, flag as HIGH risk.\n`;
-    }
-    if (isCyber) {
-      injectedRules += `- REGULATORY TRIGGER (CYBER): DFARS 252.204-7012 detected. Scan for clauses making the sub solely liable for cyber breach damages. If found, flag as HIGH risk.\n`;
-    }
-    if (isOTA) {
-      injectedRules += `- REGULATORY TRIGGER (OTA): OTA framework detected. Check if the prime is claiming ownership of the subcontractor's background IP. If so, flag as HIGH risk.\n`;
-    }
-
-    // 4. AUDITOR PROMPT (The Tiered Professional Enforcer)
-    const systemPrompt = `You are an expert GovCon Subcontract Analyst. Your job is to extract exact risks from the provided subcontract text and categorize them into Primary Traps and Secondary Concerns.
+    // 3. AUDITOR PROMPT (The Fixed-Schema Enforcer)
+    const systemPrompt = `You are an expert GovCon Subcontract Analyst. 
     
     --- JOB 1: REGULATORY TRIGGERS ---
-    ${injectedRules ? injectedRules : "No federal codes detected. Proceed to Job 2."}
+    ${injectedRules ? injectedRules : "No federal codes detected."}
+    If regulatory triggers are listed above, you MUST evaluate them and add them to the "regulatoryTraps" array.
 
-    --- JOB 2: COMMERCIAL RISK TRIGGERS (MANDATORY EVALUATION) ---
-    You MUST scan the document text for ALL 6 of the following commercial traps:
-    1. Contingent Payment / Pay-If-Paid: "no obligation to pay", "amounts not paid by the Government", or payment contingent on Prime receiving funds.
-    2. Blanket Flow-Downs: Agreements to comply with clauses "whether included or later provided".
-    3. Vague Workshares: "estimate only", "does not guarantee specific hours", or "no guaranteed revenue".
-    4. Prime-Favorable Termination: Immediate termination rights, short cure periods, or waivers of closeout costs.
-    5. Unilateral Changes / Short Notice Waivers: Deadlines to object within "3 business days" or "failure to provide timely notice waives" rights.
-    6. Broad Indemnification: Requirements to indemnify for "alleged noncompliance" or broad "arising out of" language covering affiliates/customers.
+    --- JOB 2: COMMERCIAL RISK TRIGGERS (MANDATORY BOOLEAN EVALUATION) ---
+    You MUST evaluate the document text for ALL 6 of the following commercial traps. You must mark "detected": true if you find matching language, and extract the exact text.
+    1. contingentPayment: Look for "no obligation to pay", "amounts not paid by the Government", or payment contingent on Prime receiving funds.
+    2. blanketFlowDowns: Look for agreements to comply with clauses "whether included or later provided".
+    3. vagueWorkshares: Look for "estimate only", "does not guarantee specific hours", or "no guaranteed revenue".
+    4. primeFavorableTermination: Look for "5 calendar days" notice, immediate termination rights, or waivers of unabsorbed overhead/closeout costs.
+    5. unilateralChanges: Look for deadlines to object within "3 business days", or "failure to provide timely notice waives" rights.
+    6. broadIndemnification: Look for requirements to indemnify for "alleged noncompliance" or broad "arising out of" language covering affiliates/customers.
 
-    CRITICAL TONE INSTRUCTIONS:
-    - NEVER use aggressive words like "Predatory" or "Ambush". Use "Prime-Favorable", "Contingent", or "Broad Scope".
-    - REDLINES MUST BE REALISTIC: For termination, demand "compensation for accepted work and reasonable, documented closeout costs."
-    - PM EMAIL MUST BE COLLABORATIVE: Propose adjustments to "align with standard commercial practices."
-
-    EXTRACTION & CATEGORIZATION INSTRUCTIONS (CRITICAL):
-    - You MUST evaluate all 6 traps. Do not stop early.
-    - Place the most urgent operational/financial threats (Payment, Flow-Downs, Workshares, Termination) into the 'primaryTraps' array (Maximum of 4 items).
-    - Place legal/administrative threats (Unilateral Changes, Broad Indemnification) into the 'secondaryConcerns' array.
-    - If a contract has stacked risks (e.g., Contingent Payment + Flow-Downs + Vague Workshare), grade the riskLevel as "Medium-High" or "High".
+    CRITICAL INSTRUCTIONS:
+    - If 4 or more traps are detected overall, you MUST set riskLevel to "High".
+    - You must evaluate every key in "commercialEvaluations". 
+    - REDLINES MUST BE REALISTIC:
+      - For Termination: "Prime may terminate for convenience with at least 30 days' written notice. Subcontractor shall be paid for accepted work performed through the termination date and reasonable, documented closeout costs."
+      - For Changes: "Subcontractor shall have at least 10 business days to notify Prime of any direction that may affect scope, price, or schedule."
 
     REQUIRED JSON SCHEMA:
     {
       "riskLevel": "High" | "Medium-High" | "Medium" | "Low",
-      "industryDetected": "e.g., IT Services, Professional Services, Construction, etc.",
-      "primaryTraps": [
-        {
-          "triggerType": "Regulatory Trigger" | "Contract Risk Trigger",
-          "regulation": "Name of the issue",
-          "foundText": "Exact verbatim quote from the contract",
-          "riskAnalysis": "Objective explanation of financial/operational liability.",
-          "redlineFix": "Realistic, attorney-friendly redline text."
-        }
+      "industryDetected": "e.g., IT Services, Professional Services, etc.",
+      "regulatoryTraps": [
+        { "regulation": "Name", "foundText": "...", "riskAnalysis": "...", "redlineFix": "..." }
       ],
-      "secondaryConcerns": [
-        {
-          "triggerType": "Contract Risk Trigger",
-          "regulation": "Name of the issue (e.g., Broad Indemnification, Short Notice Waiver)",
-          "foundText": "Exact verbatim quote from the contract",
-          "riskAnalysis": "Objective explanation of legal/administrative liability.",
-          "redlineFix": "Realistic, attorney-friendly redline text."
-        }
-      ],
-      "emailDraft": "A firm, collaborative email referencing ALL flagged articles from both arrays."
+      "commercialEvaluations": {
+        "contingentPayment": { "detected": boolean, "regulation": "Contingent Payment Mechanism", "foundText": "...", "riskAnalysis": "...", "redlineFix": "..." },
+        "blanketFlowDowns": { "detected": boolean, "regulation": "Blanket Flow-Downs", "foundText": "...", "riskAnalysis": "...", "redlineFix": "..." },
+        "vagueWorkshares": { "detected": boolean, "regulation": "Vague Workshare", "foundText": "...", "riskAnalysis": "...", "redlineFix": "..." },
+        "primeFavorableTermination": { "detected": boolean, "regulation": "Prime-Favorable Termination Rights", "foundText": "...", "riskAnalysis": "...", "redlineFix": "..." },
+        "unilateralChanges": { "detected": boolean, "regulation": "Short Change-Notice Deadline / Waiver of Rights", "foundText": "...", "riskAnalysis": "...", "redlineFix": "..." },
+        "broadIndemnification": { "detected": boolean, "regulation": "Broad Indemnification", "foundText": "...", "riskAnalysis": "...", "redlineFix": "..." }
+      },
+      "emailDraft": "Firm, collaborative email referencing ALL detected traps."
     }`;
 
-    // 5. AI REQUEST
+    // 4. AI REQUEST
     const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -133,7 +115,38 @@ export async function POST(req: Request) {
 
     const aiOutput = JSON.parse(aiData.choices[0].message.content);
 
-    return NextResponse.json({ result: aiOutput });
+    // 5. DATA PACKER (Transforms the fixed boolean object into the arrays the UI expects)
+    const primaryTraps = [];
+    const secondaryConcerns = [];
+
+    // Map regulatory traps if any exist
+    if (aiOutput.regulatoryTraps) {
+      aiOutput.regulatoryTraps.forEach((trap: any) => {
+        primaryTraps.push({ triggerType: "Regulatory Trigger", ...trap });
+      });
+    }
+
+    // Map the boolean commercial evaluations
+    const evals = aiOutput.commercialEvaluations || {};
+    
+    if (evals.contingentPayment?.detected) primaryTraps.push({ triggerType: "Contract Risk Trigger", ...evals.contingentPayment });
+    if (evals.blanketFlowDowns?.detected) primaryTraps.push({ triggerType: "Contract Risk Trigger", ...evals.blanketFlowDowns });
+    if (evals.vagueWorkshares?.detected) primaryTraps.push({ triggerType: "Contract Risk Trigger", ...evals.vagueWorkshares });
+    if (evals.primeFavorableTermination?.detected) primaryTraps.push({ triggerType: "Contract Risk Trigger", ...evals.primeFavorableTermination });
+
+    if (evals.unilateralChanges?.detected) secondaryConcerns.push({ triggerType: "Contract Risk Trigger", ...evals.unilateralChanges });
+    if (evals.broadIndemnification?.detected) secondaryConcerns.push({ triggerType: "Contract Risk Trigger", ...evals.broadIndemnification });
+
+    // Reconstruct the final payload for the frontend
+    const finalResult = {
+      riskLevel: aiOutput.riskLevel,
+      industryDetected: aiOutput.industryDetected,
+      primaryTraps: primaryTraps,
+      secondaryConcerns: secondaryConcerns,
+      emailDraft: aiOutput.emailDraft
+    };
+
+    return NextResponse.json({ result: finalResult });
   } catch (error: any) {
     console.error("AI Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
