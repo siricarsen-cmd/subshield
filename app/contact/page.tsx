@@ -18,7 +18,7 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="bg-white min-h-screen text-slate-900">
+    <div className="bg-white min-h-screen text-slate-900 font-sans">
       <div className="max-w-7xl mx-auto px-6 py-16">
         
         <div className="border-b border-slate-100 pb-8 mb-12">
@@ -48,22 +48,26 @@ export default function ContactPage() {
                 Common Reasons to Contact Us
               </h3>
               <ul className="space-y-2 text-sm text-[#596A7D] font-bold">
-                <li className="flex items-center">
-                  <span className="text-[#FF5F1F] mr-2">•</span> You are not sure whether your document fits SubShield
+                <li className="flex items-start">
+                  <span className="text-[#FF5F1F] mr-2 mt-0.5">•</span> 
+                  <span>You are not sure whether your document fits SubShield</span>
                 </li>
-                <li className="flex items-center">
-                  <span className="text-[#FF5F1F] mr-2">•</span> You have questions about our $149.99 Pre-Bid Triage or the $599 Annual Protection Plan.
+                <li className="flex items-start">
+                  <span className="text-[#FF5F1F] mr-2 mt-0.5">•</span> 
+                  <span>You have questions about our $149.99 single scan, $249 monthly subscription, or enterprise plans</span>
                 </li>
-                <li className="flex items-center">
-                  <span className="text-[#FF5F1F] mr-2">•</span> You need coordination help with an amended-document follow-up review
+                <li className="flex items-start">
+                  <span className="text-[#FF5F1F] mr-2 mt-0.5">•</span> 
+                  <span>You need coordination help with an amended-document follow-up review</span>
                 </li>
-                <li className="flex items-center">
-                  <span className="text-[#FF5F1F] mr-2">•</span> You are encountering an asset uploading or portal processing issue
+                <li className="flex items-start">
+                  <span className="text-[#FF5F1F] mr-2 mt-0.5">•</span> 
+                  <span>You are encountering an asset uploading or portal processing issue</span>
                 </li>
               </ul>
             </div>
 
-            <div className="bg-slate-50 border border-slate-100 p-5 rounded space-y-2.5">
+            <div className="bg-slate-50 border border-slate-100 p-5 rounded-xl space-y-2.5">
               <h4 className="text-xs font-black uppercase tracking-widest text-[#1A3668]">
                 Strict Operational Disclaimer
               </h4>
@@ -74,7 +78,7 @@ export default function ContactPage() {
 
           </div>
 
-          <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-8 shadow-sm">
+          <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
             <h3 className="text-lg font-black text-[#1A3668] uppercase tracking-wide mb-6">
               Send a Message
             </h3>
@@ -88,7 +92,7 @@ export default function ContactPage() {
                 <input 
                   type="text"
                   required
-                  className="w-full border border-slate-200 bg-slate-50/50 rounded p-3 text-sm font-medium focus:outline-none focus:border-[#FF5F1F] focus:bg-white transition-all"
+                  className="w-full border border-slate-200 bg-slate-50/50 rounded-lg p-3 text-sm font-medium focus:outline-none focus:border-[#FF5F1F] focus:bg-white transition-all"
                   placeholder="e.g., John Doe"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -102,7 +106,7 @@ export default function ContactPage() {
                 <input 
                   type="email"
                   required
-                  className="w-full border border-slate-200 bg-slate-50/50 rounded p-3 text-sm font-medium focus:outline-none focus:border-[#FF5F1F] focus:bg-white transition-all"
+                  className="w-full border border-slate-200 bg-slate-50/50 rounded-lg p-3 text-sm font-medium focus:outline-none focus:border-[#FF5F1F] focus:bg-white transition-all"
                   placeholder="you@company.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -114,7 +118,7 @@ export default function ContactPage() {
                   What can we help with?
                 </label>
                 <select 
-                  className="w-full border border-slate-200 bg-slate-50/50 rounded p-3 text-sm font-bold text-[#596A7D] focus:outline-none focus:border-[#FF5F1F] focus:bg-white transition-all"
+                  className="w-full border border-slate-200 bg-slate-50/50 rounded-lg p-3 text-sm font-bold text-[#596A7D] focus:outline-none focus:border-[#FF5F1F] focus:bg-white transition-all"
                   value={formData.reason}
                   onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                 >
@@ -134,7 +138,7 @@ export default function ContactPage() {
                 <textarea 
                   rows={5}
                   required
-                  className="w-full border border-slate-200 bg-slate-50/50 rounded p-3 text-sm font-medium focus:outline-none focus:border-[#FF5F1F] focus:bg-white transition-all resize-none"
+                  className="w-full border border-slate-200 bg-slate-50/50 rounded-lg p-3 text-sm font-medium focus:outline-none focus:border-[#FF5F1F] focus:bg-white transition-all resize-none"
                   placeholder="Describe how we can support your business..."
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
@@ -143,7 +147,7 @@ export default function ContactPage() {
 
               <button 
                 type="submit"
-                className="w-full bg-[#FF5F1F] hover:bg-orange-600 text-white font-bold py-3 px-6 rounded text-sm uppercase tracking-widest transition-all shadow-sm mt-2"
+                className="w-full bg-[#FF5F1F] hover:bg-orange-600 text-white font-bold py-3.5 px-6 rounded-xl text-sm uppercase tracking-widest transition-all shadow-sm mt-2"
               >
                 Submit Request
               </button>
@@ -153,18 +157,25 @@ export default function ContactPage() {
 
         </div>
 
-        <div className="border-t border-slate-100 mt-16 pt-12 text-center max-w-2xl mx-auto space-y-6">
-          <h3 className="text-2xl font-black tracking-tight text-[#1A3668] uppercase">
-            Ready to Review the Risk?
-          </h3>
-          <p className="text-sm text-[#596A7D] font-medium leading-relaxed">
-            If you are evaluating a pre-award Teaming Agreement, an informal workshare proposal, or a dense post-award prime subcontract, SubShield can pull out critical anomalies in 60 seconds.
+        {/* INLINED FINAL CTA */}
+        <div className="border-t border-slate-200 mt-16 pt-16 text-center max-w-3xl mx-auto space-y-6">
+          <h2 className="text-3xl md:text-4xl font-black text-[#1A3668] uppercase tracking-tight leading-tight">
+            Ready to review the package before you commit?
+          </h2>
+          <p className="text-base text-[#596A7D] font-medium leading-relaxed max-w-2xl mx-auto">
+            Upload your prime-provided subcontract, teaming, or bid package. SubShield will flag common risk areas, missing documents, and negotiation questions so you can go back to the prime before final attorney review.
           </p>
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-2">
-            <Link href="/intake" className="w-full sm:w-auto bg-[#FF5F1F] hover:bg-orange-600 text-white font-bold px-8 py-3 rounded text-xs uppercase tracking-widest transition-all shadow-sm">
-              Start Free Triage
+          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+            <Link 
+              href="/pricing"
+              className="bg-[#FF5F1F] text-white px-8 py-4 rounded-xl hover:bg-[#1A3668] transition-all font-black text-xs sm:text-sm tracking-widest uppercase inline-flex items-center justify-center shadow-sm"
+            >
+              See Plans
             </Link>
-            <Link href="/sample-report" className="w-full sm:w-auto border-2 border-slate-200 hover:border-slate-300 text-[#596A7D] font-bold px-8 py-3 rounded text-xs uppercase tracking-widest transition-all">
+            <Link 
+              href="/sample-report"
+              className="bg-white text-[#1A3668] hover:bg-slate-50 border-2 border-slate-200 px-8 py-4 rounded-xl transition-all font-black text-xs sm:text-sm tracking-widest uppercase inline-flex items-center justify-center shadow-sm"
+            >
               View Sample Report
             </Link>
           </div>

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, ShieldAlert, AlertTriangle, CheckCircle, Copy, Mail, CreditCard } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, AlertTriangle, CheckCircle, Copy, CreditCard, Activity } from 'lucide-react';
 
 // --- KEYS ---
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fqwkvyypjnxkiojbubdf.supabase.co";
@@ -111,8 +111,10 @@ export default function ReportPage() {
   }
 
   const aiResults = data.ai_results || {};
-  const flags = aiResults.flags || [];
+  const traps = aiResults.criticalTraps || [];
   const emailDraft = aiResults.emailDraft || "";
+  const overallRisk = aiResults.riskLevel || "Low";
+  const industry = aiResults.industryDetected || "General Subcontracting";
 
   return (
     <div className="min-h-screen bg-[#F4F5F7] font-sans pb-20">
@@ -123,43 +125,68 @@ export default function ReportPage() {
               <ArrowLeft className="w-3 h-3" /> Return to Intake Hub
             </Link>
             <h1 className="text-2xl font-black text-[#1A3668] uppercase tracking-tight">Attorney Prep Toolkit & Briefing</h1>
-            <p className="text-sm font-medium text-slate-500 mt-1 flex items-center gap-2">
-              <span className="text-[#FF5F1F] font-bold">Targeted Regulatory Exposure:</span> {data.file_name}
-            </p>
+            <div className="flex flex-col md:flex-row gap-2 mt-2">
+                <p className="text-sm font-medium text-slate-500 flex items-center gap-2">
+                <span className="text-[#FF5F1F] font-bold">Targeted Regulatory Exposure:</span> {data.file_name}
+                </p>
+                <p className="text-sm font-medium text-slate-500 hidden md:flex items-center gap-2">|</p>
+                <p className="text-sm font-medium text-slate-500 flex items-center gap-2">
+                <span className="text-[#1A3668] font-bold">Sector Detected:</span> {industry}
+                </p>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="max-w-6xl mx-auto px-6 pt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center gap-2 mb-2 border-b border-slate-200 pb-2">
-            <ShieldAlert className="w-5 h-5 text-[#1A3668]" />
-            <h2 className="text-sm font-black text-[#1A3668] uppercase tracking-widest">Isolated Contract Revisions</h2>
+          <div className="flex items-center justify-between mb-2 border-b border-slate-200 pb-2">
+            <div className="flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-[#1A3668]" />
+                <h2 className="text-sm font-black text-[#1A3668] uppercase tracking-widest">Active Liability Flags Isolated</h2>
+            </div>
+             <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-sm ${
+                overallRisk === 'High' ? 'bg-red-100 text-red-700 border border-red-200' : 
+                overallRisk === 'Medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 
+                'bg-emerald-100 text-emerald-700 border border-emerald-200'
+              }`}>
+                SYSTEM RISK LEVEL: {overallRisk}
+              </span>
           </div>
 
-          {flags.length === 0 ? (
+          {traps.length === 0 ? (
             <div className="bg-white rounded-xl border border-emerald-200 p-10 text-center shadow-sm">
               <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
               <h3 className="text-lg font-black text-[#1A3668] uppercase">No Critical Flags Detected</h3>
+              <p className="text-sm text-slate-500 font-medium mt-2">The system did not detect any of the targeted regulatory liabilities in this document.</p>
             </div>
           ) : (
-            flags.map((flag: any, index: number) => (
+            traps.map((trap: any, index: number) => (
               <div key={index} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className={`px-6 py-3 border-b flex justify-between items-center ${
-                  flag.severity === 'Critical' ? 'bg-red-50' : 'bg-slate-50'
-                }`}>
-                  <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-sm ${
-                    flag.severity === 'Critical' ? 'bg-red-600 text-white' : 'bg-slate-600 text-white'
-                  }`}>
-                    {flag.severity} RISK
-                  </span>
+                <div className="px-6 py-3 border-b bg-slate-50 flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-[#FF5F1F]" />
+                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">
+                        REGULATORY TRIGGER: {trap.regulation}
+                    </span>
                 </div>
                 <div className="p-6">
-                  <h3 className="text-lg font-black text-[#1A3668] uppercase tracking-tight mb-3">{flag.title}</h3>
-                  <p className="text-sm text-slate-700 font-medium leading-relaxed mb-6">{flag.description}</p>
+                  
+                  {/* Found Text Section */}
+                  <div className="mb-6 pl-4 border-l-2 border-slate-300">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Contract Text Extracted</p>
+                    <p className="text-sm text-slate-600 font-serif italic">"{trap.foundText}"</p>
+                  </div>
+
+                  {/* Risk Analysis Section */}
+                  <div className="mb-6">
+                    <p className="text-[10px] font-black text-[#1A3668] uppercase tracking-widest mb-1">Operational Liability</p>
+                    <p className="text-sm text-slate-800 font-medium leading-relaxed">{trap.riskAnalysis}</p>
+                  </div>
+
+                  {/* Redline Section */}
                   <div className="bg-slate-900 rounded-lg p-5">
-                    <p className="text-[10px] font-black text-[#FF5F1F] uppercase tracking-widest mb-2">Exact Redline Alternative</p>
-                    <p className="text-sm text-slate-100 font-mono">{flag.redline}</p>
+                    <p className="text-[10px] font-black text-[#FF5F1F] uppercase tracking-widest mb-2">Liability Redline Alternative</p>
+                    <p className="text-sm text-slate-100 font-mono leading-relaxed">{trap.redlineFix}</p>
                   </div>
                 </div>
               </div>
@@ -168,6 +195,9 @@ export default function ReportPage() {
         </div>
 
         <div className="space-y-6">
+            <div className="flex items-center gap-2 mb-2 border-b border-slate-200 pb-2">
+                <h2 className="text-sm font-black text-[#1A3668] uppercase tracking-widest">Consolidated PM Pushback Memo</h2>
+            </div>
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm sticky top-28">
             <div className="p-6 bg-[#F8F9FA]">
               <div className="text-sm text-slate-800 font-medium whitespace-pre-wrap leading-relaxed mb-6">
@@ -178,7 +208,7 @@ export default function ReportPage() {
                 disabled={!emailDraft}
                 className="w-full flex items-center justify-center gap-2 bg-[#FF5F1F] hover:bg-[#E04F1A] text-white text-xs font-black uppercase tracking-wider py-3.5 px-6 rounded-lg transition"
               >
-                {copied ? <><CheckCircle className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy Email</>}
+                {copied ? <><CheckCircle className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy Complete Email</>}
               </button>
             </div>
           </div>
