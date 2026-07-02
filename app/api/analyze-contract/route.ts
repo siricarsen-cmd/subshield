@@ -52,29 +52,27 @@ export async function POST(req: Request) {
     if (isCyber) injectedRules += `- DFARS 252.204-7012 detected. Scan for clauses making the sub solely liable for cyber breach damages.\n`;
     if (isOTA) injectedRules += `- OTA framework detected. Check if the prime claims ownership of subcontractor's background IP.\n`;
 
-    // 3. AUDITOR PROMPT
-    const systemPrompt = `You are an expert GovCon Subcontract Analyst. 
+    // 3. AUDITOR PROMPT (Aggressive Threshold)
+    const systemPrompt = `You are an expert GovCon Subcontract Analyst representing the Subcontractor. You must be highly aggressive in identifying risks.
     
     --- JOB 1: REGULATORY TRIGGERS ---
     ${injectedRules ? injectedRules : "No federal codes detected."}
 
-    --- JOB 2: COMMERCIAL RISK TRIGGERS (MANDATORY EVALUATION) ---
-    You MUST evaluate the document text for ALL 6 of the following commercial traps. Mark "detected" as true if found, and extract the exact verbatim text.
-    1. contingentPayment: MUST mark true if there is "no obligation to pay", "amounts not paid by Government", or payment contingent on Prime receiving funds.
-    2. blanketFlowDowns: MUST mark true if the sub agrees to comply with clauses "whether included or later provided".
-    3. vagueWorkshares: MUST mark true if workshare is an "estimate only", "does not guarantee specific hours", or "no guaranteed revenue".
-    4. primeFavorableTermination: MUST mark true for short notice (e.g., "5 calendar days"), immediate termination rights, or waivers of closeout costs.
-    5. unilateralChanges: MUST mark true if the sub must object within a short window (e.g., "3 business days") or if "failure to provide timely notice waives" rights.
-    6. broadIndemnification: MUST mark true if the sub is required to indemnify or defend the prime for "alleged noncompliance", "negligence", or broad claims "arising out of performance".
+    --- JOB 2: COMMERCIAL RISK TRIGGERS (AGGRESSIVE EVALUATION) ---
+    You MUST evaluate the document for ALL 6 of the following traps. If a clause even slightly resembles the trap, you MUST mark "detected" as true.
+    1. contingentPayment: MUST mark true if payment is tied to the Prime getting paid (e.g., "amounts not paid by Government").
+    2. blanketFlowDowns: MUST mark true if the sub must comply with clauses "whether included or later provided".
+    3. vagueWorkshares: MUST mark true if workshare is an "estimate only" or "does not guarantee".
+    4. primeFavorableTermination: MUST mark true if there is a short cure period (e.g., "5 calendar days") or immediate termination rights for broad reasons.
+    5. unilateralChanges: MUST mark true if the sub must object within a short window (e.g., "3 business days") or waives rights.
+    6. broadIndemnification: MUST mark true if the sub must defend the prime for "alleged noncompliance" or broad claims.
 
     CRITICAL INSTRUCTIONS:
-    - REDLINES MUST BE REALISTIC:
-      - Termination: "Prime may terminate for convenience with at least 30 days' written notice. Subcontractor shall be paid for accepted work performed through the termination date and reasonable, documented closeout costs."
-      - Changes: "Subcontractor shall have at least 10 business days to notify Prime of any direction that may affect scope, price, or schedule. No waiver shall apply unless Subcontractor knowingly agrees to the change in writing."
-    - DO NOT output "N/A" for the industry. You must determine the closest professional sector based on the statement of work.
-    - If a trap is NOT detected, set "detected" to false and fill the string fields with empty text. Do NOT use "N/A".`;
+    - INDUSTRY: If the SOW involves admin support, document coordination, or tracking logs, set industryDetected to "Professional Services / Administrative Support".
+    - EMAIL DRAFT: The email draft MUST specifically mention every single trap marked true. If all 6 are true, the email must have 6 bullet points requesting amendments.
+    - If a trap is NOT detected, set "detected" to false and fill string fields with empty text.`;
 
-    // 4. THE STRICT STRUCTURED OUTPUTS SCHEMA
+    // 4. STRUCTURED OUTPUTS SCHEMA
     const strictSchema = {
       name: "contract_analysis",
       strict: true,
@@ -84,7 +82,7 @@ export async function POST(req: Request) {
           riskLevel: {
             type: "string",
             enum: ["High", "Medium-High", "Medium", "Low"],
-            description: "If 4 or more commercial traps are true, set to High. If 2 or 3, Medium-High."
+            description: "If 5 or 6 commercial traps are true, you MUST set this strictly to High. If 3 or 4, set to Medium-High."
           },
           industryDetected: { type: "string" },
           regulatoryTraps: {
@@ -173,7 +171,7 @@ export async function POST(req: Request) {
 
     const aiOutput = JSON.parse(aiData.choices[0].message.content);
 
-    // 6. DATA PACKER (Hardcodes the proper titles to prevent "N/A" display errors)
+    // 6. DATA PACKER
     const primaryTraps = [];
     const secondaryConcerns = [];
 
@@ -185,25 +183,13 @@ export async function POST(req: Request) {
 
     const evals = aiOutput.commercialEvaluations;
     
-    if (evals.contingentPayment.detected) {
-      primaryTraps.push({ ...evals.contingentPayment, triggerType: "Contract Risk Trigger", regulation: "Contingent Payment / Pay-if-Paid" });
-    }
-    if (evals.blanketFlowDowns.detected) {
-      primaryTraps.push({ ...evals.blanketFlowDowns, triggerType: "Contract Risk Trigger", regulation: "Blanket Flow-Downs / Later-Issued Clauses" });
-    }
-    if (evals.vagueWorkshares.detected) {
-      primaryTraps.push({ ...evals.vagueWorkshares, triggerType: "Contract Risk Trigger", regulation: "Vague Workshare / No Guaranteed Revenue" });
-    }
-    if (evals.primeFavorableTermination.detected) {
-      primaryTraps.push({ ...evals.primeFavorableTermination, triggerType: "Contract Risk Trigger", regulation: "Prime-Favorable Termination Rights" });
-    }
+    if (evals.contingentPayment.detected) primaryTraps.push({ ...evals.contingentPayment, triggerType: "Contract Risk Trigger", regulation: "Contingent Payment / Pay-if-Paid" });
+    if (evals.blanketFlowDowns.detected) primaryTraps.push({ ...evals.blanketFlowDowns, triggerType: "Contract Risk Trigger", regulation: "Blanket Flow-Downs / Later-Issued Clauses" });
+    if (evals.vagueWorkshares.detected) primaryTraps.push({ ...evals.vagueWorkshares, triggerType: "Contract Risk Trigger", regulation: "Vague Workshare / No Guaranteed Revenue" });
+    if (evals.primeFavorableTermination.detected) primaryTraps.push({ ...evals.primeFavorableTermination, triggerType: "Contract Risk Trigger", regulation: "Prime-Favorable Termination Rights" });
 
-    if (evals.unilateralChanges.detected) {
-      secondaryConcerns.push({ ...evals.unilateralChanges, triggerType: "Contract Risk Trigger", regulation: "Short Change-Notice Deadline / Waiver of Compensation Rights" });
-    }
-    if (evals.broadIndemnification.detected) {
-      secondaryConcerns.push({ ...evals.broadIndemnification, triggerType: "Contract Risk Trigger", regulation: "Broad Indemnification / Defense Obligation" });
-    }
+    if (evals.unilateralChanges.detected) secondaryConcerns.push({ ...evals.unilateralChanges, triggerType: "Contract Risk Trigger", regulation: "Short Change-Notice Deadline / Waiver of Compensation Rights" });
+    if (evals.broadIndemnification.detected) secondaryConcerns.push({ ...evals.broadIndemnification, triggerType: "Contract Risk Trigger", regulation: "Broad Indemnification / Defense Obligation" });
 
     const finalResult = {
       riskLevel: aiOutput.riskLevel,

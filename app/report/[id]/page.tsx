@@ -111,12 +111,12 @@ export default function ReportPage() {
   }
 
   const aiResults = data.ai_results || {};
-  // Handle backward compatibility if older scans just used "criticalTraps"
   const primaryTraps = aiResults.primaryTraps || aiResults.criticalTraps || [];
   const secondaryConcerns = aiResults.secondaryConcerns || [];
   const emailDraft = aiResults.emailDraft || "";
   const overallRisk = aiResults.riskLevel || "Low";
-  const industry = aiResults.industryDetected || "General Subcontracting";
+  const industry = aiResults.industryDetected || "Professional Services";
+  const hasRegulatory = primaryTraps.some((t: any) => t.triggerType === "Regulatory Trigger");
 
   return (
     <div className="min-h-screen bg-[#F4F5F7] font-sans pb-20">
@@ -127,13 +127,20 @@ export default function ReportPage() {
               <ArrowLeft className="w-3 h-3" /> Return to Intake Hub
             </Link>
             <h1 className="text-2xl font-black text-[#1A3668] uppercase tracking-tight">Attorney Prep Toolkit & Briefing</h1>
-            <div className="flex flex-col md:flex-row gap-2 mt-2">
+            
+            {/* Header Metadata Array - FIXED */}
+            <div className="flex flex-col md:flex-row gap-x-3 gap-y-1 mt-3 flex-wrap">
                 <p className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                <span className="text-[#FF5F1F] font-bold">Targeted Regulatory Exposure:</span> {data.file_name}
+                  <span className="text-[#FF5F1F] font-bold">Document Reviewed:</span> {data.file_name}
                 </p>
-                <p className="text-sm font-medium text-slate-500 hidden md:flex items-center gap-2">|</p>
+                <p className="text-sm font-medium text-slate-300 hidden md:flex items-center">|</p>
                 <p className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                <span className="text-[#1A3668] font-bold">Sector Detected:</span> {industry}
+                  <span className="text-[#1A3668] font-bold">Sector Detected:</span> {industry}
+                </p>
+                <p className="text-sm font-medium text-slate-300 hidden md:flex items-center">|</p>
+                <p className="text-sm font-medium text-slate-500 flex items-center gap-2">
+                  <span className="text-[#1A3668] font-bold">Risk Focus:</span> 
+                  {hasRegulatory ? "Federal Regulatory & Commercial Risk" : "Government Subcontractor Commercial Risk"}
                 </p>
             </div>
           </div>
