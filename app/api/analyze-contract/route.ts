@@ -60,27 +60,26 @@ export async function POST(req: Request) {
       injectedRules += `- OTA RULE: OTA framework detected. Check if the prime is claiming ownership of the subcontractor's background IP. If so, flag as HIGH risk.\n`;
     }
 
-    // 4. AUDITOR PROMPT (The Exhaustive Enforcer)
-    const systemPrompt = `You are a GovCon Triage Engine. Your job is to extract exact risks from the provided subcontract text.
+    // 4. AUDITOR PROMPT (The Segmented Enforcer)
+    const systemPrompt = `You are a strict, exhaustive GovCon Triage Engine. You have TWO distinct, mandatory jobs.
     
-    DETECTED REGULATORY RULES TO ENFORCE:
-    ${injectedRules ? injectedRules : "No specific FAR/DFARS code triggers detected by the pre-filter."}
+    --- JOB 1: REGULATORY TRIGGERS ---
+    ${injectedRules ? injectedRules : "No federal codes detected. You MUST proceed immediately to Job 2. Do NOT assume the contract is safe."}
 
-    CORE COMMERCIAL TRAPS (YOU MUST EVALUATE EVERY SINGLE ONE OF THESE):
-    1. Contingent Payment / Pay-If-Paid: Look for language stating payment is contingent upon the Prime receiving funds, or Prime has "no obligation to pay" if the Government doesn't pay.
-    2. Blanket Flow-Downs: Look for language forcing the sub to accept clauses "whether included or later provided" without attaching them.
-    3. Vague Workshares: Look for trigger words like "estimate only", "does not create a minimum", "no guaranteed hours", "no guaranteed revenue", or "business judgment".
-    4. Unilateral Changes / Short Notice Waivers: Look for trigger words requiring the sub to "notify within 3 business days", stating "failure waives" rights, or demanding the sub "promptly comply" before price is agreed.
-    5. Broad Indemnification: Look for language requiring the sub to indemnify for "alleged noncompliance", or broad "arising out of or related to" language that includes defending affiliates/customers before fault is established.
-    6. Predatory Termination: Look for termination cure periods under 10 days (e.g., "5 calendar days"), waivers of "unabsorbed overhead", or immediate termination allowed for broad business/customer reasons.
+    --- JOB 2: CORE COMMERCIAL TRAPS (MANDATORY EVALUATION) ---
+    You MUST scan the document text for the following 6 commercial traps. If you find language matching these concepts, you MUST extract them into the JSON array.
+    1. Contingent Payment / Pay-If-Paid: Look for "no obligation to pay", "amounts not paid by the Government", or payment contingent on the Prime receiving funds.
+    2. Blanket Flow-Downs: Look for agreements to comply with clauses "whether included or later provided".
+    3. Vague Workshares: Look for disclaimers like "estimate only", "does not guarantee any specific number of hours", or "no guaranteed revenue".
+    4. Unilateral Changes / Short Notice Waivers: Look for deadlines to object within "3 business days" or clauses stating "failure to provide timely notice waives" rights.
+    5. Broad Indemnification: Look for requirements to indemnify for "alleged noncompliance" or broad "arising out of" language covering affiliates/customers.
+    6. Predatory Termination: Look for immediate termination rights, short cure periods (e.g., "5 calendar days"), or waivers of unabsorbed overhead/anticipated profit.
 
     CRITICAL INSTRUCTIONS:
-    1. EXHAUSTIVE EVALUATION: You MUST check the document against ALL 6 Core Commercial Traps listed above. Do not stop after finding one or two. If the contract contains 5 traps, your JSON array MUST contain 5 objects.
-    2. You MUST extract the exact 'foundText' verbatim from the user's uploaded contract. Quote it exactly.
-    3. If a trap does not exist in the text, DO NOT hallucinate it.
-    4. Base the overall 'riskLevel' on the severity and volume of the traps found.
+    - You MUST evaluate every single trap in Job 2, even if Job 1 was empty.
+    - You MUST extract the exact 'foundText' verbatim from the contract. Do not summarize it. Quote it exactly.
+    - Output ONLY valid JSON matching this schema:
 
-    REQUIRED JSON SCHEMA:
     {
       "riskLevel": "High" | "Medium" | "Low",
       "industryDetected": "e.g., IT Services, Professional Services, Construction, etc.",
