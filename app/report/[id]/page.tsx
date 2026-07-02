@@ -119,16 +119,15 @@ export default function ReportPage() {
   const hasRegulatory = primaryTraps.some((t: any) => t.triggerType === "Regulatory Trigger");
 
   return (
-    <div className="min-h-screen bg-[#F4F5F7] font-sans pb-20">
-      <div className="bg-white border-b border-slate-200 py-6 px-6 sticky top-0 z-10 shadow-sm">
+    <div className="min-h-screen bg-[#F4F5F7] font-sans pb-20 print:pb-0 print:bg-white">
+      <div className="bg-white border-b border-slate-200 py-6 px-6 sticky top-0 z-10 shadow-sm print:relative print:shadow-none print:border-b-2">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between md:items-end gap-4">
           <div>
-            <Link href="/dashboard" className="text-slate-400 hover:text-[#FF5F1F] font-bold uppercase tracking-wider text-[10px] flex items-center gap-1 mb-2 transition-colors">
+            <Link href="/dashboard" className="text-slate-400 hover:text-[#FF5F1F] font-bold uppercase tracking-wider text-[10px] flex items-center gap-1 mb-2 transition-colors print:hidden">
               <ArrowLeft className="w-3 h-3" /> Return to Intake Hub
             </Link>
             <h1 className="text-2xl font-black text-[#1A3668] uppercase tracking-tight">Attorney Prep Toolkit & Briefing</h1>
             
-            {/* Header Metadata Array - FIXED */}
             <div className="flex flex-col md:flex-row gap-x-3 gap-y-1 mt-3 flex-wrap">
                 <p className="text-sm font-medium text-slate-500 flex items-center gap-2">
                   <span className="text-[#FF5F1F] font-bold">Document Reviewed:</span> {data.file_name}
@@ -150,13 +149,12 @@ export default function ReportPage() {
       <div className="max-w-6xl mx-auto px-6 pt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           
-          {/* PRIMARY TRAPS HEADER */}
           <div className="flex items-center justify-between mb-2 border-b border-slate-200 pb-2">
             <div className="flex items-center gap-2">
                 <ShieldAlert className="w-5 h-5 text-[#1A3668]" />
                 <h2 className="text-sm font-black text-[#1A3668] uppercase tracking-widest">Top Active Liability Flags</h2>
             </div>
-             <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-sm ${
+             <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-sm print:border print:text-black ${
                 overallRisk === 'High' ? 'bg-red-100 text-red-700 border border-red-200' : 
                 overallRisk === 'Medium-High' ? 'bg-orange-100 text-orange-700 border border-orange-200' :
                 overallRisk === 'Medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 
@@ -166,16 +164,15 @@ export default function ReportPage() {
               </span>
           </div>
 
-          {/* PRIMARY TRAPS CONTENT */}
           {primaryTraps.length === 0 ? (
-            <div className="bg-white rounded-xl border border-emerald-200 p-10 text-center shadow-sm">
+            <div className="bg-white rounded-xl border border-emerald-200 p-10 text-center shadow-sm break-inside-avoid">
               <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
               <h3 className="text-lg font-black text-[#1A3668] uppercase">No Critical Flags Detected</h3>
               <p className="text-sm text-slate-500 font-medium mt-2">The system did not detect any of the targeted primary liabilities in this document.</p>
             </div>
           ) : (
             primaryTraps.map((trap: any, index: number) => (
-              <div key={index} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <div key={index} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden break-inside-avoid">
                 <div className="px-6 py-3 border-b bg-slate-50 flex items-center gap-2">
                     <Activity className="w-4 h-4 text-[#FF5F1F]" />
                     <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">
@@ -184,29 +181,25 @@ export default function ReportPage() {
                 </div>
                 <div className="p-6">
                   
-                  {/* Found Text Section */}
                   <div className="mb-6 pl-4 border-l-2 border-slate-300">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Contract Text Extracted</p>
                     <p className="text-sm text-slate-600 font-serif italic">"{trap.foundText}"</p>
                   </div>
 
-                  {/* Risk Analysis Section */}
                   <div className="mb-6">
                     <p className="text-[10px] font-black text-[#1A3668] uppercase tracking-widest mb-1">Operational Liability</p>
                     <p className="text-sm text-slate-800 font-medium leading-relaxed">{trap.riskAnalysis}</p>
                   </div>
 
-                  {/* Redline Section */}
-                  <div className="bg-slate-900 rounded-lg p-5">
-                    <p className="text-[10px] font-black text-[#FF5F1F] uppercase tracking-widest mb-2">Liability Redline Alternative</p>
-                    <p className="text-sm text-slate-100 font-mono leading-relaxed">{trap.redlineFix}</p>
+                  <div className="bg-slate-900 rounded-lg p-5 print:bg-slate-50 print:border print:border-slate-300">
+                    <p className="text-[10px] font-black text-[#FF5F1F] uppercase tracking-widest mb-2">Suggested Safer Language</p>
+                    <p className="text-sm text-slate-100 font-mono leading-relaxed print:text-slate-800">{trap.redlineFix}</p>
                   </div>
                 </div>
               </div>
             ))
           )}
 
-          {/* SECONDARY CONCERNS SECTION */}
           {secondaryConcerns.length > 0 && (
             <div className="pt-8">
               <div className="flex items-center gap-2 mb-4 border-b border-slate-200 pb-2">
@@ -216,7 +209,7 @@ export default function ReportPage() {
               
               <div className="space-y-4">
                 {secondaryConcerns.map((concern: any, index: number) => (
-                  <div key={index} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div key={index} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden break-inside-avoid">
                     <div className="px-6 py-3 border-b bg-slate-50 flex items-center gap-2">
                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                             SECONDARY CONCERN: {concern.regulation}
@@ -231,7 +224,7 @@ export default function ReportPage() {
                         <p className="text-sm text-slate-700 font-medium leading-relaxed">{concern.riskAnalysis}</p>
                       </div>
                       <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Suggested Redline</p>
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Suggested Safer Language</p>
                         <p className="text-sm text-slate-700 font-mono">{concern.redlineFix}</p>
                       </div>
                     </div>
@@ -246,7 +239,7 @@ export default function ReportPage() {
             <div className="flex items-center gap-2 mb-2 border-b border-slate-200 pb-2">
                 <h2 className="text-sm font-black text-[#1A3668] uppercase tracking-widest">Consolidated PM Pushback Memo</h2>
             </div>
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm sticky top-28">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm sticky top-28 break-inside-avoid">
             <div className="p-6 bg-[#F8F9FA]">
               <div className="text-sm text-slate-800 font-medium whitespace-pre-wrap leading-relaxed mb-6">
                 {emailDraft || "No email drafted for this clean contract."}
@@ -254,7 +247,7 @@ export default function ReportPage() {
               <button 
                 onClick={handleCopyEmail}
                 disabled={!emailDraft}
-                className="w-full flex items-center justify-center gap-2 bg-[#FF5F1F] hover:bg-[#E04F1A] text-white text-xs font-black uppercase tracking-wider py-3.5 px-6 rounded-lg transition"
+                className="w-full flex items-center justify-center gap-2 bg-[#FF5F1F] hover:bg-[#E04F1A] text-white text-xs font-black uppercase tracking-wider py-3.5 px-6 rounded-lg transition print:hidden"
               >
                 {copied ? <><CheckCircle className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy Complete Email</>}
               </button>

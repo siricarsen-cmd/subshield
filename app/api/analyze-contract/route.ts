@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     if (isCyber) injectedRules += `- DFARS 252.204-7012 detected. Scan for clauses making the sub solely liable for cyber breach damages.\n`;
     if (isOTA) injectedRules += `- OTA framework detected. Check if the prime claims ownership of subcontractor's background IP.\n`;
 
-    // 3. AUDITOR PROMPT (Aggressive Threshold)
+    // 3. AUDITOR PROMPT (Full Sentence Extraction)
     const systemPrompt = `You are an expert GovCon Subcontract Analyst representing the Subcontractor. You must be highly aggressive in identifying risks.
     
     --- JOB 1: REGULATORY TRIGGERS ---
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
 
     --- JOB 2: COMMERCIAL RISK TRIGGERS (AGGRESSIVE EVALUATION) ---
     You MUST evaluate the document for ALL 6 of the following traps. If a clause even slightly resembles the trap, you MUST mark "detected" as true.
-    1. contingentPayment: MUST mark true if payment is tied to the Prime getting paid (e.g., "amounts not paid by Government").
+    1. contingentPayment: MUST mark true if payment is tied to the Prime getting paid.
     2. blanketFlowDowns: MUST mark true if the sub must comply with clauses "whether included or later provided".
     3. vagueWorkshares: MUST mark true if workshare is an "estimate only" or "does not guarantee".
     4. primeFavorableTermination: MUST mark true if there is a short cure period (e.g., "5 calendar days") or immediate termination rights for broad reasons.
@@ -68,8 +68,9 @@ export async function POST(req: Request) {
     6. broadIndemnification: MUST mark true if the sub must defend the prime for "alleged noncompliance" or broad claims.
 
     CRITICAL INSTRUCTIONS:
+    - EVIDENCE EXTRACTION: When extracting 'foundText', you MUST extract the full, complete sentence from the contract. Do NOT extract short fragments (e.g., do not just extract "5 calendar days", extract the entire sentence containing it).
+    - TERMINATION LOGIC: If primeFavorableTermination is true, use this exact analysis: "The Prime has broad termination rights, including short convenience notice, short default cure rights, and immediate termination rights for broad business reasons. This leaves the subcontractor exposed after staffing or performing work." And use this exact redlineFix: "Prime may terminate for convenience with at least 30 days' written notice. Subcontractor shall be paid for accepted work performed through the termination date and reasonable, documented closeout costs. For non-urgent defaults, Subcontractor shall receive at least 10 business days to cure."
     - INDUSTRY: If the SOW involves admin support, document coordination, or tracking logs, set industryDetected to "Professional Services / Administrative Support".
-    - EMAIL DRAFT: The email draft MUST specifically mention every single trap marked true. If all 6 are true, the email must have 6 bullet points requesting amendments.
     - If a trap is NOT detected, set "detected" to false and fill string fields with empty text.`;
 
     // 4. STRUCTURED OUTPUTS SCHEMA
