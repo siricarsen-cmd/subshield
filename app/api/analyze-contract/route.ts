@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 
-// Force standard Node environment for pdf2json
 export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
@@ -15,7 +14,7 @@ export async function POST(req: Request) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // 1. EXTRACTOR (Unchanged - this works perfectly for getting the raw text)
+    // 1. EXTRACTOR
     const documentText = await new Promise<string>((resolve, reject) => {
       const PDFParser = require("pdf2json");
       const pdfParser = new PDFParser();
@@ -43,55 +42,41 @@ export async function POST(req: Request) {
       pdfParser.parseBuffer(buffer);
     });
 
-    // 2. REGEX PRE-FILTER (The Speed Filter)
-    // We scan the raw text for specific federal regulatory markers before asking the AI to think.
+    // 2. REGEX PRE-FILTER (The Speed Filter for Specific Federal Codes)
     const isSCA = /52\.222-41|Service Contract Labor Standards|Service Contract Act/i.test(documentText);
     const isCyber = /252\.204-7012|NIST SP 800-171|CMMC|Controlled Unclassified Information|CUI/i.test(documentText);
-    const isPayment = /52\.232-40|Pay-When-Paid|Pay-If-Paid|Condition Precedent/i.test(documentText);
     const isOTA = /Other Transaction Authority|OTA|Prototype Agreement|Non-FAR Agreement/i.test(documentText);
 
-    // 3. INJECTING THE RULE SET CONTEXT (The Strict Injector)
+    // 3. INJECTING SPECIFIC REGULATORY RULES
     let injectedRules = "";
 
     if (isSCA) {
-      injectedRules += `
-      - SCA RULE: You detected FAR 52.222-41 (Service Contract Labor Standards). Check for the presence of a "Wage Determination", "WD number", or Wage Rates attachment. If FAR 52.222-41 is present but NO Wage Determination schedule is attached or explicitly referenced as provided, output a HIGH risk flag.
-      Risk Analysis text: "The Prime Contractor has flowed down the Service Contract Act (FAR 52.222-41) but failed to provide the mandatory Department of Labor Wage Determination schedule. Signing this exposes you to severe back-pay liability and audit risk."
-      Redline Fix text: "Prime Contractor must provide the applicable DOL Wage Determination schedule prior to execution. Subcontractor's pricing is strictly contingent upon review of these specific wage classifications."\n`;
+      injectedRules += `- SCA RULE: FAR 52.222-41 detected. Check for a Wage Determination attachment. If missing, flag as HIGH risk.\n`;
     }
-
     if (isCyber) {
-      injectedRules += `
-      - CYBER RULE: You detected DFARS 252.204-7012 or NIST/CMMC. Scan for language attempting to hold the Subcontractor solely liable for cyber breach damages or indemnification. If found, trigger a HIGH risk flag.
-      Risk Analysis text: "The contract flows down mandatory DFARS 252.204-7012 cybersecurity requirements. However, the custom text shifts massive financial liability onto you for data security breaches. You are being asked to certify a compliance level that could expose your firm to multi-million dollar liabilities if a breach occurs."
-      Redline Fix text: "Amend the cybersecurity clause to clarify that Subcontractor complies with standard federal flow-down rules, but expressly exclude third-party cyber data breaches from your broad commercial indemnification obligations."\n`;
+      injectedRules += `- CYBER RULE: DFARS 252.204-7012 detected. Scan for clauses making the sub solely liable for cyber breach damages. If found, flag as HIGH risk.\n`;
     }
-
-    if (isPayment) {
-      injectedRules += `
-      - PAYMENT RULE: You detected FAR 52.232-40 or Prompt Payment/Pay-When-Paid language. Review the payment timing. If the prime specifies a deadline greater than 15 days or uses "Pay-When-Paid" / "Pay-If-Paid" condition precedent language, flag this as a HIGH risk regulatory violation.
-      Risk Analysis text: "The contract explicitly flows down FAR 52.232-40 (or standard prompt payment), but the custom payment terms contradict this mandate by enforcing an extended payment window or a predatory Pay-When-Paid trap. Primes are required to pass down accelerated payment timelines (within 15 days of government draw) to small business partners."
-      Redline Fix text: "Delete any contingent payment language or text extending past 15 days. Replace with: 'Pursuant to FAR 52.232-40, Prime Contractor shall accelerate payments to Subcontractor, with payment issued no later than fifteen (15) days after Prime Contractor receives matching payment acceleration from the Government.'"\n`;
-    }
-
     if (isOTA) {
-      injectedRules += `
-      - OTA RULE: You detected an OTA (Other Transaction Authority). Check Intellectual Property and Patent clauses. Look for clauses granting the Prime 'unlimited rights,' 'ownership,' or 'exclusive licenses' to the sub's background IP. If it fails to protect background technology explicitly, trigger a HIGH risk flag.
-      Risk Analysis text: "This agreement operates under an OTA framework where standard FAR small business IP protections do not apply. The text as written does not robustly firewall your background technology, giving the prime an avenue to claim ownership or broad rights over your proprietary software code or engineering data."
-      Redline Fix text: "Insert a strict Background IP firewall clause: 'Subcontractor retains all sole right, title, and interest in and to its pre-existing and background intellectual property. Prime Contractor is granted only a limited, non-transferable, non-exclusive license to use such IP solely for the duration and performance of this specific subcontract effort.'"\n`;
+      injectedRules += `- OTA RULE: OTA framework detected. Check if the prime is claiming ownership of the subcontractor's background IP. If so, flag as HIGH risk.\n`;
     }
 
-    // 4. AUDITOR PROMPT (The Enforcer)
-    const systemPrompt = `You are a GovCon Triage Engine. Your job is to extract exact risks from the provided subcontract text based strictly on the triggered rules.
+    // 4. AUDITOR PROMPT (The Hybrid Enforcer)
+    const systemPrompt = `You are a GovCon Triage Engine. Your job is to extract exact risks from the provided subcontract text.
     
     DETECTED REGULATORY RULES TO ENFORCE:
-    ${injectedRules ? injectedRules : "No specific regulatory triggers detected. Scan for general predatory clauses like generic Pay-When-Paid, broad indemnification without limits, or unreasonable termination clauses."}
+    ${injectedRules ? injectedRules : "No specific FAR/DFARS code triggers detected by the pre-filter."}
+
+    CORE COMMERCIAL TRAPS TO HUNT FOR (ALWAYS CHECK THESE):
+    1. Contingent Payment / Pay-If-Paid: Look for ANY language stating payment is contingent upon the Prime receiving funds from the Government, or that the Prime has "no obligation to pay" if the Government doesn't pay.
+    2. Blanket Flow-Downs: Look for language forcing the sub to accept clauses "whether included or later provided" without actually attaching them.
+    3. Vague Workshares: Look for language stating the Prime "does not guarantee any specific number of hours" or "minimum workshare".
+    4. Broad Indemnification: Look for language requiring the sub to indemnify or hold harmless the Prime for issues beyond the sub's direct control.
+    5. Predatory Termination: Look for Termination for Convenience or Default clauses with unreasonably short notice periods (e.g., 5 days) or waivers of unabsorbed overhead.
 
     CRITICAL INSTRUCTIONS:
-    1. Only extract data for regulations detected and listed above.
-    2. You MUST extract the exact 'foundText' verbatim from the user's uploaded contract. Do not summarize the found text. Quote it.
-    3. If a regulation is triggered but the protective clause is missing, flag it as a violation using the provided Risk Analysis and Redline Fix texts.
-    4. Output ONLY valid JSON. Do not use markdown blocks.
+    1. You MUST extract the exact 'foundText' verbatim from the user's uploaded contract. Do not summarize the found text. Quote it exactly.
+    2. If a trap does not exist in the text, DO NOT hallucinate or report it.
+    3. Output ONLY valid JSON matching the schema below.
 
     REQUIRED JSON SCHEMA:
     {
@@ -99,13 +84,13 @@ export async function POST(req: Request) {
       "industryDetected": "e.g., IT Services, Professional Services, Construction, etc.",
       "criticalTraps": [
         {
-          "regulation": "Name of regulation or clause type",
+          "regulation": "Name of trap (e.g., Contingent Payment Trap, Blanket Flow-Down)",
           "foundText": "Exact verbatim quote from the contract",
-          "riskAnalysis": "Explanation of the risk (use provided rule text if applicable)",
-          "redlineFix": "Recommended amendment (use provided rule text if applicable)"
+          "riskAnalysis": "Clear, plain-English explanation of how this specific clause hurts the subcontractor's operations or cash flow.",
+          "redlineFix": "The exact recommended text to replace or amend the predatory clause."
         }
       ],
-      "emailDraft": "A brief, professional pushback email referencing the flagged articles and requesting their amendment."
+      "emailDraft": "A brief, professional pushback email to the Prime Project Manager referencing the flagged articles and requesting their amendment."
     }`;
 
     // 5. AI REQUEST
@@ -121,7 +106,7 @@ export async function POST(req: Request) {
           { role: 'system', content: systemPrompt }, 
           { role: 'user', content: documentText }
         ],
-        temperature: 0.0 // Set to 0 to make it entirely deterministic
+        temperature: 0.0
       })
     });
 
