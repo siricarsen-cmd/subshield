@@ -60,18 +60,19 @@ export async function POST(req: Request) {
 
     --- JOB 2: COMMERCIAL RISK TRIGGERS (MANDATORY EVALUATION) ---
     You MUST evaluate the document text for ALL 6 of the following commercial traps. Mark "detected" as true if found, and extract the exact verbatim text.
-    1. contingentPayment: "no obligation to pay", "amounts not paid by Government", or payment contingent on Prime receiving funds.
-    2. blanketFlowDowns: Agreements to comply with clauses "whether included or later provided".
-    3. vagueWorkshares: "estimate only", "does not guarantee specific hours", or "no guaranteed revenue".
-    4. primeFavorableTermination: Short notice (e.g., "5 calendar days"), immediate termination rights, or waivers of closeout costs.
-    5. unilateralChanges: Deadlines to object within "3 business days", or "failure to provide timely notice waives" rights.
-    6. broadIndemnification: Requirements to indemnify for "alleged noncompliance" or broad "arising out of" language covering affiliates/customers.
+    1. contingentPayment: MUST mark true if there is "no obligation to pay", "amounts not paid by Government", or payment contingent on Prime receiving funds.
+    2. blanketFlowDowns: MUST mark true if the sub agrees to comply with clauses "whether included or later provided".
+    3. vagueWorkshares: MUST mark true if workshare is an "estimate only", "does not guarantee specific hours", or "no guaranteed revenue".
+    4. primeFavorableTermination: MUST mark true for short notice (e.g., "5 calendar days"), immediate termination rights, or waivers of closeout costs.
+    5. unilateralChanges: MUST mark true if the sub must object within a short window (e.g., "3 business days") or if "failure to provide timely notice waives" rights.
+    6. broadIndemnification: MUST mark true if the sub is required to indemnify or defend the prime for "alleged noncompliance", "negligence", or broad claims "arising out of performance".
 
     CRITICAL INSTRUCTIONS:
     - REDLINES MUST BE REALISTIC:
       - Termination: "Prime may terminate for convenience with at least 30 days' written notice. Subcontractor shall be paid for accepted work performed through the termination date and reasonable, documented closeout costs."
-      - Changes: "Subcontractor shall have at least 10 business days to notify Prime of any direction that may affect scope, price, or schedule."
-    - If a trap is NOT detected, set "detected" to false and fill the string fields with "N/A".`;
+      - Changes: "Subcontractor shall have at least 10 business days to notify Prime of any direction that may affect scope, price, or schedule. No waiver shall apply unless Subcontractor knowingly agrees to the change in writing."
+    - DO NOT output "N/A" for the industry. You must determine the closest professional sector based on the statement of work.
+    - If a trap is NOT detected, set "detected" to false and fill the string fields with empty text. Do NOT use "N/A".`;
 
     // 4. THE STRICT STRUCTURED OUTPUTS SCHEMA
     const strictSchema = {
@@ -83,7 +84,7 @@ export async function POST(req: Request) {
           riskLevel: {
             type: "string",
             enum: ["High", "Medium-High", "Medium", "Low"],
-            description: "If 4 or more commercial traps are true, set to High or Medium-High."
+            description: "If 4 or more commercial traps are true, set to High. If 2 or 3, Medium-High."
           },
           industryDetected: { type: "string" },
           regulatoryTraps: {
@@ -150,7 +151,7 @@ export async function POST(req: Request) {
       }
     };
 
-    // 5. AI REQUEST (Using json_schema)
+    // 5. AI REQUEST
     const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -172,27 +173,37 @@ export async function POST(req: Request) {
 
     const aiOutput = JSON.parse(aiData.choices[0].message.content);
 
-    // 6. DATA PACKER
+    // 6. DATA PACKER (Hardcodes the proper titles to prevent "N/A" display errors)
     const primaryTraps = [];
     const secondaryConcerns = [];
 
-    // Pack Regulatory Traps
     if (aiOutput.regulatoryTraps) {
       aiOutput.regulatoryTraps.forEach((trap: any) => {
-        primaryTraps.push({ triggerType: "Regulatory Trigger", ...trap });
+        primaryTraps.push({ ...trap, triggerType: "Regulatory Trigger" });
       });
     }
 
-    // Pack Commercial Traps (Only if detected === true)
     const evals = aiOutput.commercialEvaluations;
     
-    if (evals.contingentPayment.detected) primaryTraps.push({ triggerType: "Contract Risk Trigger", ...evals.contingentPayment });
-    if (evals.blanketFlowDowns.detected) primaryTraps.push({ triggerType: "Contract Risk Trigger", ...evals.blanketFlowDowns });
-    if (evals.vagueWorkshares.detected) primaryTraps.push({ triggerType: "Contract Risk Trigger", ...evals.vagueWorkshares });
-    if (evals.primeFavorableTermination.detected) primaryTraps.push({ triggerType: "Contract Risk Trigger", ...evals.primeFavorableTermination });
+    if (evals.contingentPayment.detected) {
+      primaryTraps.push({ ...evals.contingentPayment, triggerType: "Contract Risk Trigger", regulation: "Contingent Payment / Pay-if-Paid" });
+    }
+    if (evals.blanketFlowDowns.detected) {
+      primaryTraps.push({ ...evals.blanketFlowDowns, triggerType: "Contract Risk Trigger", regulation: "Blanket Flow-Downs / Later-Issued Clauses" });
+    }
+    if (evals.vagueWorkshares.detected) {
+      primaryTraps.push({ ...evals.vagueWorkshares, triggerType: "Contract Risk Trigger", regulation: "Vague Workshare / No Guaranteed Revenue" });
+    }
+    if (evals.primeFavorableTermination.detected) {
+      primaryTraps.push({ ...evals.primeFavorableTermination, triggerType: "Contract Risk Trigger", regulation: "Prime-Favorable Termination Rights" });
+    }
 
-    if (evals.unilateralChanges.detected) secondaryConcerns.push({ triggerType: "Contract Risk Trigger", ...evals.unilateralChanges });
-    if (evals.broadIndemnification.detected) secondaryConcerns.push({ triggerType: "Contract Risk Trigger", ...evals.broadIndemnification });
+    if (evals.unilateralChanges.detected) {
+      secondaryConcerns.push({ ...evals.unilateralChanges, triggerType: "Contract Risk Trigger", regulation: "Short Change-Notice Deadline / Waiver of Compensation Rights" });
+    }
+    if (evals.broadIndemnification.detected) {
+      secondaryConcerns.push({ ...evals.broadIndemnification, triggerType: "Contract Risk Trigger", regulation: "Broad Indemnification / Defense Obligation" });
+    }
 
     const finalResult = {
       riskLevel: aiOutput.riskLevel,
