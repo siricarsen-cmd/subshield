@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 // --- TEMPORARY HARDCODED KEYS ---
 const supabaseUrl = "https://fqwkvyypjnxkiojbubdf.supabase.co";
@@ -64,16 +65,21 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Password</label>
-            <input 
-              type="password" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-              className="w-full border border-slate-300 p-3 rounded bg-slate-50 text-sm" 
-              required 
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Password</label>
+              <Link href="/forgot-password" className="text-xs font-bold text-[#1A3668] hover:text-[#FF5F1F] transition-colors">
+                Forgot password?
+              </Link>
+            </div>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border border-slate-300 p-3 rounded bg-slate-50 text-sm"
+              required
             />
           </div>
-          <button 
+          <button
             type="submit" 
             className="w-full bg-[#FF5F1F] hover:bg-orange-600 text-white font-bold py-3.5 rounded text-xs uppercase tracking-widest transition-all shadow-sm"
           >

@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link"; 
-import { UploadCloud, FileText, CheckCircle, AlertCircle, Loader2, Building2, CreditCard, LayoutDashboard } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { UploadCloud, FileText, CheckCircle, AlertCircle, Loader2, Building2, CreditCard, LayoutDashboard, LogOut } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 // Uses environment variables first, falls back to your temporary bypass keys if needed
@@ -11,9 +12,12 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publish
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function DashboardPage() {
+  const router = useRouter();
+
   // --- AUTH & BILLING STATE ---
   const [user, setUser] = useState<any>(null);
   const [loadingBilling, setLoadingBilling] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   // --- UPLOAD & AUDIT STATE ---
   const [isDragging, setIsDragging] = useState(false);
@@ -77,6 +81,19 @@ export default function DashboardPage() {
       alert("Billing access failed: " + error.message);
     } finally {
       setLoadingBilling(false);
+    }
+  };
+
+  // --- LOGOUT LOGIC ---
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      router.push("/login");
+    } catch (error: any) {
+      alert("Sign out failed: " + (error?.message || "Please try again."));
+      setLoggingOut(false);
     }
   };
 
@@ -195,14 +212,22 @@ export default function DashboardPage() {
           </nav>
         </div>
 
-        <div>
-          <button 
+        <div className="space-y-4">
+          <button
             onClick={handleManageBilling}
             disabled={loadingBilling}
             className="flex items-center space-x-3 text-sm font-bold text-slate-500 hover:text-[#1A3668] transition-colors disabled:opacity-50 w-full"
           >
             <CreditCard className="h-5 w-5" />
             <span>{loadingBilling ? "CONNECTING..." : "MANAGE BILLING"}</span>
+          </button>
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="flex items-center space-x-3 text-sm font-bold text-slate-500 hover:text-red-600 transition-colors disabled:opacity-50 w-full border-t border-slate-100 pt-4"
+          >
+            <LogOut className="h-5 w-5" />
+            <span>{loggingOut ? "SIGNING OUT..." : "LOG OUT"}</span>
           </button>
         </div>
       </aside>
