@@ -1,0 +1,240 @@
+// Detector family catalog + selection, and the grounded evidence-based detection call.
+// The model is never told which phrases to force-match. It is told which families
+// are relevant to *this* document and is required to quote exact evidence for
+// anything it reports; unverifiable findings are dropped downstream in sanity.ts.
+
+import type { ContractClassification, DetectorFamily, Finding } from "./types";
+
+export const DETECTOR_FAMILIES: DetectorFamily[] = [
+  {
+    key: "structure",
+    label: "Contract Structure & Missing Documents",
+    description:
+      "No SOW, flowdown list/matrix, wage determination, DD254, CUI/cyber attachment, or quality/safety plan currently included in the package (describe these as absent from the current package, not as having been lost or previously promised, unless the document itself says so); incorporation-by-reference of the prime contract or later-issued/future flow-down requirements that automatically bind Subcontractor without review; prime contract terms or later-issued prime directives controlling or taking precedence over the subcontract; pending/revisable exhibits; conflicting documents; order-of-precedence gaps; redacted rates; unattached prime contract clauses.",
+  },
+  {
+    key: "payment",
+    label: "Payment, Workshare, Notice Deadlines, Funding",
+    description:
+      "Pay-if-paid, pay-when-paid, or any clause making Subcontractor's right to payment contingent on the Prime actually receiving funds from the Government/Owner; no guaranteed workshare, minimum hours, task assignments, or revenue (estimate-only or requirements-style language with no minimum commitment); short or strict notice-of-claim / change-order notice deadlines (e.g. a specific number of business or calendar days) that waive Subcontractor's right to compensation or a time extension if missed; retainage and delayed release; invoice rejection windows; strict billing system requirements; Net 45/60 delay; DCAA/DCMA audit-dependent final payment; incremental funding/limitation of funds; work beyond funded amount at sub's risk; withholding; final lien waiver/release-of-claims traps.",
+  },
+  {
+    key: "flowdowns",
+    label: "FAR / DFARS / Agency Flowdowns",
+    description:
+      "Broad or mandatory-vs-discretionary FAR/DFARS flowdowns, commercial-item flowdown limits, FAR 52.244-6, ethics/lobbying (52.203), cyber/SAM reporting (52.204), cost-or-pricing-data (52.215), small business (52.219), labor (52.222), environmental/safety (52.223), Buy American/TAA (52.225), data rights (52.227), payment (52.232), changes (52.243), Government property (52.245), inspection/quality (52.246), termination (52.249).",
+  },
+  {
+    key: "labor",
+    label: "Labor & Wage Compliance",
+    description:
+      "Davis-Bacon/Construction Wage Rate Requirements (52.222-6), SCA/SCLS (52.222-41), wage adjustment clauses, certified payroll, missing wage determination, labor classification ambiguity, fringe benefits, uncompensated overtime, Defense Base Act insurance.",
+  },
+  {
+    key: "cyber",
+    label: "Cybersecurity, CUI, Classified Work",
+    description:
+      "DFARS 252.204-7012/7008/7019/7020/7021, NIST SP 800-171, CMMC, CUI/CDI, covered contractor information system, DD254, classified work, facility/personnel clearance, badging/PIV, background checks, cyber incident reporting deadlines, flowdown to lower tiers, cyber liability insurance, subcontractor sole liability for cyber incidents.",
+  },
+  {
+    key: "data-rights",
+    label: "Data Rights, IP, Software, Technical Data",
+    description:
+      "Unlimited rights by default, Government purpose rights, limited/restricted rights, failure to list pre-existing IP, failure to mark proprietary data, deferred delivery/ordering, technical data payment withholding, software documentation rights, broad license grants to prime/Government/customer.",
+  },
+  {
+    key: "construction",
+    label: "Construction / Facility / Trade Subcontract Risk",
+    description:
+      "Retainage, liquidated damages, no-damages-for-delay, pass-through-only delay recovery, excluded acceleration/standby costs, site access risk, security access delays, differing site condition notice windows, safety stop-work without compensation, warranty response windows, bonds, insurance endorsements, lien waivers, material substitutions, hazardous materials exclusions.",
+  },
+  {
+    key: "supply",
+    label: "Supply, Manufacturing, Product Delivery",
+    description:
+      "Inspection/acceptance, rejection/replacement, warranty, delivery deadlines and late-delivery damages, packaging/marking/shipping, title/risk of loss, FOB terms, counterfeit parts, Buy American/TAA, country of origin, specialty metals, export control, Government property, first article testing, configuration control, obsolete parts, unpriced changes.",
+  },
+  {
+    key: "small-business",
+    label: "Small Business & Set-Aside Risk",
+    description:
+      "Limitations on subcontracting, nonmanufacturer rule, ostensible subcontractor risk, small business subcontracting plan, mentor-protege/JV issues, socioeconomic representations (SDVOSB/WOSB/HUBZone/8(a)), excessive subcontracting, teaming workshare promises not reflected in the subcontract, no post-award guarantee after proposal credit use.",
+  },
+  {
+    key: "liability",
+    label: "Liability, Indemnity, Disputes, Termination",
+    description:
+      "Broad indemnity and duty to defend, including indemnity for alleged violations/noncompliance or third-party claims regardless of Prime's own fault; uncapped liability; consequential damage waiver; a liability cap that limits Prime's exposure to Subcontractor to only the amounts Prime actually received/receives from the Government (report this even if the rest of the document is otherwise favorable); termination for convenience that favors Prime; a stated default-cure period (a specific number of calendar or business days to cure before Prime may terminate for default), especially when paired with broad/immediate termination discretion; an obligation for Subcontractor to continue performing without interruption despite a payment delay, withholding, or dispute between the parties; venue/arbitration; attorney fees; one-sided assignment or remedies; release of claims. Treat each of these as a separate, distinct, independently-reportable risk even when several appear in the same document - do not merge them into a single finding.",
+  },
+  {
+    key: "personnel",
+    label: "Personnel & Staffing",
+    description:
+      "Key personnel, prime's right to remove personnel, replacement deadlines, former-employee/non-recruiting restrictions, minimum qualification requirements, unapproved personnel costs not billable, lower-tier subcontracting restrictions.",
+  },
+  {
+    key: "export",
+    label: "Export Control, Sanctions, Foreign Sourcing",
+    description:
+      "ITAR, EAR, export-controlled items, foreign national access, sanctions restrictions, country-of-origin restrictions, prohibited telecom/covered equipment, state-sponsor-of-terrorism clauses.",
+  },
+  {
+    key: "gfp",
+    label: "Government Property, GFP/GFE",
+    description:
+      "Government-furnished property/equipment, reporting requirements, loss/damage responsibility, inventory requirements, return/closeout obligations, title transfer, maintenance responsibility.",
+  },
+  {
+    key: "audit",
+    label: "Audit, Records, CAS, Cost/Pricing Data",
+    description:
+      "DCAA/DCMA audit, record retention, audit access, CAS, cost-or-pricing data, defective pricing/TINA exposure, billing/purchasing/property system requirements, incurred cost submissions, final indirect rate adjustments.",
+  },
+  {
+    key: "insurance",
+    label: "Insurance, Bonds, Risk Transfer",
+    description:
+      "Additional insured, waiver of subrogation, primary/noncontributory wording, professional and cyber liability, workers' comp, Defense Base Act, performance/payment bonds, insurance requirements added after award, unclear coverage limits.",
+  },
+];
+
+// "payment" (contingent payment, workshare guarantees, notice-of-claim
+// deadlines) and "flowdowns" (broad/future flow-down clauses, prime contract
+// control) are universal GovCon subcontract commercial risks present
+// regardless of sector - they used to be added per-sector, which meant a
+// Construction or Supply subcontract never got the payment family at all,
+// and Professional Services never got flowdowns. Baselining them closes that
+// coverage gap; the switch below now only adds sector-specific families.
+const BASELINE_FAMILIES = ["structure", "liability", "payment", "flowdowns"];
+
+// Prioritizes the risk families that matter for the classified contract type/sector
+// instead of blindly applying the entire taxonomy to every document.
+export function selectDetectorFamilies(classification: ContractClassification): DetectorFamily[] {
+  const keys = new Set<string>(BASELINE_FAMILIES);
+
+  switch (classification.sector) {
+    case "Cybersecurity / IT / Professional Services":
+      ["cyber", "labor", "data-rights", "personnel", "small-business"].forEach((k) => keys.add(k));
+      break;
+    case "Construction / Facility / Trade":
+      ["construction", "labor", "insurance"].forEach((k) => keys.add(k));
+      break;
+    case "Supply / Manufacturing":
+      ["supply", "data-rights", "export", "gfp"].forEach((k) => keys.add(k));
+      break;
+    case "Professional Services / Administrative Support":
+      ["labor", "personnel", "small-business"].forEach((k) => keys.add(k));
+      break;
+  }
+
+  if (classification.contractType === "T&M" || classification.contractType === "Labor-Hour") {
+    keys.add("audit");
+  }
+  if (classification.contractType === "IDIQ") {
+    keys.add("small-business");
+  }
+
+  return DETECTOR_FAMILIES.filter((f) => keys.has(f.key));
+}
+
+interface RawDetection {
+  familyKey: string;
+  triggerType: "Contract Risk Trigger" | "Regulatory Trigger";
+  regulation: string;
+  severity: "High" | "Medium-High" | "Medium" | "Low";
+  foundText: string;
+  riskAnalysis: string;
+  redlineFix: string;
+}
+
+const DETECTION_SCHEMA = {
+  name: "grounded_contract_findings",
+  strict: true,
+  schema: {
+    type: "object",
+    properties: {
+      findings: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            familyKey: { type: "string" },
+            triggerType: { type: "string", enum: ["Contract Risk Trigger", "Regulatory Trigger"] },
+            regulation: { type: "string" },
+            severity: { type: "string", enum: ["High", "Medium-High", "Medium", "Low"] },
+            foundText: { type: "string" },
+            riskAnalysis: { type: "string" },
+            redlineFix: { type: "string" },
+          },
+          required: ["familyKey", "triggerType", "regulation", "severity", "foundText", "riskAnalysis", "redlineFix"],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ["findings"],
+    additionalProperties: false,
+  },
+};
+
+function buildSystemPrompt(families: DetectorFamily[]): string {
+  const familyList = families.map((f) => `- [${f.key}] ${f.label}: ${f.description}`).join("\n");
+
+  return `You are a GovCon subcontract analyst representing the Subcontractor. You review the CURRENT document text supplied by the user and report only risks that are actually present in it.
+
+RELEVANT RISK FAMILIES FOR THIS DOCUMENT (only report findings that belong to one of these):
+${familyList}
+
+ABSOLUTE RULES:
+1. Every "foundText" must be an EXACT, VERBATIM quote copied from the document text below. Do not paraphrase, summarize, truncate mid-sentence, or combine text from different parts of the document into one quote. Copy full sentences or clauses exactly as they appear, including punctuation.
+2. Do NOT invent, assume, or force any finding. If a risk family has no real textual evidence in this document, do not report it. It is correct and expected to report zero findings for a clean document.
+3. Do NOT cite an Article, Section, or Clause number unless that exact reference (e.g. "Article 5", "Section 3.2") literally appears in the document text. If you don't know the section number, refer to it descriptively (e.g. "the termination clause") instead of guessing a number.
+4. Do NOT use stock phrases like "5 calendar days" or "3 business days" unless that exact phrase appears in the document. Use the actual number/timeframe stated in the document.
+5. Report each DISTINCT underlying risk only once. If the same risk is restated, cross-referenced, or repeated in multiple places in the document (for example, a contingent/pay-if-paid payment condition mentioned in two different clauses), pick the single clearest, most complete exact quote and report it as ONE finding - do not create several findings for the same risk. Prioritize breadth over depth: surfacing many distinct real risks is more valuable than reporting one risk multiple times with different quotes.
+6. riskAnalysis must be plain-English and explain the operational/financial consequence to the Subcontractor.
+7. redlineFix must propose specific safer language or a concrete negotiation ask, grounded in what the clause currently says.
+8. severity reflects the real exposure of that specific finding, not the document as a whole.
+9. There is no limit on how many distinct findings you may report. If a single family description lists several sub-patterns (e.g. indemnification, termination, cure period, liability cap, continue-performance) and the document contains textual evidence for more than one of them, report each as its own separate finding - do not stop after one or two findings per family, and do not merge genuinely different clauses into a single finding just because they belong to the same family.
+10. When flagging something as missing/absent from the current package (e.g. a flowdown list/matrix, wage determination, SOW, DD254), phrase it as a factual absence from the current document/package (for example: "No current flowdown list/matrix is included in this package" or "Later-issued flow-down requirements are referenced but not currently attached") rather than asserting that such a document previously existed, was promised, or was lost - unless the document text itself makes that claim.
+
+Return only findings you can support with an exact quote from the text provided.`;
+}
+
+export async function runGroundedDetectors(
+  documentText: string,
+  families: DetectorFamily[]
+): Promise<Finding[]> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured.");
+
+  const systemPrompt = buildSystemPrompt(families);
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: "gpt-4o",
+      response_format: { type: "json_schema", json_schema: DETECTION_SCHEMA },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: documentText },
+      ],
+      temperature: 0.0,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error?.message || "Detector model request failed.");
+
+  const parsed = JSON.parse(data.choices[0].message.content) as { findings: RawDetection[] };
+  const raw = parsed.findings || [];
+
+  return raw.map((f) => ({
+    triggerType: f.triggerType,
+    regulation: f.regulation,
+    severity: f.severity,
+    foundText: f.foundText,
+    riskAnalysis: f.riskAnalysis,
+    redlineFix: f.redlineFix,
+    familyKey: f.familyKey,
+  }));
+}

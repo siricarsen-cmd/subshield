@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 
+// LEGACY / UNUSED: no page in the app renders components/dashboard/intake-hub.tsx
+// (the only caller of this route), so this handler is not reachable from the live
+// app. app/intake/page.tsx is a static stub and does not import AdvancedIntakeHub.
+// The live analyzer route is app/api/analyze-contract/route.ts, which uses the
+// grounded pipeline in lib/analyzer/ instead of the hardcoded keyword matches
+// and fabricated "Article 5" / "Article 2.2" style references below. Left as-is
+// rather than refactored, per instructions, since it is dead code.
 export async function POST(request: Request) {
   try {
     const { contractText } = await request.json();
