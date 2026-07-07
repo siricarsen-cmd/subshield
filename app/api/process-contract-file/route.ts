@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 // Using the exact wildcard import syntax the compiler requested
 import * as pdfParse from "pdf-parse";
 
+// LEGACY / UNUSED: nothing in the app calls this route. The live upload flow
+// (app/dashboard/page.tsx -> app/api/analyze-contract/route.ts) extracts PDF
+// text inline with pdf2json. Left as-is since it is dead code.
 export async function POST(request: Request) {
   try {
     const data = await request.formData();

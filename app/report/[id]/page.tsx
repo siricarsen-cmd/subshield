@@ -117,6 +117,19 @@ export default function ReportPage() {
   const overallRisk = aiResults.riskLevel || "Low";
   const industry = aiResults.industryDetected || "Professional Services";
   const hasRegulatory = primaryTraps.some((t: any) => t.triggerType === "Regulatory Trigger");
+  const documentAnchors = aiResults.documentAnchors || {};
+  const isLimitedScan = Boolean(aiResults.limitedScan);
+  const isPartialOcrScan = Boolean(aiResults.partialOcrScan);
+  const anchorEntries = [
+    ["Parties", documentAnchors.parties],
+    ["Subcontract #", documentAnchors.subcontractNumber],
+    ["Subcontract Type", documentAnchors.subcontractType],
+    ["Prime Contract #", documentAnchors.primeContractNumber],
+    ["Price / Estimated Value", documentAnchors.priceOrEstimatedValue],
+    ["Funding Limit", documentAnchors.fundingLimit],
+    ["Retainage", documentAnchors.retainage],
+    ["Sector Evidence", documentAnchors.sectorEvidence],
+  ].filter(([, value]) => Boolean(value));
 
   return (
     <div className="min-h-screen bg-[#F4F5F7] font-sans pb-20 print:pb-0 print:bg-white">
@@ -148,7 +161,38 @@ export default function ReportPage() {
 
       <div className="max-w-6xl mx-auto px-6 pt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          
+
+          {isLimitedScan && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 flex items-start gap-3 break-inside-avoid">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-black text-amber-800 uppercase tracking-wide">Limited Scan</h3>
+                <p className="text-sm text-amber-700 font-medium mt-1">
+                  {aiResults.limitedScanReason || "Extraction confidence was too low to reliably scan this document."}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {isPartialOcrScan && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 flex items-start gap-3 break-inside-avoid">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-black text-amber-800 uppercase tracking-wide">Limited Scan — Partial OCR Scan</h3>
+                <p className="text-sm text-amber-700 font-medium mt-1">
+                  {aiResults.partialOcrReason || "This PDF appears scanned/image-based and could only be partially OCR-processed."}
+                </p>
+                <ul className="text-sm text-amber-700 font-medium mt-3 space-y-1 list-disc list-inside">
+                  <li>This PDF appears scanned or image-based, not a native text document.</li>
+                  <li>Total pages detected: {aiResults.ocrTotalPages ?? "unknown"}</li>
+                  <li>Pages OCR-processed: {aiResults.ocrPagesProcessed ?? "unknown"}</li>
+                  <li>Clauses on pages after the OCR cap may not have been reviewed and are not reflected below.</li>
+                  <li>For a complete analysis, upload a text-based PDF, a DOCX/TXT file, or paste the full contract text.</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between mb-2 border-b border-slate-200 pb-2">
             <div className="flex items-center gap-2">
                 <ShieldAlert className="w-5 h-5 text-[#1A3668]" />
@@ -168,7 +212,11 @@ export default function ReportPage() {
             <div className="bg-white rounded-xl border border-emerald-200 p-10 text-center shadow-sm break-inside-avoid">
               <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
               <h3 className="text-lg font-black text-[#1A3668] uppercase">No Critical Flags Detected</h3>
-              <p className="text-sm text-slate-500 font-medium mt-2">The system did not detect any of the targeted primary liabilities in this document.</p>
+              <p className="text-sm text-slate-500 font-medium mt-2">
+                {isPartialOcrScan
+                  ? "The system did not detect any targeted liabilities on the pages that could be OCR-processed — see the Partial OCR Scan notice above, since this is not a complete document review."
+                  : "The system did not detect any of the targeted primary liabilities in this document."}
+              </p>
             </div>
           ) : (
             primaryTraps.map((trap: any, index: number) => (
@@ -236,6 +284,22 @@ export default function ReportPage() {
         </div>
 
         <div className="space-y-6">
+          {anchorEntries.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm break-inside-avoid">
+              <div className="px-6 py-3 border-b border-slate-100">
+                <h2 className="text-sm font-black text-[#1A3668] uppercase tracking-widest">Document Anchors</h2>
+              </div>
+              <dl className="p-6 space-y-3">
+                {anchorEntries.map(([label, value]) => (
+                  <div key={label as string}>
+                    <dt className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</dt>
+                    <dd className="text-sm text-slate-700 font-medium mt-0.5">{value as string}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
+
             <div className="flex items-center gap-2 mb-2 border-b border-slate-200 pb-2">
                 <h2 className="text-sm font-black text-[#1A3668] uppercase tracking-widest">Consolidated PM Pushback Memo</h2>
             </div>
