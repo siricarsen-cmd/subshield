@@ -45,11 +45,12 @@ export default function ReportPage() {
           return;
         }
 
-        // 3. Fetch Report
+        // 3. Fetch Report (scoped to the authenticated owner)
         const { data: reportData, error: reportError } = await supabase
           .from('contract_audits')
           .select('*')
           .eq('id', documentId)
+          .eq('user_id', user.id)
           .single();
 
         if (reportError) throw new Error(reportError.message);
