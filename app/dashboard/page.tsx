@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { UploadCloud, FileText, CheckCircle, AlertCircle, Loader2, Building2, CreditCard, LayoutDashboard, LogOut } from "lucide-react";
+import { UploadCloud, FileText, CheckCircle, AlertCircle, Loader2, Building2, CreditCard, LayoutDashboard, LogOut, Trash2, X } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
 // Uses environment variables first, falls back to your temporary bypass keys if needed
@@ -24,6 +24,12 @@ export default function DashboardPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
   const [audits, setAudits] = useState<any[]>([]);
+
+  // --- DELETE REVIEW STATE ---
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // --- INITIALIZATION ---
   useEffect(() => {
@@ -97,6 +103,52 @@ export default function DashboardPage() {
     }
   };
 
+  // --- DELETE REVIEW LOGIC ---
+  const openDeleteModal = (audit: any) => {
+    setDeleteTarget(audit);
+    setDeleteConfirmText("");
+    setDeleteError(null);
+  };
+
+  const closeDeleteModal = () => {
+    if (isDeleting) return;
+    setDeleteTarget(null);
+    setDeleteConfirmText("");
+    setDeleteError(null);
+  };
+
+  const handleDeleteReview = async () => {
+    if (!deleteTarget || deleteConfirmText !== "DELETE") return;
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No active session found.");
+
+      const response = await fetch('/api/delete-review', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ id: deleteTarget.id }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to delete review.");
+
+      setAudits((prev) => prev.filter((a) => a.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      setDeleteConfirmText("");
+    } catch (error: any) {
+      setDeleteError(error.message || "Delete failed. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // --- UPLOAD LOGIC ---
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -145,7 +197,7 @@ export default function DashboardPage() {
       // 2. Create Registry Record
       const { data: insertData, error: dbError } = await supabase
         .from('contract_audits')
-        .insert([{ user_id: user.id, file_name: file.name, status: 'Processing' }])
+        .insert([{ user_id: user.id, file_name: file.name, status: 'Processing', file_path: filePath }])
         .select();
 
       if (dbError) throw dbError;
@@ -330,9 +382,18 @@ export default function DashboardPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <Link href={`/report/${audit.id}`} className="text-xs font-bold text-[#FF5F1F] hover:underline uppercase tracking-wide">
-                            View Report
-                          </Link>
+                          <div className="flex items-center justify-end gap-4">
+                            <Link href={`/report/${audit.id}`} className="text-xs font-bold text-[#FF5F1F] hover:underline uppercase tracking-wide">
+                              View Report
+                            </Link>
+                            <button
+                              onClick={() => openDeleteModal(audit)}
+                              className="text-slate-400 hover:text-red-600 transition-colors"
+                              title="Delete review"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -344,6 +405,53 @@ export default function DashboardPage() {
 
         </div>
       </main>
+
+      {/* Delete Review Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide">Delete Review</h3>
+              <button onClick={closeDeleteModal} disabled={isDeleting} className="text-slate-400 hover:text-slate-600 disabled:opacity-50">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-600 font-medium mb-1">
+              This will permanently delete this review, uploaded contract files, and generated report from your SubShield dashboard. This cannot be undone. Payment records may still be retained for billing/accounting purposes.
+            </p>
+            <p className="text-xs text-slate-500 font-medium mb-4">
+              Type <span className="font-black text-slate-700">DELETE</span> below to confirm.
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              disabled={isDeleting}
+              placeholder="DELETE"
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm font-bold focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 disabled:bg-slate-50 mb-4"
+            />
+            {deleteError && (
+              <p className="text-xs font-bold text-red-600 mb-4">{deleteError}</p>
+            )}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={closeDeleteModal}
+                disabled={isDeleting}
+                className="text-xs font-black uppercase tracking-wider text-slate-500 hover:text-slate-700 px-4 py-2.5 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteReview}
+                disabled={deleteConfirmText !== "DELETE" || isDeleting}
+                className="bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase tracking-wider py-2.5 px-6 rounded-lg transition disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? "Deleting..." : "Delete Review"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
