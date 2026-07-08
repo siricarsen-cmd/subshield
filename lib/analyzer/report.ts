@@ -41,6 +41,17 @@ function normalizeForDedupe(s: string): string {
   return s.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+// Regulation labels that all describe the same underlying "indemnity" risk
+// even when the LLM and the deterministic detector (or two LLM findings)
+// phrase the label slightly differently ("Broad Indemnification / Duty to
+// Defend" vs. "Indemnification and Hold Harmless Clause") or quote different
+// sentences from the same clause that aren't literal substrings of each
+// other. Scoped to this single keyword family on purpose - it must not catch
+// termination, cure period, liability cap, continue-performance, payment
+// contingency, or dispute-related regulation labels, which stay independently
+// reportable per-clause.
+const INDEMNITY_LABEL_RE = /indemnif|duty\s+to\s+defend|hold\s+harmless/i;
+
 // Two findings describe the same underlying risk (not just the same family)
 // when their quoted evidence is near-identical or one is a substring of the
 // other, or when the model gave them the same regulation/risk label. This
@@ -57,6 +68,15 @@ function isSameRisk(a: Finding, b: Finding): boolean {
   const ra = normalizeForDedupe(a.regulation);
   const rb = normalizeForDedupe(b.regulation);
   if (ra && rb && ra === rb) return true;
+
+  if (
+    a.familyKey === "liability" &&
+    b.familyKey === "liability" &&
+    INDEMNITY_LABEL_RE.test(a.regulation) &&
+    INDEMNITY_LABEL_RE.test(b.regulation)
+  ) {
+    return true;
+  }
 
   return false;
 }
@@ -154,7 +174,7 @@ export async function runAnalyzer(
 
   const documentAnchors = extractAnchorCandidates(documentText, fileName);
   const classification = classifyContract(documentText);
-  const families = selectDetectorFamilies(classification);
+  const families = selectDetectorFamilies(classification, documentText);
 
   const rawFindings = await runGroundedDetectors(documentText, families);
   // Deterministic candidates are a recall net for well-known GovCon traps -

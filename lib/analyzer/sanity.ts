@@ -37,11 +37,18 @@ function violatesContradictionGuard(finding: Finding, documentText: string): str
   if (isVagueWorkshareFinding) {
     const isFFPWithDefinedPrice =
       /firm[\s-]fixed[\s-]price|\bFFP\b/i.test(flatDocText) && /\$[\d,]+(?:\.\d{2})?/.test(flatDocText);
-    const hasSeparateNoGuaranteeLanguage = /(?:no\s+guarantee|does\s+not\s+guarantee)[^.]{0,80}(?:quantity|quantities|workshare|work\s+share)/i.test(
-      flatDocText
-    );
+    // Noun list mirrors the deterministic "No Guaranteed Workshare, Hours, or
+    // Revenue" trigger pattern in deterministic.ts - it used to only check for
+    // quantity/workshare nouns, which meant a real "no guaranteed hours/task
+    // assignments/revenue/level of effort" finding on an FFP-priced document
+    // was wrongly suppressed here as unsupported, even though the exact same
+    // sentence is what triggered the finding in the first place.
+    const hasSeparateNoGuaranteeLanguage =
+      /(?:no\s+(?:guarantee|guaranty)|does?\s+not\s+guarantee|does?\s+not\s+create|does?\s+not\s+represent)[^.]{0,150}(?:hours|work\s+packages|task\s+assignments|task\s+orders|revenue|workshare|work\s+share|level\s+of\s+effort|quantity|quantities|volume|minimum\s+payment)/i.test(
+        flatDocText
+      );
     if (isFFPWithDefinedPrice && !hasSeparateNoGuaranteeLanguage) {
-      return "Document is firm-fixed-price with a defined total price and no separate no-guarantee quantity/workshare language; vague-workshare finding suppressed.";
+      return "Document is firm-fixed-price with a defined total price and no separate no-guarantee hours/workshare/revenue language; vague-workshare finding suppressed.";
     }
   }
 

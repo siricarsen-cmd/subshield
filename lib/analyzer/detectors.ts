@@ -16,7 +16,7 @@ export const DETECTOR_FAMILIES: DetectorFamily[] = [
     key: "payment",
     label: "Payment, Workshare, Notice Deadlines, Funding",
     description:
-      "Pay-if-paid, pay-when-paid, or any clause making Subcontractor's right to payment contingent on the Prime actually receiving funds from the Government/Owner; no guaranteed workshare, minimum hours, task assignments, or revenue (estimate-only or requirements-style language with no minimum commitment); short or strict notice-of-claim / change-order notice deadlines (e.g. a specific number of business or calendar days) that waive Subcontractor's right to compensation or a time extension if missed; retainage and delayed release; invoice rejection windows; strict billing system requirements; Net 45/60 delay; DCAA/DCMA audit-dependent final payment; incremental funding/limitation of funds; work beyond funded amount at sub's risk; withholding; final lien waiver/release-of-claims traps.",
+      "Pay-if-paid, pay-when-paid, or any clause making Subcontractor's right to payment contingent on the Prime actually receiving funds from the Government/Owner (including language stating Prime has no obligation to pay amounts not received from the Government); no guaranteed workshare, minimum hours, work packages, task assignments, task orders, revenue, or level of effort (estimate-only or requirements-style language with no minimum commitment); short or strict notice-of-claim / change-order notice deadlines (e.g. a specific number of business or calendar days) that waive Subcontractor's right to compensation or a time extension if missed; broad Prime rights to set off, backcharge, deduct, charge back, reduce payment for, or withhold amounts owed to Subcontractor for costs, damages, or claims; retainage and delayed release; invoice rejection windows; strict billing system requirements; Net 45/60 delay; DCAA/DCMA audit-dependent final payment; incremental funding/limitation of funds; work beyond funded amount at sub's risk; withholding; final lien waiver/release-of-claims traps.",
   },
   {
     key: "flowdowns",
@@ -40,7 +40,7 @@ export const DETECTOR_FAMILIES: DetectorFamily[] = [
     key: "data-rights",
     label: "Data Rights, IP, Software, Technical Data",
     description:
-      "Unlimited rights by default, Government purpose rights, limited/restricted rights, failure to list pre-existing IP, failure to mark proprietary data, deferred delivery/ordering, technical data payment withholding, software documentation rights, broad license grants to prime/Government/customer.",
+      "Unlimited rights by default, Government purpose rights, limited/restricted rights, failure to list pre-existing IP, failure to mark proprietary data, deferred delivery/ordering, technical data payment withholding, software documentation rights, broad license grants to prime/Government/customer; broad Prime ownership or use rights over Subcontractor deliverables, templates, scripts, mappings, workflow notes, pre-existing tools, or other work product beyond what was actually built for this subcontract.",
   },
   {
     key: "construction",
@@ -64,7 +64,7 @@ export const DETECTOR_FAMILIES: DetectorFamily[] = [
     key: "liability",
     label: "Liability, Indemnity, Disputes, Termination",
     description:
-      "Broad indemnity and duty to defend, including indemnity for alleged violations/noncompliance or third-party claims regardless of Prime's own fault; uncapped liability; consequential damage waiver; a liability cap that limits Prime's exposure to Subcontractor to only the amounts Prime actually received/receives from the Government (report this even if the rest of the document is otherwise favorable); termination for convenience that favors Prime; a stated default-cure period (a specific number of calendar or business days to cure before Prime may terminate for default), especially when paired with broad/immediate termination discretion; an obligation for Subcontractor to continue performing without interruption despite a payment delay, withholding, or dispute between the parties; venue/arbitration; attorney fees; one-sided assignment or remedies; release of claims. Treat each of these as a separate, distinct, independently-reportable risk even when several appear in the same document - do not merge them into a single finding.",
+      "Broad indemnity and duty to defend, including indemnity for alleged violations/noncompliance or third-party claims regardless of Prime's own fault; uncapped liability; consequential damage waiver; a liability cap that limits Prime's exposure to Subcontractor to only the amounts Prime actually received/receives from the Government (report this even if the rest of the document is otherwise favorable); termination for convenience that favors Prime; a stated default-cure period (a specific number of calendar or business days to cure before Prime may terminate for default), especially when paired with broad/immediate termination discretion; an obligation for Subcontractor to continue performing without interruption despite a payment delay, withholding, or dispute between the parties; out-of-state or otherwise burdensome governing law, forum-selection, venue, arbitration, or dispute-resolution procedures; Prime or Government acceptance language allowing rejection, correction, replacement, re-performance, or rework of Subcontractor's work without clear compensation to Subcontractor; attorney fees; one-sided assignment or remedies; release of claims. Treat each of these as a separate, distinct, independently-reportable risk even when several appear in the same document - do not merge them into a single finding.",
   },
   {
     key: "personnel",
@@ -107,9 +107,23 @@ export const DETECTOR_FAMILIES: DetectorFamily[] = [
 // coverage gap; the switch below now only adds sector-specific families.
 const BASELINE_FAMILIES = ["structure", "liability", "payment", "flowdowns"];
 
+// Sector-independent recall gates: cyber/CUI/DFARS obligations, wage/labor-standards
+// triggers, and IP/data-rights ownership language can all appear in a document whose
+// *dominant* sector score lands elsewhere (e.g. a Construction subcontract that also
+// touches a DoD facility's CUI, or a Professional Services subcontract with a broad
+// IP assignment clause). The sector switch below only added these families for a
+// handful of dominant sectors, so a real trigger phrase in an off-sector document
+// meant the LLM was never even told to look - it couldn't report what it wasn't
+// asked to check. These regexes only ADD families (raise recall); they never remove
+// one, and every resulting finding still has to pass verifyFindings()'s exact-quote
+// check plus the existing sanity.ts contradiction guards before it can surface.
+const CYBER_TRIGGER = /252\.204-7012|252\.204-7019|252\.204-7020|252\.204-7021|DFARS\s*252\.204|NIST\s*SP\s*800-171|CMMC|controlled\s+unclassified\s+information|\bCUI\b|\bCDI\b|\bDD\s*254\b|cyber\s+incident\s+report/i;
+const LABOR_STANDARDS_TRIGGER = /davis[\s-]bacon|construction\s+wage\s+rate|certified\s+payroll|wage\s+determination|service\s+contract\s+labor\s+standards|service\s+contract\s+act|52\.222-41|52\.222-6/i;
+const DATA_RIGHTS_TRIGGER = /data\s+rights|intellectual\s+property|pre[\s-]existing\s+(?:ip|intellectual\s+property|tool|materials)|unlimited\s+rights|government\s+purpose\s+rights|limited\s+rights|restricted\s+rights|technical\s+data|work\s+product|deliverables?[^.\n]{0,40}(?:owned|ownership)/i;
+
 // Prioritizes the risk families that matter for the classified contract type/sector
 // instead of blindly applying the entire taxonomy to every document.
-export function selectDetectorFamilies(classification: ContractClassification): DetectorFamily[] {
+export function selectDetectorFamilies(classification: ContractClassification, documentText?: string): DetectorFamily[] {
   const keys = new Set<string>(BASELINE_FAMILIES);
 
   switch (classification.sector) {
@@ -127,11 +141,21 @@ export function selectDetectorFamilies(classification: ContractClassification): 
       break;
   }
 
-  if (classification.contractType === "T&M" || classification.contractType === "Labor-Hour") {
+  if (
+    classification.contractType === "T&M" ||
+    classification.contractType === "Labor-Hour" ||
+    classification.contractType === "Hybrid (FFP / T&M)"
+  ) {
     keys.add("audit");
   }
   if (classification.contractType === "IDIQ") {
     keys.add("small-business");
+  }
+
+  if (documentText) {
+    if (CYBER_TRIGGER.test(documentText)) keys.add("cyber");
+    if (LABOR_STANDARDS_TRIGGER.test(documentText)) keys.add("labor");
+    if (DATA_RIGHTS_TRIGGER.test(documentText)) keys.add("data-rights");
   }
 
   return DETECTOR_FAMILIES.filter((f) => keys.has(f.key));
