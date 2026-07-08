@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, ShieldAlert, AlertTriangle, CheckCircle, Copy, CreditCard, Activity, Info } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, AlertTriangle, CheckCircle, Copy, CreditCard, Activity, Info, Download } from 'lucide-react';
 
 // --- KEYS ---
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fqwkvyypjnxkiojbubdf.supabase.co";
@@ -157,6 +157,13 @@ export default function ReportPage() {
                 </p>
             </div>
           </div>
+
+          <button
+            onClick={() => window.print()}
+            className="print:hidden flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-wider py-3 px-6 rounded-lg transition whitespace-nowrap"
+          >
+            <Download className="w-4 h-4" /> Download Attorney Prep Briefing
+          </button>
         </div>
       </div>
 

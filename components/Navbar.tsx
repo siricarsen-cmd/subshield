@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function Navbar() {
   return (
-    <nav className="bg-white text-slate-900 border-b border-slate-100 sticky top-0 z-50 shadow-sm">
+    <nav className="bg-white text-slate-900 border-b border-slate-100 sticky top-0 z-50 shadow-sm print:hidden">
       {/* Container height is kept at h-20 to keep standard spacing alignment intact */}
       <div className="max-w-7xl mx-auto px-6 flex justify-between items-center h-20">
         
