@@ -13,7 +13,7 @@ function score(text: string, patterns: ScoredPattern[]): number {
   return patterns.reduce((sum, { pattern, weight }) => (pattern.test(text) ? sum + weight : sum), 0);
 }
 
-const CONTRACT_TYPE_SCORES: Record<Exclude<ContractType, "Unknown">, ScoredPattern[]> = {
+const CONTRACT_TYPE_SCORES: Record<Exclude<ContractType, "Unknown" | "Hybrid (FFP / T&M)">, ScoredPattern[]> = {
   // [\s-]* (not \s*) so hyphenated forms like "Time-and-Materials" still match.
   FFP: [{ pattern: /firm[\s-]*fixed[\s-]*price|\bFFP\b/i, weight: 3 }],
   "T&M": [{ pattern: /time[\s-]*(?:and|&)[\s-]*materials|\bT&M\b/i, weight: 3 }],
@@ -63,7 +63,7 @@ export function classifyContract(documentText: string): ContractClassification {
 
   let bestType: ContractType = "Unknown";
   let bestTypeScore = 0;
-  (Object.keys(CONTRACT_TYPE_SCORES) as Array<Exclude<ContractType, "Unknown">>).forEach((type) => {
+  (Object.keys(CONTRACT_TYPE_SCORES) as Array<Exclude<ContractType, "Unknown" | "Hybrid (FFP / T&M)">>).forEach((type) => {
     const s = score(text, CONTRACT_TYPE_SCORES[type]);
     if (s > bestTypeScore) {
       bestTypeScore = s;
@@ -71,6 +71,24 @@ export function classifyContract(documentText: string): ContractClassification {
     }
   });
   if (bestTypeScore === 0) notes.push("No explicit contract-type phrase found; type classification defaulted to Unknown.");
+
+  // Hybrid override: a document can carry both FFP/deliverable-pricing language
+  // AND time-and-materials/labor-hour payment language at once (e.g. FFP
+  // deliverables billed on a T&M/labor-hour basis). The loop above would pick
+  // whichever type scores highest, and ties always favor FFP because it's
+  // declared first in CONTRACT_TYPE_SCORES - that silently discards real T&M
+  // signal instead of surfacing the hybrid risk. Checked after the loop so it
+  // overrides a single-type win whenever both signal groups are genuinely
+  // present, not just on a score tie.
+  const ffpScore = score(text, CONTRACT_TYPE_SCORES.FFP);
+  const tmOrLaborHourScore = Math.max(score(text, CONTRACT_TYPE_SCORES["T&M"]), score(text, CONTRACT_TYPE_SCORES["Labor-Hour"]));
+  if (ffpScore > 0 && tmOrLaborHourScore > 0) {
+    bestType = "Hybrid (FFP / T&M)";
+    bestTypeScore = ffpScore + tmOrLaborHourScore;
+    notes.push(
+      "Document contains both FFP/deliverable-pricing language and time-and-materials/labor-hour payment language; classified as Hybrid so T&M-heavy risk is not overridden by FFP language."
+    );
+  }
 
   const cyberScore = score(text, CYBER_SIGNALS);
   const constructionScore = score(text, CONSTRUCTION_SIGNALS);

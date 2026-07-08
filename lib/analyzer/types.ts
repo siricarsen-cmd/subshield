@@ -9,6 +9,7 @@ export type ContractType =
   | "FFP"
   | "T&M"
   | "Labor-Hour"
+  | "Hybrid (FFP / T&M)"
   | "CPFF"
   | "Cost-Reimbursement"
   | "IDIQ"

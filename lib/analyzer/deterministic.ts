@@ -36,6 +36,7 @@ const CATEGORIES: DeterministicCategory[] = [
       /shall\s+not\s+be\s+obligated\s+to\s+pay[^.]{0,100}unless\s+(?:and\s+until\s+)?(?:[A-Za-z ]+\s+)?(?:has\s+|have\s+)?receive[sd]/i,
       /receipt\s+of\s+(?:such\s+)?payment\s+from\s+the\s+government\s+is\s+a\s+condition\s+precedent/i,
       /condition\s+precedent\s+to[^.]{0,60}(?:payment|obligation\s+to\s+pay)[^.]{0,80}(?:government|owner)/i,
+      /(?:shall\s+have\s+)?no\s+obligation\s+to\s+pay[^.]{0,120}(?:amounts?|sums?)[^.]{0,80}not\s+received[^.]{0,60}(?:from\s+)?(?:the\s+)?(?:government|owner|customer|prime)/i,
     ],
     riskAnalysis:
       "This clause makes the Subcontractor's right to payment contingent on the Prime actually receiving funds from the Government, shifting the Government's payment risk - including delay, dispute, or non-payment - onto the Subcontractor even though the Subcontractor has no contractual relationship with or visibility into the Government's payment process.",
@@ -200,6 +201,148 @@ const CATEGORIES: DeterministicCategory[] = [
       "This clause requires the Subcontractor to keep performing and funding the work even while payment is delayed, withheld, or disputed, forcing the Subcontractor to carry the Prime's or Government's cash-flow risk with its own working capital.",
     redlineFix:
       "Add a right to suspend performance without penalty if payment is withheld or delayed beyond a defined period, or at minimum a right to interest or added costs for continued performance during an unresolved payment dispute.",
+  },
+  {
+    familyKey: "cyber",
+    regulation: "DFARS 252.204-7012 / CUI / NIST SP 800-171 Cybersecurity Flowdown",
+    severity: "High",
+    patterns: [
+      /DFARS\s*252\.204-7012|252\.204-7012/i,
+      /NIST\s*SP\s*800-171/i,
+      /\bCMMC\b/i,
+      /controlled\s+unclassified\s+information|\bCUI\b|\bCDI\b/i,
+      /cyber\s+incident\s+report(?:ing)?/i,
+    ],
+    riskAnalysis:
+      "This document imposes DFARS 252.204-7012/CUI/NIST SP 800-171/CMMC cybersecurity obligations, which require the Subcontractor to safeguard covered defense information, meet specific incident-reporting deadlines, and flow the same requirements down to lower-tier subcontractors - obligations the Subcontractor cannot fully evaluate or price if the actual cyber attachment, control baseline, or CMMC level requirement is not included in the current package.",
+    redlineFix:
+      "Request the actual DFARS 252.204-7012/CUI/NIST SP 800-171 attachment, incident-reporting timeline, and applicable CMMC level in writing before execution, and confirm the flow-down scope to any lower-tier subcontractors.",
+  },
+  {
+    familyKey: "payment",
+    regulation: "Broad Setoff / Backcharge / Withholding Rights",
+    severity: "Medium-High",
+    patterns: [
+      /Prime(?:\s+Contractor)?\s+may\s+(?:offset|deduct|set[\s-]?off|withhold|charge\s+back|back[\s-]?charge)[^.]{0,150}(?:any\s+(?:costs?|amounts?|sums?|damages?)|from\s+(?:any\s+)?(?:payments?|amounts?\s+(?:due|owed)))/i,
+      /right\s+to\s+(?:offset|set[\s-]?off|deduct|withhold|backcharge|back[\s-]?charge)[^.]{0,150}(?:any\s+(?:amounts?|costs?|sums?)|from\s+(?:any\s+)?payments?)/i,
+      /(?:set[\s-]?off|backcharge|back[\s-]?charge)[^.]{0,150}(?:any\s+(?:amounts?|costs?)|amounts?\s+(?:owed|due)|reduce\s+payment)/i,
+      /Prime(?:\s+Contractor)?\s+(?:shall|may)\s+(?:reduce|withhold)\s+(?:any\s+)?payment[^.]{0,150}(?:cost|damages?|expense|claim)/i,
+    ],
+    riskAnalysis:
+      "This clause gives the Prime broad, largely unilateral rights to offset, backcharge, deduct, or withhold amounts from what it owes the Subcontractor, which can be used to reduce or delay payment based on the Prime's own determination of costs or damages without a neutral process to contest the deduction.",
+    redlineFix:
+      "Narrow the setoff/backcharge right to amounts that are undisputed, documented, and subject to advance written notice and a right to contest before any deduction is taken from payment otherwise due.",
+  },
+  {
+    familyKey: "liability",
+    regulation: "Out-of-State Venue, Governing Law, or Arbitration Burden",
+    severity: "Medium",
+    patterns: [
+      // "governed by the laws of the Commonwealth/State of X" is at least as
+      // common in real subcontracts as the "governing law" heading phrase -
+      // the original pattern only recognized the latter.
+      /(?:governing\s+law|governed\s+by\s+the\s+laws\s+of)[^.]{0,100}(?:State\s+of|Commonwealth\s+of)\s+[A-Z][a-zA-Z]+/i,
+      /(?:exclusive\s+)?(?:venue|jurisdiction)\s+(?:shall\s+be\s+|is\s+|lies\s+|must\s+be\s+)?(?:in|located\s+in)[^.]{0,100}(?:courts?\s+of|State\s+of|County\s+of|Commonwealth\s+of)/i,
+      /binding\s+arbitration/i,
+      /(?:disputes?|claims?)\s+(?:arising[^.]{0,60})?(?:shall\s+be\s+|will\s+be\s+)?(?:resolved|settled|decided)\s+(?:exclusively\s+)?(?:through|by|via)\s+(?:binding\s+)?arbitration/i,
+      // Catches "arbitration, mediation, or court proceeding must be brought
+      // in [County/State/Commonwealth]" phrasing that doesn't use the word
+      // "venue" or "jurisdiction" at all.
+      /(?:arbitration|mediation|court\s+proceeding)[^.]{0,150}(?:must\s+be\s+brought\s+in|shall\s+be\s+brought\s+in|brought\s+in|filed\s+in)[^.]{0,80}(?:County|State|Commonwealth)\b/i,
+      // Prime's unilateral right to pick a different forum than the one
+      // otherwise stated is itself a burden-shifting venue risk.
+      /Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i,
+    ],
+    riskAnalysis:
+      "This governing-law/venue/arbitration clause can require the Subcontractor to litigate or arbitrate disputes in a forum far from its own place of business, increasing the cost and difficulty of pursuing or defending a claim regardless of the claim's merits.",
+    redlineFix:
+      "Negotiate for governing law and venue in the Subcontractor's home state, or at minimum a neutral/mutually convenient forum, and confirm any arbitration provision preserves reasonable discovery and cost-sharing terms.",
+  },
+  {
+    familyKey: "liability",
+    regulation: "Acceptance, Rejection, or Rework Without Clear Compensation",
+    severity: "Medium-High",
+    patterns: [
+      // Cross-sentence pattern first (see notice-waiver/cure-period categories
+      // above for why): real contracts frequently state the correction/
+      // replacement/re-performance trigger (e.g. "Prime determines work does
+      // not meet requirements") in one sentence and the no-additional-cost
+      // consequence in the next adjacent sentence, rather than both in a
+      // single sentence the way the bounded [^.] patterns below assume.
+      /(?:correct(?:ion)?|replace(?:ment)?|re-?perform(?:ance)?|rework)[^.]{0,150}(?:determin(?:es|ed)|does\s+not\s+meet|fails?\s+to\s+meet)[\s\S]{0,250}(?:at\s+no\s+(?:additional\s+)?(?:cost|charge|expense)|without\s+(?:additional\s+)?compensation)/i,
+      /(?:reject(?:ion|ed)?)[^.]{0,100}(?:correct|replace|re-?perform|rework)[^.]{0,150}(?:no\s+(?:additional\s+)?(?:cost|charge|compensation)|at\s+(?:no|its\s+own|Subcontractor's\s+own)\s+(?:cost|expense))/i,
+      // "shall" widened to "will/must/is required to" - real contracts phrase
+      // this obligation multiple ways, and the no-additional-cost language
+      // routinely lands in the same sentence as the correction/rework verb.
+      /Subcontractor\s+(?:shall|will|must|is\s+required\s+to)[^.]{0,100}(?:correct|replace|re-?perform|rework)[^.]{0,150}(?:at\s+no\s+(?:additional\s+)?(?:cost|charge|expense)|without\s+(?:additional\s+)?compensation)/i,
+      /(?:right\s+to\s+reject|may\s+reject)[^.]{0,150}(?:without\s+(?:additional\s+)?(?:cost|compensation|charge)|at\s+(?:no\s+cost|Subcontractor's\s+(?:own\s+)?expense))/i,
+    ],
+    riskAnalysis:
+      "This acceptance/rejection clause lets the Prime or Government reject work and require correction, replacement, or re-performance without clear compensation to the Subcontractor, shifting the cost of rework - including materials, labor, and schedule impact - entirely onto the Subcontractor regardless of cause.",
+    redlineFix:
+      "Add a materiality/defect standard for rejection, a defined compensation or change-order path for rework caused by Prime/Government-directed changes or acceptance criteria ambiguity, and a cap on uncompensated rework scope.",
+  },
+  {
+    familyKey: "labor",
+    regulation: "Missing or Unresolved Wage Determination / Labor Standards Requirement",
+    severity: "Medium",
+    patterns: [
+      /wage\s+determination[^.]{0,100}(?:may\s+apply|will\s+apply|to\s+be\s+(?:determined|issued|provided|incorporated)|not\s+yet\s+(?:issued|available|determined)|is\s+not\s+(?:currently\s+)?(?:attached|included|available))/i,
+      /(?:applicable\s+)?wage\s+determination(?:s)?\s+(?:has|have)\s+not\s+(?:yet\s+)?been\s+(?:issued|incorporated|attached)/i,
+      // "wage determination ... may be provided/issued after award" is a
+      // distinct deferral phrasing from "not yet issued/attached" above -
+      // the requirement isn't stated as missing, just deferred to a later,
+      // unspecified point after signature.
+      /wage\s+determination[^.]{0,150}may\s+be\s+(?:provided|issued|furnished|incorporated)\s+after\s+(?:award|execution|Government\s+direction)/i,
+      // Conditional/uncertain applicability stated BEFORE the trigger term
+      // ("labor that may be subject to federal labor standards, wage
+      // determinations...") rather than after it, which the patterns above
+      // don't catch since they all anchor on "wage determination" as the
+      // sentence subject.
+      /(?:may|could)\s+be\s+subject\s+to[^.]{0,150}(?:wage\s+determinations?|federal\s+labor\s+standards|service\s+contract\s+(?:labor\s+standards|act))/i,
+      /Service\s+Contract\s+(?:Labor\s+Standards|Act)[^.]{0,100}(?:may\s+apply|to\s+be\s+determined|not\s+yet\s+(?:issued|determined|attached))/i,
+    ],
+    riskAnalysis:
+      "The document references a wage determination or Service Contract Labor Standards/Act requirement that may apply but is not yet resolved or attached, leaving the Subcontractor unable to confirm applicable labor classifications, wage rates, or fringe benefit obligations before pricing or staffing the work.",
+    redlineFix:
+      "Require that the applicable wage determination or labor standards clause be attached and finalized before execution, or add a price/schedule adjustment right if a wage determination is issued or changes after award.",
+  },
+  {
+    familyKey: "data-rights",
+    regulation: "Broad Prime Ownership of Subcontractor Deliverables / Work Product",
+    severity: "Medium-High",
+    patterns: [
+      // Wide noun-list gap: real ownership-vesting clauses typically list many
+      // deliverable types (reports, scripts, templates, workflow notes, etc.)
+      // between the triggering noun and the "owned by Prime" outcome.
+      /(?:deliverables?|reports?|work\s+product|technical\s+data|software|documentation)[^.]{0,280}(?:will\s+be|shall\s+be|is|are|become[s]?)\s+owned\s+by\s+(?:the\s+)?Prime(?:\s+Contractor)?/i,
+      /ownership[^.]{0,150}(?:shall|will)\s+(?:vest|belong)\s+in\s+(?:the\s+)?Prime(?:\s+Contractor)?/i,
+      /Prime(?:\s+Contractor)?\s+(?:shall|will)\s+own\s+(?:all\s+)?(?:deliverables?|work\s+product|reports?)/i,
+    ],
+    riskAnalysis:
+      "This clause vests broad ownership of the Subcontractor's deliverables and work product - potentially including tools, templates, and internal work materials created to perform the work - in the Prime, which can restrict the Subcontractor's ability to reuse, license, or build on its own work product on future engagements.",
+    redlineFix:
+      "Narrow ownership to only the specific deliverables actually required by the subcontract's statement of work, and add a carve-out confirming the Subcontractor retains ownership of its pre-existing tools, templates, and methodologies plus a license to reuse general know-how developed during performance.",
+  },
+  {
+    familyKey: "data-rights",
+    regulation: "Conditioned Pre-Existing IP Retention / Unpaid Use of Improvements",
+    severity: "Medium-High",
+    patterns: [
+      // "Subcontractor retains ownership of pre-existing X only if [advance
+      // written identification/approval]" - a real reservation-of-rights
+      // clause that is conditioned away unless the Subcontractor takes a
+      // specific procedural step before use.
+      /pre[\s-]existing\s+(?:ip|intellectual\s+property|tools?|materials|methods|know[\s-]how)[^.]{0,200}only\s+if[^.]{0,150}(?:identif|disclos|approve[sd]?|written\s+approval)/i,
+      // Broad free-use grant over Subcontractor-created improvements/
+      // adaptations, independent of whether the pre-existing-IP conditional
+      // clause above is also present in the document.
+      /(?:may\s+be\s+used\s+by|Prime(?:\s+Contractor)?\s+may\s+use)[^.]{0,150}without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)/i,
+    ],
+    riskAnalysis:
+      "This clause conditions the Subcontractor's retention of its own pre-existing tools, methods, and background materials on an advance written identification-and-approval process, and separately allows the Prime to use Subcontractor-created improvements or adaptations without additional payment - together these can shift ownership or free use of the Subcontractor's proprietary work product to the Prime by default.",
+    redlineFix:
+      "Remove the advance-approval condition on retaining ownership of pre-existing IP (a general reservation-of-rights list attached to the subcontract is sufficient), and add a payment or licensing-fee right for Prime's use of any Subcontractor improvements or adaptations beyond the specific deliverables priced under this subcontract.",
   },
 ];
 
