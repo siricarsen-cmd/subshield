@@ -80,7 +80,7 @@ export default function BlogDashboardPage() {
                 href="/login" 
                 className="w-full sm:w-auto px-6 py-3 bg-[#FF5F1F] hover:bg-[#E04F1A] text-white text-xs font-black uppercase tracking-wider rounded-xl transition shadow-md"
               >
-                Start Free Triage Scan
+                Review Your Prime Package
               </a>
               <a 
                 href="/sample-report" 

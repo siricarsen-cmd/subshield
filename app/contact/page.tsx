@@ -54,11 +54,11 @@ export default function ContactPage() {
                 </li>
                 <li className="flex items-start">
                   <span className="text-[#FF5F1F] mr-2 mt-0.5">•</span> 
-                  <span>You have questions about our $149.99 single scan, $249 monthly subscription, or enterprise plans</span>
+                  <span>You have questions about our $149.99 Single Review Cycle, $249 Active Bidder Plan, or Enterprise Plan</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-[#FF5F1F] mr-2 mt-0.5">•</span> 
-                  <span>You need coordination help with an amended-document follow-up review</span>
+                  <span>You have questions before starting a new review for a revised or updated document</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-[#FF5F1F] mr-2 mt-0.5">•</span> 
