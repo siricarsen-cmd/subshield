@@ -4,18 +4,65 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UploadCloud, FileText, CheckCircle, AlertCircle, Loader2, Building2, CreditCard, LayoutDashboard, LogOut, Trash2, X } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type User } from "@supabase/supabase-js";
 
 // Uses environment variables first, falls back to your temporary bypass keys if needed
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fqwkvyypjnxkiojbubdf.supabase.co";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_o4tvWZUZF3eLv6nfjRs95A_KdNMAvHA";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+const ALLOWED_EXTENSIONS = ["pdf", "docx", "txt"];
+// DOCX MIME reporting is inconsistent across browsers/OS (sometimes
+// application/octet-stream), so extension is checked first and MIME is only
+// a secondary signal - see isSupportedFile below.
+const ALLOWED_MIME_TYPES = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+];
+const MAX_PASTED_TEXT_LENGTH = 200_000;
+
+interface AuditRow {
+  id: string;
+  file_name: string;
+  status: string;
+  file_path?: string | null;
+  ai_results?: unknown;
+  created_at?: string;
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function isSupportedFile(file: File): { ok: true } | { ok: false; message: string } {
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+
+  if (extension === "doc") {
+    return {
+      ok: false,
+      message: "Legacy .doc files are not supported. Please save as .docx, export as PDF, or paste the contract text below instead.",
+    };
+  }
+
+  const extensionOk = ALLOWED_EXTENSIONS.includes(extension);
+  const mimeOk = ALLOWED_MIME_TYPES.includes(file.type);
+
+  if (!extensionOk && !mimeOk) {
+    return {
+      ok: false,
+      message: "Unsupported format. Please upload a PDF, DOCX, or TXT file, or paste the contract text below.",
+    };
+  }
+
+  return { ok: true };
+}
+
 export default function DashboardPage() {
   const router = useRouter();
 
   // --- AUTH & BILLING STATE ---
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loadingBilling, setLoadingBilling] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -23,13 +70,29 @@ export default function DashboardPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
-  const [audits, setAudits] = useState<any[]>([]);
+  const [audits, setAudits] = useState<AuditRow[]>([]);
+
+  // --- PASTED TEXT STATE ---
+  const [pasteText, setPasteText] = useState("");
+  const [isPasting, setIsPasting] = useState(false);
 
   // --- DELETE REVIEW STATE ---
-  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AuditRow | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const fetchAudits = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('contract_audits')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      setAudits(data);
+    }
+  };
 
   // --- INITIALIZATION ---
   useEffect(() => {
@@ -45,18 +108,6 @@ export default function DashboardPage() {
     };
     getUserAndData();
   }, []);
-
-  const fetchAudits = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('contract_audits')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (!error && data) {
-      setAudits(data);
-    }
-  };
 
   // --- BILLING PORTAL LOGIC ---
   const handleManageBilling = async () => {
@@ -83,8 +134,8 @@ export default function DashboardPage() {
       if (data.url) {
         window.location.href = data.url;
       }
-    } catch (error: any) {
-      alert("Billing access failed: " + error.message);
+    } catch (error: unknown) {
+      alert("Billing access failed: " + getErrorMessage(error, "Please try again."));
     } finally {
       setLoadingBilling(false);
     }
@@ -97,14 +148,14 @@ export default function DashboardPage() {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       router.push("/login");
-    } catch (error: any) {
-      alert("Sign out failed: " + (error?.message || "Please try again."));
+    } catch (error: unknown) {
+      alert("Sign out failed: " + getErrorMessage(error, "Please try again."));
       setLoggingOut(false);
     }
   };
 
   // --- DELETE REVIEW LOGIC ---
-  const openDeleteModal = (audit: any) => {
+  const openDeleteModal = (audit: AuditRow) => {
     setDeleteTarget(audit);
     setDeleteConfirmText("");
     setDeleteError(null);
@@ -142,8 +193,8 @@ export default function DashboardPage() {
       setAudits((prev) => prev.filter((a) => a.id !== deleteTarget.id));
       setDeleteTarget(null);
       setDeleteConfirmText("");
-    } catch (error: any) {
-      setDeleteError(error.message || "Delete failed. Please try again.");
+    } catch (error: unknown) {
+      setDeleteError(getErrorMessage(error, "Delete failed. Please try again."));
     } finally {
       setIsDeleting(false);
     }
@@ -177,8 +228,9 @@ export default function DashboardPage() {
       return;
     }
 
-    if (file.type !== "application/pdf") {
-      setUploadStatus({ type: 'error', msg: 'Please upload a valid PDF document.' });
+    const check = isSupportedFile(file);
+    if (!check.ok) {
+      setUploadStatus({ type: 'error', msg: check.message });
       return;
     }
 
@@ -237,11 +289,83 @@ export default function DashboardPage() {
         throw new Error(aiData.error || "AI Engine failed to process document.");
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
       setUploadStatus({ type: 'error', msg: 'Upload or processing failed. Please try again.' });
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  // --- PASTED TEXT LOGIC ---
+  // Same grounded analyzer pipeline as processUpload above - just skips file
+  // extraction/Storage and sends the raw text straight to /api/analyze-contract.
+  const processPastedText = async () => {
+    if (!user) {
+      setUploadStatus({ type: 'error', msg: 'You must be logged in to submit contract text.' });
+      return;
+    }
+
+    const trimmed = pasteText.trim();
+    if (!trimmed) {
+      setUploadStatus({ type: 'error', msg: 'Please paste some contract text first.' });
+      return;
+    }
+    if (trimmed.length > MAX_PASTED_TEXT_LENGTH) {
+      setUploadStatus({ type: 'error', msg: `Pasted text is too long (max ${MAX_PASTED_TEXT_LENGTH.toLocaleString()} characters). Please split it up or upload a file instead.` });
+      return;
+    }
+
+    setIsPasting(true);
+    setUploadStatus(null);
+
+    try {
+      const fileName = "Pasted contract text";
+
+      // 1. Create Registry Record (no Storage file_path - there's no file)
+      const { data: insertData, error: dbError } = await supabase
+        .from('contract_audits')
+        .insert([{ user_id: user.id, file_name: fileName, status: 'Processing' }])
+        .select();
+
+      if (dbError) throw dbError;
+
+      const newRecordId = insertData[0].id;
+
+      setUploadStatus({ type: 'success', msg: 'Pasted text submitted. Engine is scanning for risks...' });
+      await fetchAudits(user.id);
+
+      // 2. Send raw text to the same AI Parsing Route as file uploads
+      const aiResponse = await fetch('/api/analyze-contract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: trimmed, fileName }),
+      });
+
+      const aiData = await aiResponse.json();
+
+      if (aiResponse.ok) {
+        // 3. Update Database status to 'Review Ready' AND save the AI data
+        await supabase
+          .from('contract_audits')
+          .update({
+            status: 'Review Ready',
+            ai_results: aiData.result
+          })
+          .eq('id', newRecordId);
+
+        await fetchAudits(user.id);
+        setUploadStatus({ type: 'success', msg: 'Pasted text review complete.' });
+        setPasteText("");
+      } else {
+        throw new Error(aiData.error || "AI Engine failed to process pasted text.");
+      }
+
+    } catch (error: unknown) {
+      console.error(error);
+      setUploadStatus({ type: 'error', msg: 'Pasted text processing failed. Please try again.' });
+    } finally {
+      setIsPasting(false);
     }
   };
 
@@ -328,9 +452,9 @@ export default function DashboardPage() {
                     <UploadCloud className={`w-8 h-8 ${isDragging ? 'text-[#FF5F1F]' : 'text-slate-400'}`} />
                   </div>
                   <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide">Drag & Drop Contract File</h3>
-                  <p className="text-xs font-medium text-slate-500 mt-2 mb-6">Supported format: Secure PDF</p>
-                  
-                  <input type="file" accept="application/pdf" className="hidden" id="file-upload" onChange={handleFileSelect} />
+                  <p className="text-xs font-medium text-slate-500 mt-2 mb-6">Supported formats: PDF, DOCX, or TXT</p>
+
+                  <input type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" className="hidden" id="file-upload" onChange={handleFileSelect} />
                   <label htmlFor="file-upload" className="cursor-pointer inline-flex items-center gap-2 bg-[#FF5F1F] hover:bg-[#E04F1A] text-white text-xs font-black uppercase tracking-wider py-2.5 px-6 rounded-lg transition shadow-sm">
                     Browse Local Files
                   </label>
@@ -346,6 +470,32 @@ export default function DashboardPage() {
                 <p className="text-xs font-bold">{uploadStatus.msg}</p>
               </div>
             )}
+          </section>
+
+          {/* Paste Contract Text */}
+          <section>
+            <h2 className="text-sm font-black text-[#1A3668] uppercase tracking-widest mb-4">Or Paste Contract Text</h2>
+            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+              <textarea
+                value={pasteText}
+                onChange={(e) => setPasteText(e.target.value)}
+                disabled={isPasting}
+                placeholder="Paste subcontract clauses, solicitation language, or email pushback text here..."
+                className="w-full min-h-[160px] p-4 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] disabled:bg-slate-50 disabled:text-slate-400 font-mono resize-none"
+              />
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mt-3">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  {pasteText.trim().length.toLocaleString()} / {MAX_PASTED_TEXT_LENGTH.toLocaleString()} characters
+                </span>
+                <button
+                  onClick={processPastedText}
+                  disabled={isPasting || !pasteText.trim()}
+                  className="bg-[#FF5F1F] hover:bg-[#E04F1A] text-white text-xs font-black uppercase tracking-wider py-2.5 px-6 rounded-lg transition disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed w-full sm:w-auto"
+                >
+                  {isPasting ? "Scanning..." : "Run Triage On Pasted Text"}
+                </button>
+              </div>
+            </div>
           </section>
 
           {/* Registry Table */}
