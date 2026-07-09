@@ -31,12 +31,14 @@ export default function LoginPage() {
     }
 
     // 2. SUCCESS: Trigger the server-side claim logic
-    if (data.user) {
+    if (data.session) {
       try {
         await fetch('/api/auth/claim', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, userId: data.user.id }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${data.session.access_token}`,
+          },
         });
       } catch (err) {
         console.error("Credit claim background process failed:", err);
