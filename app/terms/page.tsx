@@ -61,7 +61,7 @@ export default function DocumentTermsPage() {
                 <li>Solicitation documents</li>
                 <li>Flow-down or contract requirement paths</li>
                 <li>Proposal-stage commitments</li>
-                <li>Amended document review updates</li>
+                <li>Revised or amended subcontract documents</li>
               </ul>
             </div>
             <p className="text-[11px] font-medium text-slate-400 italic pt-4 mt-4 border-t border-slate-50">
@@ -124,8 +124,8 @@ export default function DocumentTermsPage() {
             </div>
 
             <div className="space-y-1.5">
-              <h4 className="font-black text-slate-800 uppercase tracking-tight">Follow-Up Reviews</h4>
-              <p>Your SubShield Review Cycle includes up to two amended-document follow-up reviews. If the prime contractor sends a revised version, SubShield compares the amended document against the original concerns to help identify what changed, what improved, what remains unresolved, and whether new liabilities were introduced.</p>
+              <h4 className="font-black text-slate-800 uppercase tracking-tight">Revised or Amended Documents</h4>
+              <p>If a prime contractor sends a revised or amended document, the user may start a new review using an available credit or applicable paid review. SubShield does not currently provide an automated comparison workflow that links a revised document to a prior report or guarantees that prior concerns will be tracked as resolved, unresolved, or newly introduced.</p>
             </div>
 
             <div className="space-y-1.5 border-t border-slate-100 pt-4 md:pt-0 md:border-t-0">

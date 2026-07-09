@@ -40,7 +40,7 @@ export default function SampleReportPage() {
             <ShieldAlert className="w-6 h-6 text-red-600" />
             <div>
               <div className="text-sm font-black text-red-700 uppercase tracking-tight">8 Active Liability Flags Isolated</div>
-              <div className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Immediate PM Review Required</div>
+              <div className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Attorney Review Recommended Before Signing</div>
             </div>
           </div>
         </div>

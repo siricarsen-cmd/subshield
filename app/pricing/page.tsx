@@ -57,7 +57,7 @@ export default function PricingPage() {
     },
     {
       q: "How do the credits and packages work?",
-      a: "A single project scan credit covers one complete document ingestion and analysis cycle. The Monthly Subscription provides 3 processing credits per month, while the Enterprise Plan provides 30 processing credits per year. Unused credits never expire and roll over continuously, letting your team pull a report on project emails, Teaming Agreements, or formal prime subcontracts whenever a new opportunity arises."
+      a: "A Single Review Cycle credit covers one complete document ingestion and analysis cycle. The Active Bidder Plan provides 3 processing credits per month, while the Enterprise Plan provides 30 processing credits per year. Unused credits never expire and roll over continuously, letting your team pull a report on project emails, Teaming Agreements, or formal prime subcontracts whenever a new opportunity arises."
     },
     {
       q: "What types of documents do you analyze?",
@@ -89,7 +89,7 @@ export default function PricingPage() {
           <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm flex flex-col justify-between hover:border-slate-300 hover:-translate-y-1 hover:shadow-xl transition-all duration-300">
             <div className="space-y-6">
               <div>
-                <h3 className="text-xl font-black text-[#1A3668] uppercase">Single Project Scan</h3>
+                <h3 className="text-xl font-black text-[#1A3668] uppercase">Single Review Cycle</h3>
                 <p className="text-sm text-slate-500 mt-2 font-medium">Perfect for spot-checking compliance health.</p>
               </div>
               <div className="border-t border-b border-slate-100 py-6">
@@ -98,10 +98,12 @@ export default function PricingPage() {
               </div>
               <ul className="space-y-4 pt-2">
                 {[
-                  '1 Full Processing Credit', 
-                  'Plain-English Operational Risk Summary', 
-                  'Pre-Drafted Target Redlines', 
-                  'Questions for the Prime Memo'
+                  '1 Full Package Review Credit',
+                  'Plain-English Risk Summary',
+                  'Missing Document Checklist',
+                  'Prime Questions & Requested-Change Memo',
+                  'Attorney-Prep Summary',
+                  'Evidence-Backed Findings With Exact Clause Quotes'
                 ].map((feature, i) => (
                   <li key={i} className="flex items-start">
                     <Check className="h-5 w-5 text-[#FF5F1F] mr-3 shrink-0" strokeWidth={3} />
@@ -123,11 +125,11 @@ export default function PricingPage() {
           {/* TIER 2: MONTHLY SUBSCRIPTION */}
           <div className="bg-white rounded-2xl border-2 border-[#1A3668] p-8 shadow-md flex flex-col justify-between relative transform lg:-translate-y-4 hover:lg:-translate-y-5 hover:-translate-y-1 hover:shadow-2xl transition-all duration-300">
             <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-[#1A3668] text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">
-              Most Popular
+              Best Value
             </div>
             <div className="space-y-6">
               <div>
-                <h3 className="text-xl font-black text-[#1A3668] uppercase">Monthly Subscription</h3>
+                <h3 className="text-xl font-black text-[#1A3668] uppercase">Active Bidder Plan</h3>
                 <p className="text-sm text-slate-500 mt-2 font-medium">Built for active estimating teams managing steady backlogs.</p>
               </div>
               <div className="border-t border-b border-slate-100 py-6">
@@ -163,7 +165,7 @@ export default function PricingPage() {
             <div className="space-y-6">
               <div>
                 <h3 className="text-xl font-black text-[#1A3668] uppercase">Enterprise Plan</h3>
-                <p className="text-sm text-slate-500 mt-2 font-medium">For high-volume prime contractors and large teams.</p>
+                <p className="text-sm text-slate-500 mt-2 font-medium">For high-volume subcontractors, GovCon advisors, proposal teams, and internal contract-review teams.</p>
               </div>
               <div className="border-t border-b border-slate-100 py-6">
                 <span className="text-4xl font-black text-[#1A3668]">$1,999.00</span>
@@ -171,10 +173,10 @@ export default function PricingPage() {
               </div>
               <ul className="space-y-4 pt-2">
                 {[
-                  '30 Full Processing Credits', 
-                  'Multi-User Access For Teams', 
-                  'Full Rollover Capability', 
-                  'Pre-Drafted Target Redlines & Memos'
+                  '30 Full Processing Credits',
+                  'Multi-User Access For Teams',
+                  'Full Rollover Capability',
+                  'Prime Questions & Requested-Change Language'
                 ].map((feature, i) => (
                   <li key={i} className="flex items-start">
                     <Check className="h-5 w-5 text-[#FF5F1F] mr-3 shrink-0" strokeWidth={3} />
@@ -188,7 +190,7 @@ export default function PricingPage() {
                 onClick={() => handleCheckout('price_1Tlf20HCtlCRL0oUGtni2RlJ')}
                 className="w-full bg-[#1A3668] text-white hover:bg-[#152A50] py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-sm"
               >
-                Buy Enterprise Plan
+                Get Enterprise Access
               </button>
             </div>
           </div>
