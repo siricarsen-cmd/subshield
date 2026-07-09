@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Check, ChevronDown, ChevronUp, Lock, ShieldCheck } from "lucide-react";
+import {
+  STRIPE_PRICE_SINGLE_REVIEW_CYCLE,
+  STRIPE_PRICE_ACTIVE_BIDDER_PLAN,
+  STRIPE_PRICE_ENTERPRISE_PLAN,
+} from "@/lib/stripe-plans";
 
 export default function PricingPage() {
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
@@ -43,9 +47,10 @@ export default function PricingPage() {
         throw new Error("No Stripe URL was returned.");
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       // 5. If ANYTHING fails, trigger a massive pop-up alert
-      alert("THE BUTTON CRASHED: " + error.message);
+      const message = error instanceof Error ? error.message : "Unknown error.";
+      alert("THE BUTTON CRASHED: " + message);
       console.error(error);
     }
   };
@@ -114,7 +119,7 @@ export default function PricingPage() {
             </div>
             <div className="pt-8 mt-auto">
               <button 
-                onClick={() => handleCheckout('price_1Tlf0mHCtlCRL0oUEc38O1DB')}
+                onClick={() => handleCheckout(STRIPE_PRICE_SINGLE_REVIEW_CYCLE ?? "")}
                 className="w-full bg-slate-100 text-[#1A3668] hover:bg-slate-200 py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-sm"
               >
                 Buy Single Scan
@@ -152,7 +157,7 @@ export default function PricingPage() {
             </div>
             <div className="pt-8 mt-auto">
               <button 
-                onClick={() => handleCheckout('price_1Tlf1HHCtlCRL0oUGy7eUqd6')}
+                onClick={() => handleCheckout(STRIPE_PRICE_ACTIVE_BIDDER_PLAN ?? "")}
                 className="w-full bg-[#FF5F1F] text-white hover:bg-orange-600 py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-sm"
               >
                 Start Subscription
@@ -187,7 +192,7 @@ export default function PricingPage() {
             </div>
             <div className="pt-8 mt-auto">
               <button 
-                onClick={() => handleCheckout('price_1Tlf20HCtlCRL0oUGtni2RlJ')}
+                onClick={() => handleCheckout(STRIPE_PRICE_ENTERPRISE_PLAN ?? "")}
                 className="w-full bg-[#1A3668] text-white hover:bg-[#152A50] py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-sm"
               >
                 Get Enterprise Access

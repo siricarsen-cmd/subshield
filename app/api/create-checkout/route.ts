@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
+import { getStripePlanByPriceId, requireStripePlanEnv } from "@/lib/stripe-plans";
 
 export async function POST(req: Request) {
   try {
+    requireStripePlanEnv();
+
     const { priceId, userId } = await req.json();
 
-    // Dynamically set mode based on your specific Price ID
-    const checkoutMode = priceId === "price_1Tlf1HHCtlCRL0oUGy7eUqd6" 
-      ? "subscription" 
-      : "payment";
+    // Dynamically set mode based on the matched plan; unrecognized price IDs
+    // (e.g. a Stripe Price outside our 3 configured plans) still default to
+    // "payment", matching prior behavior.
+    const plan = getStripePlanByPriceId(priceId);
+    const checkoutMode = plan?.mode ?? "payment";
 
     // Use the environment variable for URLs so switching domains is automatic
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://subshield-mu.vercel.app";
@@ -34,8 +38,9 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ url: session.url });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Stripe Checkout Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Checkout failed.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
