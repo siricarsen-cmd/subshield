@@ -46,17 +46,40 @@ interface RawExtraction {
   pagesProcessed?: number;
 }
 
+interface Pdf2JsonTextRun {
+  T: string;
+}
+
+interface Pdf2JsonTextItem {
+  R?: Pdf2JsonTextRun[];
+}
+
+interface Pdf2JsonPage {
+  Texts?: Pdf2JsonTextItem[];
+}
+
+interface Pdf2JsonData {
+  formImage?: {
+    Pages?: Pdf2JsonPage[];
+  };
+}
+
+interface Pdf2JsonParserError {
+  parserError?: string;
+}
+
 async function extractWithPdf2Json(buffer: Buffer): Promise<RawExtraction> {
+  const { default: PDFParser } = await import("pdf2json");
+
   return new Promise<RawExtraction>((resolve, reject) => {
-    const PDFParser = require("pdf2json");
     const pdfParser = new PDFParser();
 
-    pdfParser.on("pdfParser_dataError", (errData: any) =>
-      reject(new Error(errData?.parserError || "pdf2json parse error"))
+    pdfParser.on("pdfParser_dataError", (errData: unknown) =>
+      reject(new Error((errData as Pdf2JsonParserError)?.parserError || "pdf2json parse error"))
     );
-    pdfParser.on("pdfParser_dataReady", (pdfData: any) => {
+    pdfParser.on("pdfParser_dataReady", (pdfData: unknown) => {
       let rawText = "";
-      const pages = pdfData?.formImage?.Pages || [];
+      const pages = (pdfData as Pdf2JsonData)?.formImage?.Pages || [];
       for (const page of pages) {
         if (page.Texts) {
           for (const textItem of page.Texts) {
@@ -158,7 +181,54 @@ function logExtractionMetrics(
   });
 }
 
+// Legacy binary .doc (pre-2007 Word format) isn't readable by mammoth (docx-only,
+// OOXML zip format) or the PDF extractors, so it's rejected clearly up front
+// rather than falling through to a confusing garbled-extraction Limited Scan.
+async function extractWithMammoth(buffer: Buffer): Promise<RawExtraction> {
+  const mammoth = await import("mammoth");
+  const result = await mammoth.extractRawText({ buffer });
+  return { text: result.value || "" };
+}
+
 export async function extractDocumentText(buffer: Buffer, fileName?: string): Promise<ExtractionOutcome> {
+  const extension = (fileName || "").toLowerCase().split(".").pop();
+
+  if (extension === "doc") {
+    return {
+      text: "",
+      method: "unsupported-legacy-doc",
+      ocrAttempted: false,
+      ocrReason:
+        "Legacy .doc files (pre-2007 Word format) are not supported. Please save the document as .docx, export it as a PDF, or paste the contract text directly.",
+    };
+  }
+
+  if (extension === "txt") {
+    const text = buffer.toString("utf-8");
+    logExtractionMetrics("txt", text, undefined, false);
+    return { text, method: "txt", ocrAttempted: false };
+  }
+
+  if (extension === "docx") {
+    try {
+      const result = await extractWithMammoth(buffer);
+      logExtractionMetrics("mammoth-docx", result.text, undefined, false);
+      return { text: result.text, method: "mammoth-docx", ocrAttempted: false };
+    } catch (err) {
+      console.error(
+        `[analyzer:extraction] mammoth-docx failed for ${fileName ?? "upload"}:`,
+        err instanceof Error ? err.message : err
+      );
+      return {
+        text: "",
+        method: "docx-extraction-failed",
+        ocrAttempted: false,
+        ocrReason:
+          "This DOCX file could not be read. It may be corrupted, password-protected, or saved in an unsupported format.",
+      };
+    }
+  }
+
   const attempts: Array<{ method: string; run: () => Promise<RawExtraction> }> = [
     { method: "pdf2json", run: () => extractWithPdf2Json(buffer) },
     { method: "pdf-parse", run: () => extractWithPdfParse(buffer) },
