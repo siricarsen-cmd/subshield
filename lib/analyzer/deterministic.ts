@@ -31,12 +31,33 @@ const CATEGORIES: DeterministicCategory[] = [
     severity: "High",
     patterns: [
       /pay[\s-]if[\s-]paid/i,
+      // "Prime will pay Subcontractor within N days AFTER Prime receives
+      // payment from the Government" - the payment obligation's own timing is
+      // expressly tied to the Government paying Prime first. This is the most
+      // common real-world phrasing of pay-if-paid/pay-when-paid and is at
+      // least as clear a trigger as the "contingent upon"/"condition
+      // precedent" legalese the patterns below already catch, so it's placed
+      // second (right after the literal "pay-if-paid" phrase) rather than
+      // buried after the more legalistic patterns.
+      /(?:will|shall)\s+pay\s+Subcontractor[^.]{0,80}(?:after|once|when)\s+Prime(?:\s+Contractor)?\s+(?:receives|has\s+received)[^.]{0,100}payment\s+from\s+the\s+Government/i,
       /contingent\s+(?:upon|on)\s+(?:the\s+)?(?:receipt\s+of\s+)?payment\s+(?:by|from|received\s+from)\s+(?:the\s+)?(?:government|customer|owner|prime)/i,
       /no\s+obligation\s+to\s+pay\s+(?:the\s+)?subcontractor\s+unless/i,
       /shall\s+not\s+be\s+obligated\s+to\s+pay[^.]{0,100}unless\s+(?:and\s+until\s+)?(?:[A-Za-z ]+\s+)?(?:has\s+|have\s+)?receive[sd]/i,
       /receipt\s+of\s+(?:such\s+)?payment\s+from\s+the\s+government\s+is\s+a\s+condition\s+precedent/i,
       /condition\s+precedent\s+to[^.]{0,60}(?:payment|obligation\s+to\s+pay)[^.]{0,80}(?:government|owner)/i,
-      /(?:shall\s+have\s+)?no\s+obligation\s+to\s+pay[^.]{0,120}(?:amounts?|sums?)[^.]{0,80}not\s+received[^.]{0,60}(?:from\s+)?(?:the\s+)?(?:government|owner|customer|prime)/i,
+      // Broadened from a "not received" -only match: real phrasing as often
+      // says "amounts not PAID BY the Government" as "not received FROM the
+      // Government" - both describe the identical risk (Prime disclaiming any
+      // obligation to pay amounts the Government didn't pay it), so both verb
+      // and preposition are now accepted.
+      /(?:shall\s+have\s+)?no\s+obligation\s+to\s+pay[^.]{0,120}(?:amounts?|sums?)[^.]{0,80}not\s+(?:received|paid)[^.]{0,60}(?:from\s+|by\s+)?(?:the\s+)?(?:government|owner|customer|prime)/i,
+      // Mirror/pass-through clause: the Government's nonpayment/delay/dispute
+      // toward Prime is expressly passed through to Subcontractor "to the
+      // same extent." Both verb lists are comma-separated in real prose
+      // ("delays, disputes, reduces, rejects, or withholds" / "delay, reduce,
+      // or withhold"), so bounded [^.] gaps sit between the verb and its
+      // object rather than requiring direct adjacency.
+      /(?:Government|Owner)\s+(?:delays|disputes|reduces|rejects|withholds)[^.]{0,120}payment\s+to\s+Prime(?:\s+Contractor)?[\s\S]{0,150}Prime(?:\s+Contractor)?\s+may[^.]{0,60}(?:delay|reduce|withhold)[^.]{0,60}payment\s+to\s+Subcontractor/i,
     ],
     riskAnalysis:
       "This clause makes the Subcontractor's right to payment contingent on the Prime actually receiving funds from the Government, shifting the Government's payment risk - including delay, dispute, or non-payment - onto the Subcontractor even though the Subcontractor has no contractual relationship with or visibility into the Government's payment process.",
