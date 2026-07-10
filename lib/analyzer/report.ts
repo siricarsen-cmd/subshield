@@ -6,7 +6,7 @@
 // -> rank findings -> generate PM memo from verified findings only -> return
 // (or return a Limited Scan result if extraction confidence is too low).
 
-import { normalizeWhitespace, assessExtractionConfidence } from "./text";
+import { normalizeWhitespace, assessExtractionConfidence, type ExtractionConfidenceHints } from "./text";
 import { extractAnchorCandidates } from "./anchors";
 import { classifyContract } from "./classify";
 import { selectDetectorFamilies, runGroundedDetectors } from "./detectors";
@@ -149,6 +149,11 @@ export interface ExtractionContext {
   partialOcrReason?: string;
   ocrPagesProcessed?: number;
   ocrTotalPages?: number;
+  // Signals about the upload (PDF page count / DOCX-TXT file size) so this
+  // function's confidence gate - the sole place limitedScan is decided - can
+  // catch a "clean-looking" extraction that only captured a fraction of a
+  // much larger source document. See assessExtractionConfidence in text.ts.
+  confidenceHints?: ExtractionConfidenceHints;
 }
 
 export async function runAnalyzer(
@@ -158,7 +163,7 @@ export async function runAnalyzer(
 ): Promise<AnalyzerResult> {
   const documentText = normalizeWhitespace(rawDocumentText);
 
-  const confidence = assessExtractionConfidence(documentText);
+  const confidence = assessExtractionConfidence(documentText, extractionContext?.confidenceHints);
   if (!confidence.confident) {
     return {
       riskLevel: "Low",

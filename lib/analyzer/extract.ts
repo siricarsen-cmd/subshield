@@ -38,6 +38,11 @@ export interface ExtractionOutcome {
   // suppressed there); this is a distinct "partial coverage" disclosure.
   partialOcrScan?: boolean;
   partialOcrReason?: string;
+  // DOCX/TXT only: raw uploaded file size in bytes, forwarded so report.ts's
+  // confidence gate can run the same suspicious-short-relative-to-file-size
+  // check it was judged with here (see assessExtractionConfidence). Never set
+  // for PDF - that path uses pageCount for the equivalent check instead.
+  sourceByteLength?: number;
 }
 
 interface RawExtraction {
@@ -206,14 +211,45 @@ export async function extractDocumentText(buffer: Buffer, fileName?: string): Pr
   if (extension === "txt") {
     const text = buffer.toString("utf-8");
     logExtractionMetrics("txt", text, undefined, false);
-    return { text, method: "txt", ocrAttempted: false };
+    // TXT extraction can't lose content the way DOCX/PDF extraction can - the
+    // whole buffer becomes the text - so extracted length always tracks file
+    // size closely and this check is not expected to fire for real TXT files;
+    // it's here so a genuinely short/garbled TXT (e.g. accidental partial
+    // save) still gets the same suspicious-short assessment as other formats.
+    const confidence = assessExtractionConfidence(text, { sourceByteLength: buffer.length });
+    if (!confidence.confident) {
+      return {
+        text,
+        method: "txt",
+        ocrAttempted: false,
+        ocrReason: confidence.reason,
+        sourceByteLength: buffer.length,
+      };
+    }
+    return { text, method: "txt", ocrAttempted: false, sourceByteLength: buffer.length };
   }
 
   if (extension === "docx") {
     try {
       const result = await extractWithMammoth(buffer);
       logExtractionMetrics("mammoth-docx", result.text, undefined, false);
-      return { text: result.text, method: "mammoth-docx", ocrAttempted: false };
+      // mammoth.extractRawText only walks the main document body flow - it
+      // doesn't reach text boxes, some embedded objects, etc. - so a DOCX can
+      // extract "cleanly" (passes the base length/letter-ratio/word-count
+      // checks) while still only capturing a small fraction of the real
+      // document. This catches that case against the uploaded file's size
+      // instead of accepting any text that merely looks well-formed.
+      const confidence = assessExtractionConfidence(result.text, { sourceByteLength: buffer.length });
+      if (!confidence.confident) {
+        return {
+          text: result.text,
+          method: "mammoth-docx",
+          ocrAttempted: false,
+          ocrReason: confidence.reason,
+          sourceByteLength: buffer.length,
+        };
+      }
+      return { text: result.text, method: "mammoth-docx", ocrAttempted: false, sourceByteLength: buffer.length };
     } catch (err) {
       console.error(
         `[analyzer:extraction] mammoth-docx failed for ${fileName ?? "upload"}:`,
@@ -254,7 +290,7 @@ export async function extractDocumentText(buffer: Buffer, fileName?: string): Pr
       bestMethod = attempt.method;
     }
 
-    if (assessExtractionConfidence(result.text).confident) {
+    if (assessExtractionConfidence(result.text, { pageCount: result.pageCount }).confident) {
       logExtractionMetrics(attempt.method, result.text, result.pageCount, false);
       return { text: result.text, method: attempt.method, pageCount: result.pageCount, ocrAttempted: false };
     }
@@ -278,7 +314,11 @@ export async function extractDocumentText(buffer: Buffer, fileName?: string): Pr
     const isPartial =
       typeof totalPages === "number" && typeof pagesProcessed === "number" && totalPages > pagesProcessed;
 
-    if (assessExtractionConfidence(ocrResult.text).confident) {
+    // Hinted with pagesProcessed (pages actually rendered/OCR'd), not
+    // totalPages - OCR only ever produced text for the pages it processed, so
+    // averaging against the document's full page count would unfairly flag a
+    // legitimately-thorough OCR pass over a capped subset as suspicious.
+    if (assessExtractionConfidence(ocrResult.text, { pageCount: pagesProcessed }).confident) {
       logExtractionMetrics("tesseract-ocr", ocrResult.text, totalPages, true);
       return {
         text: ocrResult.text,

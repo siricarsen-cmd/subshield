@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, ShieldAlert, AlertTriangle, CheckCircle, Copy, CreditCard, Activity, Info, Download } from 'lucide-react';
+import type { AnalyzerResult, Finding } from '@/lib/analyzer/types';
 
 // --- KEYS ---
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fqwkvyypjnxkiojbubdf.supabase.co";
@@ -12,10 +13,23 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publish
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// The report row's ai_results can be an older shape (criticalTraps) or the
+// current AnalyzerResult shape (primaryTraps) - see the fallback in
+// runAnalyzer usage below. Partial<> because a Limited Scan / not-yet-set
+// row may omit fields entirely.
+interface ReportAiResults extends Partial<AnalyzerResult> {
+  criticalTraps?: Finding[];
+}
+
+interface ReportRow {
+  file_name: string;
+  ai_results?: ReportAiResults;
+}
+
 export default function ReportPage() {
   const params = useParams();
   const router = useRouter();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<ReportRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -56,8 +70,8 @@ export default function ReportPage() {
         if (reportError) throw new Error(reportError.message);
         setData(reportData);
 
-      } catch (err: any) {
-        setErrorDetails(err.message || "An unknown error occurred.");
+      } catch (err) {
+        setErrorDetails(err instanceof Error ? err.message : "An unknown error occurred.");
       } finally {
         setLoading(false);
       }
@@ -101,7 +115,7 @@ export default function ReportPage() {
           <>
             <AlertTriangle className="w-16 h-16 text-red-500 mb-4" />
             <h1 className="text-2xl font-black text-[#1A3668] mb-2 uppercase tracking-tight">Report Not Found</h1>
-            <p className="text-slate-600 mb-6 font-medium">We couldn't locate this document in the registry.</p>
+            <p className="text-slate-600 mb-6 font-medium">We couldn&apos;t locate this document in the registry.</p>
             <Link href="/dashboard" className="text-[#FF5F1F] font-black hover:underline tracking-wider uppercase text-sm flex items-center gap-2">
               <ArrowLeft className="w-4 h-4" /> Back to Dashboard
             </Link>
@@ -111,16 +125,23 @@ export default function ReportPage() {
     );
   }
 
-  const aiResults = data.ai_results || {};
+  const aiResults = data!.ai_results || {};
   const primaryTraps = aiResults.primaryTraps || aiResults.criticalTraps || [];
   const secondaryConcerns = aiResults.secondaryConcerns || [];
   const emailDraft = aiResults.emailDraft || "";
   const overallRisk = aiResults.riskLevel || "Low";
   const industry = aiResults.industryDetected || "Professional Services";
-  const hasRegulatory = primaryTraps.some((t: any) => t.triggerType === "Regulatory Trigger");
+  const hasRegulatory = primaryTraps.some((t: Finding) => t.triggerType === "Regulatory Trigger");
   const documentAnchors = aiResults.documentAnchors || {};
   const isLimitedScan = Boolean(aiResults.limitedScan);
   const isPartialOcrScan = Boolean(aiResults.partialOcrScan);
+  // A Limited Scan (extraction failed / confidence too low) always has zero
+  // primaryTraps by construction (see runAnalyzer in lib/analyzer/report.ts),
+  // and Partial OCR can legitimately have zero if nothing was found on the
+  // pages that were reviewed. Either way, zero findings here must never be
+  // presented as a clean/low-risk result - the document text wasn't reliably
+  // verified, so absence of findings proves nothing.
+  const showUnreliableScanNotice = primaryTraps.length === 0 && (isLimitedScan || isPartialOcrScan);
   const anchorEntries = [
     ["Parties", documentAnchors.parties],
     ["Subcontract #", documentAnchors.subcontractNumber],
@@ -144,7 +165,7 @@ export default function ReportPage() {
             
             <div className="flex flex-col md:flex-row gap-x-3 gap-y-1 mt-3 flex-wrap">
                 <p className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                  <span className="text-[#FF5F1F] font-bold">Document Reviewed:</span> {data.file_name}
+                  <span className="text-[#FF5F1F] font-bold">Document Reviewed:</span> {data!.file_name}
                 </p>
                 <p className="text-sm font-medium text-slate-300 hidden md:flex items-center">|</p>
                 <p className="text-sm font-medium text-slate-500 flex items-center gap-2">
@@ -216,18 +237,25 @@ export default function ReportPage() {
               </span>
           </div>
 
-          {primaryTraps.length === 0 ? (
+          {showUnreliableScanNotice ? (
+            <div className="bg-amber-50 rounded-xl border border-amber-200 p-10 text-center shadow-sm break-inside-avoid">
+              <AlertTriangle className="w-12 h-12 text-amber-600 mx-auto mb-3" />
+              <h3 className="text-lg font-black text-amber-800 uppercase">Unable To Complete Reliable Risk Review</h3>
+              <p className="text-sm text-amber-700 font-medium mt-2 max-w-xl mx-auto">
+                Critical risks may be present, but SubShield could not verify the document text well enough to issue a clean finding.
+                {" "}See the {isPartialOcrScan ? "Partial OCR Scan" : "Limited Scan"} notice above — this is not a clean or low-risk result.
+              </p>
+            </div>
+          ) : primaryTraps.length === 0 ? (
             <div className="bg-white rounded-xl border border-emerald-200 p-10 text-center shadow-sm break-inside-avoid">
               <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
               <h3 className="text-lg font-black text-[#1A3668] uppercase">No Critical Flags Detected</h3>
               <p className="text-sm text-slate-500 font-medium mt-2">
-                {isPartialOcrScan
-                  ? "The system did not detect any targeted liabilities on the pages that could be OCR-processed — see the Partial OCR Scan notice above, since this is not a complete document review."
-                  : "The system did not detect any of the targeted primary liabilities in this document."}
+                The system did not detect any of the targeted primary liabilities in this document.
               </p>
             </div>
           ) : (
-            primaryTraps.map((trap: any, index: number) => (
+            primaryTraps.map((trap: Finding, index: number) => (
               <div key={index} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden break-inside-avoid">
                 <div className="px-6 py-3 border-b bg-slate-50 flex items-center gap-2">
                     <Activity className="w-4 h-4 text-[#FF5F1F]" />
@@ -239,7 +267,7 @@ export default function ReportPage() {
                   
                   <div className="mb-6 pl-4 border-l-2 border-slate-300">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Contract Text Extracted</p>
-                    <p className="text-sm text-slate-600 font-serif italic">"{trap.foundText}"</p>
+                    <p className="text-sm text-slate-600 font-serif italic">&quot;{trap.foundText}&quot;</p>
                   </div>
 
                   <div className="mb-6">
@@ -264,7 +292,7 @@ export default function ReportPage() {
               </div>
               
               <div className="space-y-4">
-                {secondaryConcerns.map((concern: any, index: number) => (
+                {secondaryConcerns.map((concern: Finding, index: number) => (
                   <div key={index} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden break-inside-avoid">
                     <div className="px-6 py-3 border-b bg-slate-50 flex items-center gap-2">
                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
@@ -274,7 +302,7 @@ export default function ReportPage() {
                     <div className="p-6">
                       <div className="mb-4 pl-4 border-l-2 border-slate-200">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Contract Text Extracted</p>
-                        <p className="text-sm text-slate-500 font-serif italic">"{concern.foundText}"</p>
+                        <p className="text-sm text-slate-500 font-serif italic">&quot;{concern.foundText}&quot;</p>
                       </div>
                       <div className="mb-4">
                         <p className="text-sm text-slate-700 font-medium leading-relaxed">{concern.riskAnalysis}</p>
