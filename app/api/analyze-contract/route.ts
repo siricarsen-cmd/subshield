@@ -41,6 +41,16 @@ export async function POST(req: Request) {
         ? body.fileName.trim()
         : "Pasted contract text";
 
+      // Server-side debug log only - mirrors the extraction-metrics log in
+      // lib/analyzer/extract.ts for file uploads, so pasted-text submissions
+      // are diagnosable from production logs too. Never logs the actual
+      // contract text or any secrets.
+      console.log("[analyzer:intake]", {
+        source: "pasted-text",
+        textLength: text.length,
+        fileName,
+      });
+
       const result = await runAnalyzer(text, fileName);
       return NextResponse.json({ result });
     }
@@ -63,6 +73,10 @@ export async function POST(req: Request) {
       partialOcrReason: extraction.partialOcrReason,
       ocrPagesProcessed: extraction.ocrPagesProcessed,
       ocrTotalPages: extraction.pageCount,
+      confidenceHints: {
+        pageCount: extraction.pageCount,
+        sourceByteLength: extraction.sourceByteLength,
+      },
     });
 
     return NextResponse.json({ result });
