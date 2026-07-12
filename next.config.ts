@@ -17,6 +17,7 @@ const nextConfig: NextConfig = {
     '/api/analyze-contract': [
       './node_modules/@napi-rs/canvas/**/*',
       './node_modules/@napi-rs/canvas-linux-x64-gnu/**/*',
+      './node_modules/pdf-parse/node_modules/pdfjs-dist/legacy/build/*.mjs',
     ],
   },
 };
