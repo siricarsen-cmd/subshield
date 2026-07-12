@@ -29,8 +29,57 @@ function computeRiskLevel(findings: Finding[]): RiskLevel {
   return "Low";
 }
 
-function rankFindings(findings: Finding[]): { primaryTraps: Finding[]; secondaryConcerns: Finding[] } {
-  const sorted = [...findings].sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]);
+// Payment-contingency identification for rankFindings' within-tier priority
+// rule below. Both checks are scoped to familyKey === "payment" so this can
+// never promote a liability, cyber, or structure finding:
+//   (A) the canonical deterministic.ts regulation title, or an LLM label
+//       using equivalent wording ("pay-if-paid", "contingent Government
+//       payment", "no obligation to pay ... not paid by Government");
+//   (B) verified foundText that itself describes the Government-payment
+//       dependency (payment timed to Prime's receipt of Government payment,
+//       Prime's no-obligation-to-pay-unpaid-amounts language, or the
+//       Government-delay/dispute/withholding pass-through to Subcontractor).
+// (B) is required in addition to (A) because dedupeFindings() can keep an
+// LLM-sourced finding whose regulation label doesn't match the canonical
+// title even though its foundText describes the identical risk (see
+// isSameRisk's quote-overlap branch) - without a foundText check, that
+// surviving finding would lose payment-contingency priority merely because
+// dedup happened to retain the LLM's label instead of deterministic.ts's.
+// foundText is safe to inspect here because every finding reaching
+// rankFindings has already passed verifyFindings()'s exact-quote check, so
+// this can't be fooled by ungrounded text.
+const PAYMENT_CONTINGENCY_TITLE_RE =
+  /pay[\s-]if[\s-]paid|contingent[^.]{0,60}government[^.]{0,40}payment|no\s+obligation\s+to\s+pay[^.]{0,80}(?:amounts?|sums?)[^.]{0,60}not\s+paid[^.]{0,40}government/i;
+
+const PAYMENT_DEPENDENCY_FOUNDTEXT_PATTERNS: RegExp[] = [
+  // Subcontractor payment timed to occur after/once/when Prime receives payment from the Government.
+  /pay[^.]{0,100}(?:after|once|when)[^.]{0,60}(?:receiv(?:es|ed|ing)|receipt\s+of)[^.]{0,60}payment[^.]{0,40}(?:from\s+)?(?:the\s+)?government/i,
+  // Prime has no obligation to pay amounts the Government does not pay/hasn't received.
+  /no\s+obligation\s+to\s+pay[^.]{0,120}(?:amounts?|sums?)[^.]{0,80}(?:not\s+(?:received|paid)|government\s+(?:does\s+not|did\s+not|has\s+not)\s+pa(?:y|id))/i,
+  // Government delay/dispute/reduction/rejection/withholding lets Prime delay/reduce/withhold Subcontractor payment.
+  /government[^.]{0,40}(?:delays?|disputes?|reduces?|rejects?|withholds?)[^.]{0,150}(?:may\s+)?(?:delay|reduce|withhold)[^.]{0,60}payment/i,
+];
+
+function isPaymentContingencyFinding(f: Finding): boolean {
+  if (f.familyKey !== "payment") return false;
+  if (PAYMENT_CONTINGENCY_TITLE_RE.test(f.regulation)) return true;
+  return PAYMENT_DEPENDENCY_FOUNDTEXT_PATTERNS.some((p) => p.test(f.foundText));
+}
+
+// Severity is the sole controlling sort key; payment-contingency priority is
+// only a tiebreak within a severity tier, so a Medium-High payment finding can
+// never outrank a High (or, if ever introduced, Critical) non-payment finding.
+// Array.sort is stable, so all other equal-severity/equal-priority findings
+// keep their existing relative (merge) order - this must not become a blanket
+// "deterministic findings first" rule.
+export function rankFindings(findings: Finding[]): { primaryTraps: Finding[]; secondaryConcerns: Finding[] } {
+  const sorted = [...findings].sort((a, b) => {
+    const severityDiff = SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity];
+    if (severityDiff !== 0) return severityDiff;
+    const aPriority = isPaymentContingencyFinding(a) ? 0 : 1;
+    const bPriority = isPaymentContingencyFinding(b) ? 0 : 1;
+    return aPriority - bPriority;
+  });
   return {
     primaryTraps: sorted.slice(0, MAX_PRIMARY_TRAPS),
     secondaryConcerns: sorted.slice(MAX_PRIMARY_TRAPS),
@@ -85,7 +134,7 @@ function isSameRisk(a: Finding, b: Finding): boolean {
 // higher-severity / more complete one) so one repeated risk - e.g. a
 // pay-if-paid clause quoted three different ways - can't crowd out distinct
 // risks like indemnification or termination out of the top findings.
-function dedupeFindings(findings: Finding[]): Finding[] {
+export function dedupeFindings(findings: Finding[]): Finding[] {
   const kept: Finding[] = [];
   for (const finding of findings) {
     const dupIndex = kept.findIndex((existing) => isSameRisk(existing, finding));
@@ -107,7 +156,7 @@ function dedupeFindings(findings: Finding[]): Finding[] {
 // it is built from (no separate LLM call that could hallucinate new content).
 // isPartialOcrScan swaps the intro to avoid "we completed our review" framing
 // when clauses past the OCR page cap were never actually reviewed.
-function buildPmMemo(primaryTraps: Finding[], secondaryConcerns: Finding[], isPartialOcrScan: boolean): string {
+export function buildPmMemo(primaryTraps: Finding[], secondaryConcerns: Finding[], isPartialOcrScan: boolean): string {
   const all = [...primaryTraps, ...secondaryConcerns];
   if (all.length === 0) {
     return "";
