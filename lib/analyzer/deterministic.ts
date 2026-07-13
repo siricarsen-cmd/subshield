@@ -15,6 +15,18 @@
 
 import type { Finding, RiskLevel } from "./types";
 
+// Maximum day count for a standalone "N days to cure" mention (with no
+// paired immediate-termination/sole-discretion language) to count as a
+// short-cure risk on its own. No prior numeric threshold was codified
+// anywhere in this codebase; 10 was chosen as a defensible cutoff sitting
+// above the "5 calendar days" example already used elsewhere in this file
+// and in sanity.ts's stock-phrase guard as the canonical short-cure
+// illustration, and below the 30-day cure period confirmed as a false
+// positive in regression testing. Exported so sanity.ts's LLM long-cure
+// companion guard uses this exact same value instead of a duplicated magic
+// number.
+export const SHORT_CURE_MAX_DAYS = 10;
+
 interface DeterministicCategory {
   familyKey: string;
   regulation: string;
@@ -169,8 +181,22 @@ const CATEGORIES: DeterministicCategory[] = [
       // discretion, and pulls both into one quote.
       /\d+\s*(?:calendar|business|working)?\s*days?\s+to\s+cure[\s\S]{0,250}terminate[^.]{0,40}immediately/i,
       // Either word order: "N days to cure" or "cure ... within N days".
-      /(?:\d+\s*(?:calendar|business|working)?\s*days?\s+to\s+cure|cure\s+(?:period|such\s+default|any\s+such\s+failure)[^.]{0,80}(?:within\s+)?\d+\s*(?:calendar|business|working)?\s*days?)/i,
-      /fail(?:s|ure)?\s+to\s+cure[^.]{0,100}within\s+\d+\s*(?:calendar|business|working)?\s*days?/i,
+      // Bounded to 1-SHORT_CURE_MAX_DAYS (10) days: a standalone cure-period
+      // mention with no paired immediate-termination language is only a
+      // "short cure" risk on its own when the stated period is actually
+      // short. A 30-day (or 11+ day) standalone cure period - even one that
+      // adds a diligent-cure extension - is a commercially reasonable term
+      // and must not trigger here; the immediate-termination/no-notice/
+      // sole-discretion patterns below remain unbounded since Prime
+      // retaining that discretion is a real risk regardless of the stated
+      // cure period's length. Keep the literal 1-10 range in sync with
+      // SHORT_CURE_MAX_DAYS above. (?<!\d)...(?!\d) on each side of the
+      // 1-10 fragment are required digit boundaries - without them, "11"
+      // partial-matches (e.g. the fragment can match just the trailing "1"
+      // of "11" as if it were its own single-digit "1 day" count), which
+      // wrongly triggered on an 11-day cure period.
+      /(?:(?<!\d)(?:[1-9]|10)(?!\d)\s*(?:calendar|business|working)?\s*days?\s+to\s+cure|cure\s+(?:period|such\s+default|any\s+such\s+failure)[^.]{0,80}(?:within\s+)?(?<!\d)(?:[1-9]|10)(?!\d)\s*(?:calendar|business|working)?\s*days?)/i,
+      /fail(?:s|ure)?\s+to\s+cure[^.]{0,100}within\s+(?<!\d)(?:[1-9]|10)(?!\d)\s*(?:calendar|business|working)?\s*days?/i,
       /terminat(?:e|ion)[^.]{0,50}for\s+default[^.]{0,150}(?:immediately|without\s+(?:further\s+)?notice|in\s+its\s+sole\s+discretion|at\s+its\s+sole\s+discretion)/i,
       /Prime(?:\s+Contractor)?\s+may[^.]{0,60}terminate[^.]{0,80}for\s+default[^.]{0,100}(?:immediately|sole\s+discretion|without\s+notice)/i,
       // Immediate-termination discretion without requiring the literal phrase

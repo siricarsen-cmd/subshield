@@ -57,6 +57,70 @@ const PROFESSIONAL_SIGNALS: ScoredPattern[] = [
   { pattern: /service\s+contract\s+labor\s+standards|52\.222-41|Service\s+Contract\s+Act/i, weight: 2 },
 ];
 
+// Exclusion-context guard for CONSTRUCTION_SIGNALS/SUPPLY_SIGNALS only (used
+// in classifyContract below) - a sector keyword mentioned only inside an
+// exclusion/negative-scope clause ("excludes construction...", "does not
+// include ... construction") must not count as affirmative sector evidence,
+// but a later affirmative occurrence of the same keyword - even in the same
+// sentence - must still count. Deliberately NOT a fixed character
+// look-behind window: that either bleeds a negation cue across an unrelated
+// clause boundary or fails to reach far enough back for a real exclusion
+// listed as "excludes X, Y, and Z" (a comma-separated list has no fixed
+// length). Instead, for each occurrence this walks back to the nearest
+// EXCLUSION_CUE_RE match earlier in the same sentence (no cue before it ->
+// affirmative) and then checks whether an independent-clause marker (a comma
+// followed by a new subject+modal, e.g. ", Subcontractor shall perform...")
+// appears between that cue and the occurrence - if so, the negation's scope
+// ended before this occurrence and it counts as affirmative anyway. Only
+// wired into CONSTRUCTION_SIGNALS/SUPPLY_SIGNALS; CYBER_SIGNALS and
+// PROFESSIONAL_SIGNALS/ADMIN_SIGNALS keep using score() unchanged.
+const EXCLUSION_CUE_RE =
+  /\b(?:exclud\w*|does\s+not\s+include|do\s+not\s+include|other\s+than|not\s+including|is\s+not\s+a|shall\s+not\s+(?:be\s+(?:deemed|classified|considered)|include)|no\s+construction|not\s+construction)\b/gi;
+
+// Two independent clause-reset shapes: a named party taking on an
+// obligation ("Subcontractor shall perform...") or a compact scope-noun
+// statement ("the scope covers...", "this subcontract requires...") - both
+// are common ways real contract prose reintroduces an affirmative statement
+// right after a fronted exclusion phrase. Kept as two narrow alternatives
+// rather than one broad pattern so a bare comma followed by unrelated prose
+// (e.g. a plain list item) still isn't treated as a reset.
+const CLAUSE_BREAK_RE =
+  /,\s*(?:Subcontractor|Contractor|Prime(?:\s+Contractor)?|Owner)\s+(?:shall|will|must|is\s+required\s+to|may)\b|,\s*(?:the\s+scope|the\s+work|the\s+services|this\s+(?:subcontract|agreement))\s+(?:covers?|includes?|requires?)\b/i;
+
+function hasAffirmativeMatch(text: string, pattern: RegExp): boolean {
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const triggerFlags = pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g";
+
+  for (const sentence of sentences) {
+    const cueRe = new RegExp(EXCLUSION_CUE_RE.source, EXCLUSION_CUE_RE.flags);
+    const cueIndices: number[] = [];
+    let cueMatch: RegExpExecArray | null;
+    while ((cueMatch = cueRe.exec(sentence)) !== null) {
+      cueIndices.push(cueMatch.index);
+      if (cueRe.lastIndex === cueMatch.index) cueRe.lastIndex++;
+    }
+
+    const triggerRe = new RegExp(pattern.source, triggerFlags);
+    let triggerMatch: RegExpExecArray | null;
+    while ((triggerMatch = triggerRe.exec(sentence)) !== null) {
+      const matchIndex = triggerMatch.index;
+      let nearestCueBefore = -1;
+      for (const idx of cueIndices) {
+        if (idx < matchIndex && idx > nearestCueBefore) nearestCueBefore = idx;
+      }
+      if (nearestCueBefore === -1) return true;
+      const between = sentence.slice(nearestCueBefore, matchIndex);
+      if (CLAUSE_BREAK_RE.test(between)) return true;
+      if (triggerRe.lastIndex === matchIndex) triggerRe.lastIndex++;
+    }
+  }
+  return false;
+}
+
+function scoreWithExclusionGuard(text: string, patterns: ScoredPattern[]): number {
+  return patterns.reduce((sum, { pattern, weight }) => (hasAffirmativeMatch(text, pattern) ? sum + weight : sum), 0);
+}
+
 export function classifyContract(documentText: string): ContractClassification {
   const text = documentText;
   const notes: string[] = [];
@@ -91,8 +155,8 @@ export function classifyContract(documentText: string): ContractClassification {
   }
 
   const cyberScore = score(text, CYBER_SIGNALS);
-  const constructionScore = score(text, CONSTRUCTION_SIGNALS);
-  const supplyScore = score(text, SUPPLY_SIGNALS);
+  const constructionScore = scoreWithExclusionGuard(text, CONSTRUCTION_SIGNALS);
+  const supplyScore = scoreWithExclusionGuard(text, SUPPLY_SIGNALS);
   const professionalScore = score(text, PROFESSIONAL_SIGNALS);
   const adminScore = score(text, ADMIN_SIGNALS);
 
