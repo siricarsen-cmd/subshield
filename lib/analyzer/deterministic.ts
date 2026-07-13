@@ -140,7 +140,22 @@ const CATEGORIES: DeterministicCategory[] = [
     severity: "High",
     patterns: [
       /indemnify[^.]{0,60}(?:and\s+)?hold\s+harmless/i,
-      /duty\s+to\s+defend/i,
+      // Bare "duty to defend" is negation-blind on its own - "Neither party
+      // HAS a duty to defend", "Neither party SHALL HAVE any duty to
+      // defend", "No party HAS a duty to defend", and "[X] HAS NO / HAVE NO
+      // duty to defend" are all real, common protective phrasings that
+      // state the OPPOSITE of what this pattern is meant to catch. The
+      // lookbehinds below block only those specific negation shapes
+      // immediately preceding "duty to defend" - an affirmative clause like
+      // "Subcontractor has a duty to defend Prime Contractor" or an
+      // aggressive one like "Subcontractor's duty to defend is not limited
+      // by insurance" (where "not" is nowhere near "duty to defend") still
+      // matches normally. If this pattern fails to match at a protective
+      // occurrence, re.exec() naturally continues scanning forward for a
+      // later, unblocked "duty to defend" elsewhere in the document - it
+      // does not consume the category's one-finding slot on the false
+      // positive.
+      /(?<!neither\s+party\s+has\s+(?:a\s+|any\s+)?)(?<!neither\s+party\s+shall\s+have\s+(?:a\s+|any\s+)?)(?<!no\s+party\s+has\s+(?:a\s+|any\s+)?)(?<!has\s+no\s+)(?<!have\s+no\s+)duty\s+to\s+defend/i,
       /defend,?\s+indemnify/i,
       /indemnify[^.]{0,150}(?:any\s+alleged|alleged\s+(?:violation|noncompliance|breach))/i,
       /regardless\s+of\s+(?:whether\s+)?(?:such\s+)?(?:claim|allegation)[^.]{0,80}(?:fault|negligence)\s+of\s+(?:the\s+)?Prime/i,
@@ -197,7 +212,17 @@ const CATEGORIES: DeterministicCategory[] = [
       // wrongly triggered on an 11-day cure period.
       /(?:(?<!\d)(?:[1-9]|10)(?!\d)\s*(?:calendar|business|working)?\s*days?\s+to\s+cure|cure\s+(?:period|such\s+default|any\s+such\s+failure)[^.]{0,80}(?:within\s+)?(?<!\d)(?:[1-9]|10)(?!\d)\s*(?:calendar|business|working)?\s*days?)/i,
       /fail(?:s|ure)?\s+to\s+cure[^.]{0,100}within\s+(?<!\d)(?:[1-9]|10)(?!\d)\s*(?:calendar|business|working)?\s*days?/i,
-      /terminat(?:e|ion)[^.]{0,50}for\s+default[^.]{0,150}(?:immediately|without\s+(?:further\s+)?notice|in\s+its\s+sole\s+discretion|at\s+its\s+sole\s+discretion)/i,
+      // "terminate for default...without notice" alone doesn't distinguish
+      // a real risk (Prime MAY terminate without notice) from a protective
+      // prohibition (Neither party MAY terminate...without notice - i.e.
+      // termination without notice is NOT allowed). The lookbehinds below
+      // block only when "terminat(e/ion)" is immediately preceded by one of
+      // those negation shapes; an unrelated "Prime Contractor may
+      // terminate..." match elsewhere in the document is untouched, and
+      // re.exec() naturally continues scanning past a blocked protective
+      // occurrence to find a later real one instead of consuming the
+      // category's one-finding slot.
+      /(?<!neither\s+party\s+may\s+)(?<!no\s+party\s+may\s+)(?<!may\s+not\s+)(?<!shall\s+not\s+)terminat(?:e|ion)[^.]{0,50}for\s+default[^.]{0,150}(?:immediately|without\s+(?:further\s+)?notice|in\s+its\s+sole\s+discretion|at\s+its\s+sole\s+discretion)/i,
       /Prime(?:\s+Contractor)?\s+may[^.]{0,60}terminate[^.]{0,80}for\s+default[^.]{0,100}(?:immediately|sole\s+discretion|without\s+notice)/i,
       // Immediate-termination discretion without requiring the literal phrase
       // "for default" - real contracts often phrase this as broad

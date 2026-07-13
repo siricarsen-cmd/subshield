@@ -74,8 +74,18 @@ const PROFESSIONAL_SIGNALS: ScoredPattern[] = [
 // ended before this occurrence and it counts as affirmative anyway. Only
 // wired into CONSTRUCTION_SIGNALS/SUPPLY_SIGNALS; CYBER_SIGNALS and
 // PROFESSIONAL_SIGNALS/ADMIN_SIGNALS keep using score() unchanged.
+// "not (be)? responsible for" covers "is/are not responsible for" and
+// "shall/will/must not be responsible for" - a very common GovCon way to
+// state a negative-scope disclaimer list that doesn't use "excludes" or
+// "does not include" at all. "(?:may|shall|will) not impose" covers a
+// protective payment-restriction list ("may not impose retainage, setoff,
+// backcharge, or withholding...") that mentions a sector keyword
+// (retainage) only as something the Prime is barred from doing - narrowly
+// anchored to "impose" specifically (not a bare "may not"/"not"), so this
+// doesn't treat arbitrary "may not" phrasing elsewhere as a sector
+// exclusion.
 const EXCLUSION_CUE_RE =
-  /\b(?:exclud\w*|does\s+not\s+include|do\s+not\s+include|other\s+than|not\s+including|is\s+not\s+a|shall\s+not\s+(?:be\s+(?:deemed|classified|considered)|include)|no\s+construction|not\s+construction)\b/gi;
+  /\b(?:exclud\w*|does\s+not\s+include|do\s+not\s+include|other\s+than|not\s+including|is\s+not\s+a|shall\s+not\s+(?:be\s+(?:deemed|classified|considered)|include)|no\s+construction|not\s+construction|not\s+(?:be\s+)?responsible\s+for|(?:may|shall|will)\s+not\s+impose)\b/gi;
 
 // Two independent clause-reset shapes: a named party taking on an
 // obligation ("Subcontractor shall perform...") or a compact scope-noun
@@ -87,7 +97,12 @@ const EXCLUSION_CUE_RE =
 const CLAUSE_BREAK_RE =
   /,\s*(?:Subcontractor|Contractor|Prime(?:\s+Contractor)?|Owner)\s+(?:shall|will|must|is\s+required\s+to|may)\b|,\s*(?:the\s+scope|the\s+work|the\s+services|this\s+(?:subcontract|agreement))\s+(?:covers?|includes?|requires?)\b/i;
 
-function hasAffirmativeMatch(text: string, pattern: RegExp): boolean {
+// Core per-sentence, per-occurrence affirmative-match search shared by
+// hasAffirmativeMatch (scoring, boolean) and findAffirmativeEvidenceSnippet
+// (sector-evidence display, needs the actual matched sentence) - extracted
+// so both consumers use the identical negation logic instead of two
+// separately-maintained copies that could drift apart.
+function findAffirmativeMatch(text: string, pattern: RegExp): { sentence: string } | null {
   const sentences = text.split(/(?<=[.!?])\s+/);
   const triggerFlags = pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g";
 
@@ -108,17 +123,38 @@ function hasAffirmativeMatch(text: string, pattern: RegExp): boolean {
       for (const idx of cueIndices) {
         if (idx < matchIndex && idx > nearestCueBefore) nearestCueBefore = idx;
       }
-      if (nearestCueBefore === -1) return true;
+      if (nearestCueBefore === -1) return { sentence };
       const between = sentence.slice(nearestCueBefore, matchIndex);
-      if (CLAUSE_BREAK_RE.test(between)) return true;
+      if (CLAUSE_BREAK_RE.test(between)) return { sentence };
       if (triggerRe.lastIndex === matchIndex) triggerRe.lastIndex++;
     }
   }
-  return false;
+  return null;
+}
+
+function hasAffirmativeMatch(text: string, pattern: RegExp): boolean {
+  return findAffirmativeMatch(text, pattern) !== null;
 }
 
 function scoreWithExclusionGuard(text: string, patterns: ScoredPattern[]): number {
   return patterns.reduce((sum, { pattern, weight }) => (hasAffirmativeMatch(text, pattern) ? sum + weight : sum), 0);
+}
+
+// Sector-evidence display must ground itself in the SAME affirmative
+// occurrence the score is based on, not just the first raw keyword match in
+// the document - otherwise a negated/excluded sentence (which correctly
+// contributes 0 to score) could still be shown to the reviewer as if it
+// were the evidence. Tries each pattern in the sector's own scoring list, in
+// the same order used for scoring, and returns the first affirmative
+// match's full sentence.
+function findAffirmativeEvidenceSnippet(text: string, patterns: ScoredPattern[]): string | undefined {
+  for (const { pattern } of patterns) {
+    const match = findAffirmativeMatch(text, pattern);
+    if (match) {
+      return match.sentence.trim().replace(/\s+/g, " ").slice(0, 200);
+    }
+  }
+  return undefined;
 }
 
 export function classifyContract(documentText: string): ContractClassification {
@@ -184,16 +220,28 @@ export function classifyContract(documentText: string): ContractClassification {
     notes.push("No strong sector signal found; sector classification defaulted to Unknown.");
   }
 
-  const evidencePatternsBySector: Record<string, RegExp> = {
-    "Cybersecurity / IT / Professional Services": /[^.\n]{0,80}(?:252\.204-7012|NIST\s*SP\s*800-171|CMMC|CUI|CDI|DD\s*254)[^.\n]{0,80}/i,
-    "Construction / Facility / Trade": /[^.\n]{0,80}(?:HVAC|construction|davis[\s-]bacon|certified\s+payroll|retainage)[^.\n]{0,80}/i,
-    "Supply / Manufacturing": /[^.\n]{0,80}(?:first\s+article\s+testing|counterfeit\s+parts|inspection\s+and\s+acceptance)[^.\n]{0,80}/i,
-    "Professional Services / Administrative Support": /[^.\n]{0,80}(?:administrative\s+support|document\s+coordination|professional\s+services)[^.\n]{0,80}/i,
-  };
-  const evidencePattern = evidencePatternsBySector[sector];
-  if (evidencePattern) {
-    const m = text.match(evidencePattern);
-    if (m) sectorEvidence = m[0].trim().replace(/\s+/g, " ").slice(0, 200);
+  // Construction and Supply/Manufacturing evidence must come from the same
+  // exclusion-aware match used for scoring above (scoreWithExclusionGuard),
+  // not a raw document-wide keyword search - otherwise a negated/excluded
+  // sentence that correctly contributes 0 to score could still be displayed
+  // as if it were affirmative evidence. Cyber and Professional Services keep
+  // the original raw-keyword lookup unchanged: their scoring never used the
+  // exclusion guard, so there's nothing for their evidence to stay
+  // consistent with.
+  if (sector === "Construction / Facility / Trade") {
+    sectorEvidence = findAffirmativeEvidenceSnippet(text, CONSTRUCTION_SIGNALS);
+  } else if (sector === "Supply / Manufacturing") {
+    sectorEvidence = findAffirmativeEvidenceSnippet(text, SUPPLY_SIGNALS);
+  } else {
+    const evidencePatternsBySector: Record<string, RegExp> = {
+      "Cybersecurity / IT / Professional Services": /[^.\n]{0,80}(?:252\.204-7012|NIST\s*SP\s*800-171|CMMC|CUI|CDI|DD\s*254)[^.\n]{0,80}/i,
+      "Professional Services / Administrative Support": /[^.\n]{0,80}(?:administrative\s+support|document\s+coordination|professional\s+services)[^.\n]{0,80}/i,
+    };
+    const evidencePattern = evidencePatternsBySector[sector];
+    if (evidencePattern) {
+      const m = text.match(evidencePattern);
+      if (m) sectorEvidence = m[0].trim().replace(/\s+/g, " ").slice(0, 200);
+    }
   }
 
   return {

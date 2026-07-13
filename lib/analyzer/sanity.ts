@@ -189,6 +189,52 @@ function violatesContradictionGuard(finding: Finding, documentText: string): str
     }
   }
 
+  // (E) Protective "no duty to defend" language: a quote that itself states
+  // neither/no party has (or has no) duty to defend cannot simultaneously be
+  // evidence of a real indemnification/duty-to-defend risk. Companion to the
+  // deterministic.ts lookbehind fix above - covers the case where the LLM,
+  // not the deterministic scanner, raises the same false positive from its
+  // own reading of the clause. Does not suppress when the same quote also
+  // contains a separate, explicit affirmative obligation actually requiring
+  // Subcontractor to indemnify/defend/hold harmless Prime Contractor - that
+  // combination (e.g. "...except that Subcontractor shall indemnify,
+  // defend, and hold harmless Prime Contractor...") is a real risk even
+  // though the same quote also states a general "no duty to defend" rule.
+  const INDEMNITY_REGULATION_RE = /indemnif|duty\s+to\s+defend|hold\s+harmless/i;
+  const INDEMNITY_PROTECTIVE_RE =
+    /neither\s+party\s+(?:has|shall\s+have)\s+(?:a\s+|any\s+)?duty\s+to\s+defend|no\s+party\s+has\s+(?:a\s+|any\s+)?duty\s+to\s+defend|has\s+no\s+duty\s+to\s+defend|have\s+no\s+duty\s+to\s+defend/i;
+  const AFFIRMATIVE_INDEMNITY_EXCEPTION_RE =
+    /Subcontractor\s+(?:shall|will)\s+(?:indemnify|defend|hold\s+harmless)[^.]{0,150}Prime(?:\s+Contractor)?/i;
+  if (
+    finding.familyKey === "liability" &&
+    INDEMNITY_REGULATION_RE.test(finding.regulation) &&
+    INDEMNITY_PROTECTIVE_RE.test(finding.foundText) &&
+    !AFFIRMATIVE_INDEMNITY_EXCEPTION_RE.test(finding.foundText)
+  ) {
+    return "Finding's own verified quote states that neither/no party has (or has no) duty to defend, with no separate affirmative indemnify/defend/hold-harmless obligation in the same quote; not an indemnification risk.";
+  }
+
+  // (F) Protective termination/cure prohibition: "neither/no party may
+  // terminate...without notice/cure" or "[a party] may/shall not
+  // terminate...without notice/cure" is a prohibition REQUIRING notice and a
+  // cure opportunity before termination, not a risk granting Prime the
+  // right to skip them. Companion to the deterministic.ts lookbehind fix
+  // above. Does not suppress when the same quote also contains a separate,
+  // explicit exception actually granting Prime an immediate/no-notice/
+  // sole-discretion termination right - that combination is a real risk
+  // even though the same quote also states a general prohibition.
+  const CURE_TERMINATION_PROHIBITION_RE =
+    /(?:neither\s+party|no\s+party)\s+(?:may|shall)\s+terminate[^.]{0,150}without[^.]{0,100}(?:notice|cure)|(?:may|shall)\s+not\s+terminate[^.]{0,150}without[^.]{0,100}(?:notice|cure)/i;
+  const PRIME_IMMEDIATE_TERMINATION_EXCEPTION_RE =
+    /Prime(?:\s+Contractor)?\s+may\s+terminate[^.]{0,100}(?:immediately|without\s+(?:further\s+)?notice|sole\s+discretion|without\s+(?:any\s+)?(?:right|opportunity)\s+to\s+cure)/i;
+  if (
+    CURE_REGULATION_RE.test(finding.regulation) &&
+    CURE_TERMINATION_PROHIBITION_RE.test(finding.foundText) &&
+    !PRIME_IMMEDIATE_TERMINATION_EXCEPTION_RE.test(finding.foundText)
+  ) {
+    return "Finding's own verified quote is a prohibition requiring notice and/or a cure opportunity before termination, with no separate exception granting Prime an immediate/no-notice/sole-discretion right in the same quote; not a short-cure/termination-discretion risk.";
+  }
+
   return null;
 }
 
