@@ -2,6 +2,7 @@
 // and applies contradiction guards before a finding is allowed to surface.
 
 import { quoteExistsInDocument, scrubUngroundedArticleReferences } from "./text";
+import { SHORT_CURE_MAX_DAYS } from "./deterministic";
 import type { Finding } from "./types";
 
 export interface VerificationResult {
@@ -85,6 +86,153 @@ function violatesContradictionGuard(finding: Finding, documentText: string): str
     if (analysis.includes(phrase) && !doc.includes(phrase)) {
       return `Finding text references the fixed phrase "${phrase}", which does not appear in the current document.`;
     }
+  }
+
+  // Finding-local false-positive guards below: each decides suppression
+  // using ONLY this finding's own verified foundText (never documentText,
+  // and never riskAnalysis, which can contain speculative LLM framing that
+  // isn't itself grounded evidence). familyKey/regulation are used only to
+  // decide whether a guard applies to this finding's category, never as
+  // evidence of risk. Because verifyFindings() below loops per-finding, a
+  // suppressed finding never affects a separate finding elsewhere in the
+  // same document that independently carries real risk evidence in its own
+  // foundText.
+
+  // (A) Ordinary invoice timing: a bare "pay invoice within 20/30 days of
+  // receipt" clause is a normal commercial term, not a risk, unless the same
+  // quote also carries actual contingency/withholding/setoff/etc. evidence.
+  // Deliberately bounded to 20/30 (not a wider Net-N range) so a genuine
+  // Net-45/60 delay - explicitly called out as in-scope payment risk - is
+  // never suppressed by this guard. (?<!\d)/(?!\d) around (?:20|30) are a
+  // defensive digit boundary, consistent with the cure-period fix in
+  // deterministic.ts - not currently reachable (the fixed "within\s+" anchor
+  // already pins the number's start position so it can't land mid-digit-run
+  // of a larger number), but kept so a future loosening of that anchor can't
+  // silently reintroduce the same bug class.
+  const ORDINARY_INVOICE_TIMING_RE =
+    /pay\s+(?:each\s+)?(?:correct|valid|properly\s+submitted)?\s*invoice[^.]{0,60}within\s+(?<!\d)(?:20|30)(?!\d)\s*(?:calendar|business|working)?\s*days?\s+(?:after|of)\s+receipt/i;
+  // Government-receipt phrasing varies the noun (payment/funds/monies/
+  // amounts) and word order ("receipt of X from" vs. "X received from" vs.
+  // "receiving X from") - all three are real, natural ways to phrase the
+  // same Government-payment contingency risk, so all three orderings and
+  // all four nouns are covered rather than only the single literal
+  // "receipt of payment from" phrase.
+  const PAYMENT_RISK_SIGNAL_RE =
+    /pay[\s-]if[\s-]paid|pay[\s-]when[\s-]paid|contingent\s+(?:upon|on)|condition(?:ed)?\s+(?:upon|on)[^.]{0,60}(?:government|owner)|receipt\s+of\s+(?:payment|funds|monies|amounts)\s+from|(?:corresponding\s+)?(?:payment|funds|monies|amounts)\s+(?:actually\s+)?receive[ds]?\s+from\s+(?:the\s+)?government|receiv(?:ed|es|ing)[^.]{0,60}(?:payment|funds|monies|amounts)\s+from\s+(?:the\s+)?government|government\s+(?:delays?|disputes?|reduces?|rejects?|withholds?)|no\s+obligation\s+to\s+pay|not\s+(?:received|paid)[^.]{0,60}(?:government|owner)|withhold|retainage|set[\s-]?off|back[\s-]?charge|audit[^.]{0,60}approv|reject(?:s|ed|ion)?\s+(?:the\s+)?invoice|unreasonably\s+delay|indefinite(?:ly)?\s+delay|excessive(?:ly)?\s+delay/i;
+  if (
+    finding.familyKey === "payment" &&
+    ORDINARY_INVOICE_TIMING_RE.test(finding.foundText) &&
+    !PAYMENT_RISK_SIGNAL_RE.test(finding.foundText)
+  ) {
+    return "Finding's own verified quote describes only an ordinary invoice-payment timing window (20 or 30 days after receipt) with no contingency, withholding, retainage, setoff, or audit-approval evidence in that same quote; suppressed as ordinary Net terms.";
+  }
+
+  // (B) Bare prime-contract identifier: a quote that is nothing more than
+  // "Prime Contract No. X" is an identifying reference (already captured
+  // separately as documentAnchors.primeContractNumber in anchors.ts), not
+  // evidence of incorporation-by-reference, control, or a missing document.
+  const BARE_PRIME_CONTRACT_ID_RE =
+    /^\s*(?:the\s+)?prime\s+contract\s+(?:no\.?|number|#)\s*[:.]?\s*[A-Za-z0-9][\w-]*\.?\s*$/i;
+  if (finding.familyKey === "structure" && BARE_PRIME_CONTRACT_ID_RE.test(finding.foundText.trim())) {
+    return "Finding's own verified quote is only a bare prime-contract identifier with no incorporation, control, precedence, or flowdown language; not itself a structure risk.";
+  }
+
+  // (C) Protective entire-agreement / integration clause: language requiring
+  // signed bilateral written amendments protects against undocumented
+  // side-agreements - it is not evidence that something is missing, unless
+  // the same quote itself also says so. Real contracts state the two
+  // concepts in either order ("entire agreement ... amended only by a
+  // signed writing" vs. "amendments must be signed by both parties ...
+  // constitutes the entire agreement"), so both orderings are checked as
+  // two narrow, separately named alternatives rather than one pattern that
+  // only recognizes a single order.
+  const ENTIRE_AGREEMENT_PROTECTIVE_FORWARD_RE =
+    /entire\s+agreement[^.]{0,250}amend(?:ment|ed|ments)?[^.]{0,150}(?:written|signed)[^.]{0,120}(?:by\s+)?(?:both|each)\s+part(?:y|ies)/i;
+  const ENTIRE_AGREEMENT_PROTECTIVE_REVERSED_RE =
+    /amend(?:ment|ed|ments)?[^.]{0,150}(?:written|signed)[^.]{0,120}(?:by\s+)?(?:both|each)\s+part(?:y|ies)[^.]{0,250}entire\s+agreement/i;
+  // "Statement of Work" spelled out (not just the "SOW" abbreviation), and
+  // "will/shall be provided/issued/attached" or "provided/issued/attached
+  // later" (deferred-delivery phrasing distinct from the already-covered
+  // "not yet issued/attached" and "to be provided/issued" forms), are real
+  // ways a document defers or omits a required document without using any
+  // of the previously-covered phrases.
+  const MISSING_DOC_SIGNAL_RE =
+    /not\s+(?:currently\s+)?(?:included|attached|provided|available)|absent\s+from|no\s+(?:current\s+)?(?:sow|statement\s+of\s+work|flow-?down|wage\s+determination|dd\s*254|cyber\s+attachment|quality\s+plan|safety\s+plan)|unattached|redacted|pending\s+exhibit|to\s+be\s+(?:determined|provided|issued|incorporated)|not\s+yet\s+(?:issued|attached|available)|unidentified|unknown\s+flow-?down|(?:will|shall)\s+be\s+(?:provided|issued|attached)|(?:provided|issued|attached)\s+later/i;
+  if (
+    finding.familyKey === "structure" &&
+    (ENTIRE_AGREEMENT_PROTECTIVE_FORWARD_RE.test(finding.foundText) ||
+      ENTIRE_AGREEMENT_PROTECTIVE_REVERSED_RE.test(finding.foundText)) &&
+    !MISSING_DOC_SIGNAL_RE.test(finding.foundText)
+  ) {
+    return "Finding's own verified quote is a protective entire-agreement/integration clause requiring signed bilateral amendments and does not itself state that anything is missing, unattached, or pending; not a missing-document risk.";
+  }
+
+  // (D) LLM long-cure companion guard: mirrors the deterministic-source fix
+  // in deterministic.ts (SHORT_CURE_MAX_DAYS) for the case where the LLM,
+  // rather than the deterministic scanner, independently raises the same
+  // false positive from its own reading of a long standalone cure period.
+  const CURE_REGULATION_RE = /short\s+default\s+cure|cure\s+period/i;
+  const CURE_DAY_EXTRACT_RE = /(\d+)\s*(?:calendar|business|working)?\s*days?\s+to\s+cure/i;
+  // "No genuine opportunity to cure" is commonly phrased as "without
+  // any/a/an (providing an) right/opportunity to cure" or "no
+  // right/opportunity to cure", distinct from the already-covered
+  // "terminate...without cure" and "without further notice" phrasings.
+  const IMMEDIATE_TERMINATION_SIGNAL_RE =
+    /terminate[^.]{0,60}immediately|terminat(?:e|ion)[^.]{0,60}without\s+(?:a\s+)?cure|without\s+(?:further\s+)?notice|sole\s+discretion|(?:without\s+(?:any|a|an|providing(?:\s+an)?)|no)\s+(?:right|opportunity)\s+to\s+cure/i;
+  if (CURE_REGULATION_RE.test(finding.regulation)) {
+    const dayMatch = CURE_DAY_EXTRACT_RE.exec(finding.foundText);
+    if (dayMatch) {
+      const days = Number(dayMatch[1]);
+      if (days > SHORT_CURE_MAX_DAYS && !IMMEDIATE_TERMINATION_SIGNAL_RE.test(finding.foundText)) {
+        return `Finding's own verified quote states a ${days}-day cure period with no immediate-termination, termination-without-cure, no-further-notice, or sole-discretion language in that same quote; not a short-cure risk.`;
+      }
+    }
+  }
+
+  // (E) Protective "no duty to defend" language: a quote that itself states
+  // neither/no party has (or has no) duty to defend cannot simultaneously be
+  // evidence of a real indemnification/duty-to-defend risk. Companion to the
+  // deterministic.ts lookbehind fix above - covers the case where the LLM,
+  // not the deterministic scanner, raises the same false positive from its
+  // own reading of the clause. Does not suppress when the same quote also
+  // contains a separate, explicit affirmative obligation actually requiring
+  // Subcontractor to indemnify/defend/hold harmless Prime Contractor - that
+  // combination (e.g. "...except that Subcontractor shall indemnify,
+  // defend, and hold harmless Prime Contractor...") is a real risk even
+  // though the same quote also states a general "no duty to defend" rule.
+  const INDEMNITY_REGULATION_RE = /indemnif|duty\s+to\s+defend|hold\s+harmless/i;
+  const INDEMNITY_PROTECTIVE_RE =
+    /neither\s+party\s+(?:has|shall\s+have)\s+(?:a\s+|any\s+)?duty\s+to\s+defend|no\s+party\s+has\s+(?:a\s+|any\s+)?duty\s+to\s+defend|has\s+no\s+duty\s+to\s+defend|have\s+no\s+duty\s+to\s+defend/i;
+  const AFFIRMATIVE_INDEMNITY_EXCEPTION_RE =
+    /Subcontractor\s+(?:shall|will)\s+(?:indemnify|defend|hold\s+harmless)[^.]{0,150}Prime(?:\s+Contractor)?/i;
+  if (
+    finding.familyKey === "liability" &&
+    INDEMNITY_REGULATION_RE.test(finding.regulation) &&
+    INDEMNITY_PROTECTIVE_RE.test(finding.foundText) &&
+    !AFFIRMATIVE_INDEMNITY_EXCEPTION_RE.test(finding.foundText)
+  ) {
+    return "Finding's own verified quote states that neither/no party has (or has no) duty to defend, with no separate affirmative indemnify/defend/hold-harmless obligation in the same quote; not an indemnification risk.";
+  }
+
+  // (F) Protective termination/cure prohibition: "neither/no party may
+  // terminate...without notice/cure" or "[a party] may/shall not
+  // terminate...without notice/cure" is a prohibition REQUIRING notice and a
+  // cure opportunity before termination, not a risk granting Prime the
+  // right to skip them. Companion to the deterministic.ts lookbehind fix
+  // above. Does not suppress when the same quote also contains a separate,
+  // explicit exception actually granting Prime an immediate/no-notice/
+  // sole-discretion termination right - that combination is a real risk
+  // even though the same quote also states a general prohibition.
+  const CURE_TERMINATION_PROHIBITION_RE =
+    /(?:neither\s+party|no\s+party)\s+(?:may|shall)\s+terminate[^.]{0,150}without[^.]{0,100}(?:notice|cure)|(?:may|shall)\s+not\s+terminate[^.]{0,150}without[^.]{0,100}(?:notice|cure)/i;
+  const PRIME_IMMEDIATE_TERMINATION_EXCEPTION_RE =
+    /Prime(?:\s+Contractor)?\s+may\s+terminate[^.]{0,100}(?:immediately|without\s+(?:further\s+)?notice|sole\s+discretion|without\s+(?:any\s+)?(?:right|opportunity)\s+to\s+cure)/i;
+  if (
+    CURE_REGULATION_RE.test(finding.regulation) &&
+    CURE_TERMINATION_PROHIBITION_RE.test(finding.foundText) &&
+    !PRIME_IMMEDIATE_TERMINATION_EXCEPTION_RE.test(finding.foundText)
+  ) {
+    return "Finding's own verified quote is a prohibition requiring notice and/or a cure opportunity before termination, with no separate exception granting Prime an immediate/no-notice/sole-discretion right in the same quote; not a short-cure/termination-discretion risk.";
   }
 
   return null;

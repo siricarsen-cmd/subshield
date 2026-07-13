@@ -15,6 +15,18 @@
 
 import type { Finding, RiskLevel } from "./types";
 
+// Maximum day count for a standalone "N days to cure" mention (with no
+// paired immediate-termination/sole-discretion language) to count as a
+// short-cure risk on its own. No prior numeric threshold was codified
+// anywhere in this codebase; 10 was chosen as a defensible cutoff sitting
+// above the "5 calendar days" example already used elsewhere in this file
+// and in sanity.ts's stock-phrase guard as the canonical short-cure
+// illustration, and below the 30-day cure period confirmed as a false
+// positive in regression testing. Exported so sanity.ts's LLM long-cure
+// companion guard uses this exact same value instead of a duplicated magic
+// number.
+export const SHORT_CURE_MAX_DAYS = 10;
+
 interface DeterministicCategory {
   familyKey: string;
   regulation: string;
@@ -128,7 +140,22 @@ const CATEGORIES: DeterministicCategory[] = [
     severity: "High",
     patterns: [
       /indemnify[^.]{0,60}(?:and\s+)?hold\s+harmless/i,
-      /duty\s+to\s+defend/i,
+      // Bare "duty to defend" is negation-blind on its own - "Neither party
+      // HAS a duty to defend", "Neither party SHALL HAVE any duty to
+      // defend", "No party HAS a duty to defend", and "[X] HAS NO / HAVE NO
+      // duty to defend" are all real, common protective phrasings that
+      // state the OPPOSITE of what this pattern is meant to catch. The
+      // lookbehinds below block only those specific negation shapes
+      // immediately preceding "duty to defend" - an affirmative clause like
+      // "Subcontractor has a duty to defend Prime Contractor" or an
+      // aggressive one like "Subcontractor's duty to defend is not limited
+      // by insurance" (where "not" is nowhere near "duty to defend") still
+      // matches normally. If this pattern fails to match at a protective
+      // occurrence, re.exec() naturally continues scanning forward for a
+      // later, unblocked "duty to defend" elsewhere in the document - it
+      // does not consume the category's one-finding slot on the false
+      // positive.
+      /(?<!neither\s+party\s+has\s+(?:a\s+|any\s+)?)(?<!neither\s+party\s+shall\s+have\s+(?:a\s+|any\s+)?)(?<!no\s+party\s+has\s+(?:a\s+|any\s+)?)(?<!has\s+no\s+)(?<!have\s+no\s+)duty\s+to\s+defend/i,
       /defend,?\s+indemnify/i,
       /indemnify[^.]{0,150}(?:any\s+alleged|alleged\s+(?:violation|noncompliance|breach))/i,
       /regardless\s+of\s+(?:whether\s+)?(?:such\s+)?(?:claim|allegation)[^.]{0,80}(?:fault|negligence)\s+of\s+(?:the\s+)?Prime/i,
@@ -169,9 +196,33 @@ const CATEGORIES: DeterministicCategory[] = [
       // discretion, and pulls both into one quote.
       /\d+\s*(?:calendar|business|working)?\s*days?\s+to\s+cure[\s\S]{0,250}terminate[^.]{0,40}immediately/i,
       // Either word order: "N days to cure" or "cure ... within N days".
-      /(?:\d+\s*(?:calendar|business|working)?\s*days?\s+to\s+cure|cure\s+(?:period|such\s+default|any\s+such\s+failure)[^.]{0,80}(?:within\s+)?\d+\s*(?:calendar|business|working)?\s*days?)/i,
-      /fail(?:s|ure)?\s+to\s+cure[^.]{0,100}within\s+\d+\s*(?:calendar|business|working)?\s*days?/i,
-      /terminat(?:e|ion)[^.]{0,50}for\s+default[^.]{0,150}(?:immediately|without\s+(?:further\s+)?notice|in\s+its\s+sole\s+discretion|at\s+its\s+sole\s+discretion)/i,
+      // Bounded to 1-SHORT_CURE_MAX_DAYS (10) days: a standalone cure-period
+      // mention with no paired immediate-termination language is only a
+      // "short cure" risk on its own when the stated period is actually
+      // short. A 30-day (or 11+ day) standalone cure period - even one that
+      // adds a diligent-cure extension - is a commercially reasonable term
+      // and must not trigger here; the immediate-termination/no-notice/
+      // sole-discretion patterns below remain unbounded since Prime
+      // retaining that discretion is a real risk regardless of the stated
+      // cure period's length. Keep the literal 1-10 range in sync with
+      // SHORT_CURE_MAX_DAYS above. (?<!\d)...(?!\d) on each side of the
+      // 1-10 fragment are required digit boundaries - without them, "11"
+      // partial-matches (e.g. the fragment can match just the trailing "1"
+      // of "11" as if it were its own single-digit "1 day" count), which
+      // wrongly triggered on an 11-day cure period.
+      /(?:(?<!\d)(?:[1-9]|10)(?!\d)\s*(?:calendar|business|working)?\s*days?\s+to\s+cure|cure\s+(?:period|such\s+default|any\s+such\s+failure)[^.]{0,80}(?:within\s+)?(?<!\d)(?:[1-9]|10)(?!\d)\s*(?:calendar|business|working)?\s*days?)/i,
+      /fail(?:s|ure)?\s+to\s+cure[^.]{0,100}within\s+(?<!\d)(?:[1-9]|10)(?!\d)\s*(?:calendar|business|working)?\s*days?/i,
+      // "terminate for default...without notice" alone doesn't distinguish
+      // a real risk (Prime MAY terminate without notice) from a protective
+      // prohibition (Neither party MAY terminate...without notice - i.e.
+      // termination without notice is NOT allowed). The lookbehinds below
+      // block only when "terminat(e/ion)" is immediately preceded by one of
+      // those negation shapes; an unrelated "Prime Contractor may
+      // terminate..." match elsewhere in the document is untouched, and
+      // re.exec() naturally continues scanning past a blocked protective
+      // occurrence to find a later real one instead of consuming the
+      // category's one-finding slot.
+      /(?<!neither\s+party\s+may\s+)(?<!no\s+party\s+may\s+)(?<!may\s+not\s+)(?<!shall\s+not\s+)terminat(?:e|ion)[^.]{0,50}for\s+default[^.]{0,150}(?:immediately|without\s+(?:further\s+)?notice|in\s+its\s+sole\s+discretion|at\s+its\s+sole\s+discretion)/i,
       /Prime(?:\s+Contractor)?\s+may[^.]{0,60}terminate[^.]{0,80}for\s+default[^.]{0,100}(?:immediately|sole\s+discretion|without\s+notice)/i,
       // Immediate-termination discretion without requiring the literal phrase
       // "for default" - real contracts often phrase this as broad
