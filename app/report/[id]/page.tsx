@@ -228,12 +228,13 @@ export default function ReportPage() {
                 <h2 className="text-sm font-black text-[#1A3668] uppercase tracking-widest">Top Active Liability Flags</h2>
             </div>
              <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-sm print:border print:text-black ${
-                overallRisk === 'High' ? 'bg-red-100 text-red-700 border border-red-200' : 
+                showUnreliableScanNotice ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                overallRisk === 'High' ? 'bg-red-100 text-red-700 border border-red-200' :
                 overallRisk === 'Medium-High' ? 'bg-orange-100 text-orange-700 border border-orange-200' :
-                overallRisk === 'Medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 
+                overallRisk === 'Medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
                 'bg-emerald-100 text-emerald-700 border border-emerald-200'
               }`}>
-                SYSTEM RISK LEVEL: {overallRisk}
+                SYSTEM RISK LEVEL: {showUnreliableScanNotice ? 'UNDETERMINED' : overallRisk}
               </span>
           </div>
 
@@ -342,7 +343,9 @@ export default function ReportPage() {
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm sticky top-28 break-inside-avoid">
             <div className="p-6 bg-[#F8F9FA]">
               <div className="text-sm text-slate-800 font-medium whitespace-pre-wrap leading-relaxed mb-6">
-                {emailDraft || "No email drafted for this clean contract."}
+                {emailDraft || (showUnreliableScanNotice
+                  ? "No Prime Pushback Memo generated because the document text could not be reliably reviewed. This is not a clean-contract result."
+                  : "No email drafted for this clean contract.")}
               </div>
               <button 
                 onClick={handleCopyEmail}
