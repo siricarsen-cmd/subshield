@@ -2,12 +2,14 @@ import { stripe } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { getStripePlanByPriceId, requireStripePlanEnv } from "@/lib/stripe-plans";
+import { fulfillCheckoutCredits, type CreditDatabase } from "@/lib/credit-fulfillment";
 import type Stripe from "stripe";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+const creditDatabase = supabase as unknown as CreditDatabase;
 
 export async function POST(req: Request) {
   try {
@@ -36,16 +38,24 @@ export async function POST(req: Request) {
       const creditsToAdd = plan?.credits ?? 0;
 
       if (creditsToAdd > 0) {
-        // Upsert to a pending_credits table to hold the value until the user registers
-        const { error: dbError } = await supabase
-          .from('pending_credits')
-          .upsert({ email: email.toLowerCase(), credits: creditsToAdd }, { onConflict: 'email' });
-
-        if (dbError) {
-          console.error("[DATABASE FAULT]", dbError);
+        let fulfilled: boolean;
+        try {
+          fulfilled = await fulfillCheckoutCredits(creditDatabase, {
+            eventId: event.id,
+            checkoutSessionId: session.id,
+            email,
+            credits: creditsToAdd,
+          });
+        } catch (error: unknown) {
+          console.error("[DATABASE FAULT] Stripe credit fulfillment failed:", error);
           return new NextResponse("Database error", { status: 500 });
         }
-        console.log(`[SUCCESS] Provisioned ${creditsToAdd} pending credits for: ${email}`);
+
+        if (fulfilled) {
+          console.log(`[SUCCESS] Provisioned ${creditsToAdd} pending credits for checkout ${session.id}.`);
+        } else {
+          console.log(`[IDEMPOTENT] Checkout ${session.id} was already fulfilled.`);
+        }
       }
     }
 

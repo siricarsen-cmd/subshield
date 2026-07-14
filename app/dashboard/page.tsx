@@ -65,6 +65,9 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loadingBilling, setLoadingBilling] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [creditBalance, setCreditBalance] = useState<number | null>(null);
+  const [creditStatus, setCreditStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [creditError, setCreditError] = useState<string | null>(null);
 
   // --- UPLOAD & AUDIT STATE ---
   const [isDragging, setIsDragging] = useState(false);
@@ -94,13 +97,55 @@ export default function DashboardPage() {
     }
   };
 
+  const loadCredits = async (accessToken: string) => {
+    setCreditStatus("loading");
+    setCreditError(null);
+
+    try {
+      const response = await fetch("/api/auth/claim", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await response.json() as { credits?: number; error?: string };
+
+      if (typeof data.credits === "number") {
+        setCreditBalance(data.credits);
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || "Credit balance could not be refreshed.");
+      }
+
+      setCreditStatus("ready");
+    } catch (error: unknown) {
+      setCreditStatus("error");
+      setCreditError(getErrorMessage(error, "Credit balance could not be refreshed."));
+    }
+  };
+
+  const retryCredits = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      await loadCredits(session.access_token);
+    } else {
+      setCreditStatus("error");
+      setCreditError("Your session expired. Please sign in again.");
+    }
+  };
+
   // --- INITIALIZATION ---
   useEffect(() => {
     const getUserAndData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      const [{ data: { user } }, { data: { session } }] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.auth.getSession(),
+      ]);
+      if (user && session) {
         setUser(user);
-        fetchAudits(user.id);
+        await Promise.all([
+          fetchAudits(user.id),
+          loadCredits(session.access_token),
+        ]);
       } else {
         // Boot to homepage if not logged in
         window.location.href = "/";
@@ -422,8 +467,25 @@ export default function DashboardPage() {
             </div>
             <div className="text-left sm:text-right sm:border-l border-slate-200 sm:pl-4">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Account Allocation</p>
-              {/* Note: This is visually hardcoded for now until we hook it up to the DB credit row */}
-              <p className="text-lg font-black text-[#FF5F1F]">ACTIVE PROCESSING</p>
+              <p className="text-lg font-black text-[#FF5F1F]">
+                {creditStatus === "loading"
+                  ? "CHECKING CREDITS..."
+                  : creditBalance === null
+                    ? "BALANCE UNAVAILABLE"
+                    : `${creditBalance} REVIEW ${creditBalance === 1 ? "CREDIT" : "CREDITS"}`}
+              </p>
+              {creditStatus === "error" && (
+                <div className="mt-1 flex flex-col items-start sm:items-end gap-1">
+                  <p className="text-[10px] font-bold text-rose-700">{creditError}</p>
+                  <button
+                    type="button"
+                    onClick={retryCredits}
+                    className="text-[10px] font-black text-[#1A3668] underline underline-offset-2"
+                  >
+                    RETRY BALANCE
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
