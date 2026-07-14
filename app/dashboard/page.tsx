@@ -283,6 +283,9 @@ export default function DashboardPage() {
     setUploadStatus(null);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Your session expired. Please sign in again.");
+
       // 1. Upload to Storage
       const filePath = `${user.id}/${Date.now()}_${file.name}`;
       const { error: uploadError } = await supabase.storage
@@ -297,7 +300,10 @@ export default function DashboardPage() {
         .insert([{ user_id: user.id, file_name: file.name, status: 'Processing', file_path: filePath }])
         .select();
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        await supabase.storage.from('contracts').remove([filePath]);
+        throw dbError;
+      }
       
       const newRecordId = insertData[0].id;
       
@@ -307,9 +313,11 @@ export default function DashboardPage() {
       // 3. Send file to the AI Parsing Route
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("auditId", newRecordId);
 
       const aiResponse = await fetch('/api/analyze-contract', {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
         body: formData
       });
 
@@ -317,17 +325,10 @@ export default function DashboardPage() {
 
       if (aiResponse.ok) {
         console.log("AI REVIEW COMPLETE:", aiData.result);
-        
-        // 4. Update Database status to 'Review Ready' AND save the AI data
-        await supabase
-          .from('contract_audits')
-          .update({ 
-            status: 'Review Ready',
-            ai_results: aiData.result 
-          })
-          .eq('id', newRecordId);
-          
+
+        // The server atomically saved the result and finalized the reservation.
         await fetchAudits(user.id); 
+        await loadCredits(session.access_token);
         setUploadStatus({ type: 'success', msg: `${file.name} review complete.` });
 
       } else {
@@ -336,7 +337,8 @@ export default function DashboardPage() {
 
     } catch (error: unknown) {
       console.error(error);
-      setUploadStatus({ type: 'error', msg: 'Upload or processing failed. Please try again.' });
+      await fetchAudits(user.id);
+      setUploadStatus({ type: 'error', msg: getErrorMessage(error, 'Upload or processing failed. Please try again.') });
     } finally {
       setIsUploading(false);
     }
@@ -365,6 +367,9 @@ export default function DashboardPage() {
     setUploadStatus(null);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Your session expired. Please sign in again.");
+
       const fileName = "Pasted contract text";
 
       // 1. Create Registry Record (no Storage file_path - there's no file)
@@ -383,23 +388,19 @@ export default function DashboardPage() {
       // 2. Send raw text to the same AI Parsing Route as file uploads
       const aiResponse = await fetch('/api/analyze-contract', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: trimmed, fileName }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ text: trimmed, fileName, auditId: newRecordId }),
       });
 
       const aiData = await aiResponse.json();
 
       if (aiResponse.ok) {
-        // 3. Update Database status to 'Review Ready' AND save the AI data
-        await supabase
-          .from('contract_audits')
-          .update({
-            status: 'Review Ready',
-            ai_results: aiData.result
-          })
-          .eq('id', newRecordId);
-
+        // The server atomically saved the result and finalized the reservation.
         await fetchAudits(user.id);
+        await loadCredits(session.access_token);
         setUploadStatus({ type: 'success', msg: 'Pasted text review complete.' });
         setPasteText("");
       } else {
@@ -408,7 +409,8 @@ export default function DashboardPage() {
 
     } catch (error: unknown) {
       console.error(error);
-      setUploadStatus({ type: 'error', msg: 'Pasted text processing failed. Please try again.' });
+      await fetchAudits(user.id);
+      setUploadStatus({ type: 'error', msg: getErrorMessage(error, 'Pasted text processing failed. Please try again.') });
     } finally {
       setIsPasting(false);
     }
@@ -588,9 +590,13 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded border ${
-                            audit.status === 'Processing' ? 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            audit.status === 'Processing'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse'
+                              : audit.status === 'Review Ready'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-rose-50 text-rose-700 border-rose-200'
                           }`}>
-                            {audit.status === 'Processing' ? 'Scanning...' : 'Review Ready'}
+                            {audit.status === 'Processing' ? 'Scanning...' : audit.status}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">

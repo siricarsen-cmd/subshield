@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { getStripePlanByPriceId, requireStripePlanEnv } from "@/lib/stripe-plans";
 import { fulfillCheckoutCredits, type CreditDatabase } from "@/lib/credit-fulfillment";
+import { shouldFulfillCheckout, shouldFulfillSubscriptionInvoice } from "@/lib/stripe-credit-grants";
 import type Stripe from "stripe";
 
 const supabase = createClient(
@@ -37,12 +38,15 @@ export async function POST(req: Request) {
       const plan = priceId ? getStripePlanByPriceId(priceId) : undefined;
       const creditsToAdd = plan?.credits ?? 0;
 
-      if (creditsToAdd > 0) {
+      // Subscription credits are fulfilled exclusively from invoice.paid so
+      // the initial invoice and every renewal share one durable path.
+      if (creditsToAdd > 0 && shouldFulfillCheckout(plan?.mode)) {
         let fulfilled: boolean;
         try {
           fulfilled = await fulfillCheckoutCredits(creditDatabase, {
             eventId: event.id,
-            checkoutSessionId: session.id,
+            sourceType: "checkout_session",
+            sourceId: session.id,
             email,
             credits: creditsToAdd,
           });
@@ -56,6 +60,52 @@ export async function POST(req: Request) {
         } else {
           console.log(`[IDEMPOTENT] Checkout ${session.id} was already fulfilled.`);
         }
+      }
+    }
+
+    if (event.type === "invoice.paid") {
+      const invoice = event.data.object as Stripe.Invoice;
+      const lineItems = await stripe.invoices.listLineItems(invoice.id);
+      const linePriceIds = lineItems.data.flatMap((line) => {
+        const price = line.pricing?.price_details?.price;
+        const priceId = typeof price === "string" ? price : price?.id;
+        return priceId ? [priceId] : [];
+      });
+      const plan = linePriceIds
+        .map((priceId) => getStripePlanByPriceId(priceId))
+        .find((candidate) => candidate?.mode === "subscription");
+
+      if (!plan || !shouldFulfillSubscriptionInvoice({
+        status: invoice.status,
+        billingReason: invoice.billing_reason,
+        linePriceIds,
+        activeBidderPriceId: plan.priceId,
+      })) {
+        return new NextResponse(null, { status: 200 });
+      }
+
+      const email = invoice.customer_email;
+      if (!email) {
+        console.error(`[WEBHOOK FAULT] Paid subscription invoice ${invoice.id} has no customer email.`);
+        return new NextResponse("Missing email context", { status: 400 });
+      }
+
+      try {
+        const fulfilled = await fulfillCheckoutCredits(creditDatabase, {
+          eventId: event.id,
+          sourceType: "invoice",
+          sourceId: invoice.id,
+          email,
+          credits: plan.credits,
+        });
+        console.log(
+          fulfilled
+            ? `[SUCCESS] Provisioned ${plan.credits} subscription credits for invoice ${invoice.id}.`
+            : `[IDEMPOTENT] Invoice ${invoice.id} was already fulfilled.`
+        );
+      } catch (error: unknown) {
+        console.error("[DATABASE FAULT] Stripe invoice fulfillment failed:", error);
+        return new NextResponse("Database error", { status: 500 });
       }
     }
 

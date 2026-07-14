@@ -17,7 +17,8 @@ export interface CreditDatabase {
 
 interface FulfillCheckoutInput {
   eventId: string;
-  checkoutSessionId: string;
+  sourceType: "checkout_session" | "invoice";
+  sourceId: string;
   email: string;
   credits: number;
 }
@@ -33,7 +34,8 @@ export async function fulfillCheckoutCredits(
 ): Promise<boolean> {
   const { data, error } = await database.rpc("fulfill_stripe_credits", {
     p_event_id: input.eventId,
-    p_checkout_session_id: input.checkoutSessionId,
+    p_source_type: input.sourceType,
+    p_source_id: input.sourceId,
     p_email: input.email.toLowerCase(),
     p_credits: input.credits,
   });

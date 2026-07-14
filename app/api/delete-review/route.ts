@@ -41,6 +41,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized request" }, { status: 403 });
     }
 
+    const { data: reservation, error: reservationError } = await supabase
+      .from('review_credit_reservations')
+      .select('status')
+      .eq('audit_id', id)
+      .maybeSingle();
+
+    if (reservationError) {
+      console.error("[DELETE-REVIEW] Reservation check failed:", reservationError.message);
+      return NextResponse.json({ error: "Review state could not be verified." }, { status: 500 });
+    }
+    if (reservation?.status === 'reserved') {
+      return NextResponse.json(
+        { error: "A review cannot be deleted while analysis is processing." },
+        { status: 409 }
+      );
+    }
+
     // 4. Remove the Storage object if we know where it lives.
     // Older rows created before file_path was tracked are left alone here by design.
     if (review.file_path) {
@@ -64,8 +81,9 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Delete Review Error:", error);
-    return NextResponse.json({ error: error.message || "Delete failed." }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Delete failed.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

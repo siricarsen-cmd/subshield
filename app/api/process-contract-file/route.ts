@@ -1,28 +1,10 @@
 import { NextResponse } from "next/server";
-// Using the exact wildcard import syntax the compiler requested
-import * as pdfParse from "pdf-parse";
 
-// LEGACY / UNUSED: nothing in the app calls this route. The live upload flow
-// (app/dashboard/page.tsx -> app/api/analyze-contract/route.ts) extracts PDF
-// text inline with pdf2json. Left as-is since it is dead code.
-export async function POST(request: Request) {
-  try {
-    const data = await request.formData();
-    const file = data.get("file") as File;
-    
-    if (!file) {
-      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
-    }
-
-    const buffer = Buffer.from(await file.arrayBuffer());
-    
-    // Safely extract the function whether it loads as a module or default export
-    const extractPdf = (pdfParse as any).default || pdfParse;
-    const pdfData = await extractPdf(buffer);
-    
-    return NextResponse.json({ text: pdfData.text });
-  } catch (error) {
-    console.error("PDF processing error:", error);
-    return NextResponse.json({ error: "PDF processing failed" }, { status: 500 });
-  }
+// Retired: file and pasted-text reviews share /api/analyze-contract so no
+// alternate endpoint can bypass ownership or credit enforcement.
+export async function POST() {
+  return NextResponse.json(
+    { error: "This legacy processing endpoint is no longer available." },
+    { status: 410 }
+  );
 }
