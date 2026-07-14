@@ -5,6 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UploadCloud, FileText, CheckCircle, AlertCircle, Loader2, Building2, CreditCard, LayoutDashboard, LogOut, Trash2, X } from "lucide-react";
 import { createClient, type User } from "@supabase/supabase-js";
+import {
+  canSubmitReview,
+  hasGeneratedReport,
+  shouldCleanupInsufficientCreditIntake,
+} from "@/lib/review-launch-policy";
 
 // Uses environment variables first, falls back to your temporary bypass keys if needed
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fqwkvyypjnxkiojbubdf.supabase.co";
@@ -84,6 +89,7 @@ export default function DashboardPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const intakeEnabled = canSubmitReview(creditStatus, creditBalance);
 
   const fetchAudits = async (userId: string) => {
     const { data, error } = await supabase
@@ -130,6 +136,21 @@ export default function DashboardPage() {
     } else {
       setCreditStatus("error");
       setCreditError("Your session expired. Please sign in again.");
+    }
+  };
+
+  const cleanupInsufficientCreditIntake = async (auditId: string, accessToken: string) => {
+    const response = await fetch('/api/delete-review', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ id: auditId }),
+    });
+    const data = await response.json() as { error?: string };
+    if (!response.ok) {
+      throw new Error(data.error || "The unused intake record could not be cleaned up safely.");
     }
   };
 
@@ -248,7 +269,7 @@ export default function DashboardPage() {
   // --- UPLOAD LOGIC ---
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(true);
+    if (intakeEnabled) setIsDragging(true);
   };
 
   const handleDragLeave = () => setIsDragging(false);
@@ -270,6 +291,10 @@ export default function DashboardPage() {
   const processUpload = async (file: File) => {
     if (!user) {
       setUploadStatus({ type: 'error', msg: 'You must be logged in to upload contracts.' });
+      return;
+    }
+    if (!intakeEnabled) {
+      setUploadStatus({ type: 'error', msg: 'A verified available review credit is required. Purchase credits or refresh your balance before submitting.' });
       return;
     }
 
@@ -332,6 +357,10 @@ export default function DashboardPage() {
         setUploadStatus({ type: 'success', msg: `${file.name} review complete.` });
 
       } else {
+        if (shouldCleanupInsufficientCreditIntake(aiResponse.status, aiData.code)) {
+          await cleanupInsufficientCreditIntake(newRecordId, session.access_token);
+          await loadCredits(session.access_token);
+        }
         throw new Error(aiData.error || "AI Engine failed to process document.");
       }
 
@@ -350,6 +379,10 @@ export default function DashboardPage() {
   const processPastedText = async () => {
     if (!user) {
       setUploadStatus({ type: 'error', msg: 'You must be logged in to submit contract text.' });
+      return;
+    }
+    if (!intakeEnabled) {
+      setUploadStatus({ type: 'error', msg: 'A verified available review credit is required. Purchase credits or refresh your balance before submitting.' });
       return;
     }
 
@@ -404,6 +437,10 @@ export default function DashboardPage() {
         setUploadStatus({ type: 'success', msg: 'Pasted text review complete.' });
         setPasteText("");
       } else {
+        if (shouldCleanupInsufficientCreditIntake(aiResponse.status, aiData.code)) {
+          await cleanupInsufficientCreditIntake(newRecordId, session.access_token);
+          await loadCredits(session.access_token);
+        }
         throw new Error(aiData.error || "AI Engine failed to process pasted text.");
       }
 
@@ -494,6 +531,27 @@ export default function DashboardPage() {
 
         {/* Upload & Registry Sections */}
         <div className="max-w-5xl mx-auto px-6 md:px-10 pt-10 space-y-10">
+          {!intakeEnabled && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-black text-amber-900 uppercase tracking-wide">
+                  {creditStatus === 'loading' ? 'Checking Review Credits' : creditStatus === 'error' ? 'Credit Balance Unavailable' : 'Purchase Credits To Start A Review'}
+                </p>
+                <p className="text-xs font-medium text-amber-800 mt-1">
+                  {creditStatus === 'loading'
+                    ? 'Intake will unlock after your available balance is verified.'
+                    : creditStatus === 'error'
+                      ? 'Retry the balance check before submitting a contract.'
+                      : 'You can still view completed reports. A new review requires one available credit.'}
+                </p>
+              </div>
+              {creditStatus === 'ready' && creditBalance === 0 && (
+                <Link href="/pricing" className="shrink-0 bg-[#1A3668] text-white text-xs font-black uppercase tracking-wider py-2.5 px-5 rounded-lg hover:bg-slate-800 transition">
+                  Purchase Credits
+                </Link>
+              )}
+            </div>
+          )}
           
           {/* Drag & Drop Upload */}
           <section>
@@ -502,7 +560,9 @@ export default function DashboardPage() {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${
-                isDragging ? 'border-[#FF5F1F] bg-[#FF5F1F]/5' : 'border-slate-300 bg-white hover:border-slate-400'
+                !intakeEnabled
+                  ? 'border-slate-200 bg-slate-100 opacity-70'
+                  : isDragging ? 'border-[#FF5F1F] bg-[#FF5F1F]/5' : 'border-slate-300 bg-white hover:border-slate-400'
               }`}
             >
               {isUploading ? (
@@ -518,8 +578,8 @@ export default function DashboardPage() {
                   <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide">Drag & Drop Contract File</h3>
                   <p className="text-xs font-medium text-slate-500 mt-2 mb-6">Supported formats: PDF, DOCX, or TXT</p>
 
-                  <input type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" className="hidden" id="file-upload" onChange={handleFileSelect} />
-                  <label htmlFor="file-upload" className="cursor-pointer inline-flex items-center gap-2 bg-[#FF5F1F] hover:bg-[#E04F1A] text-white text-xs font-black uppercase tracking-wider py-2.5 px-6 rounded-lg transition shadow-sm">
+                  <input type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" className="hidden" id="file-upload" onChange={handleFileSelect} disabled={!intakeEnabled} />
+                  <label htmlFor={intakeEnabled ? "file-upload" : undefined} className={`inline-flex items-center gap-2 text-xs font-black uppercase tracking-wider py-2.5 px-6 rounded-lg transition shadow-sm ${intakeEnabled ? 'cursor-pointer bg-[#FF5F1F] hover:bg-[#E04F1A] text-white' : 'cursor-not-allowed bg-slate-200 text-slate-400'}`}>
                     Browse Local Files
                   </label>
                 </>
@@ -543,7 +603,7 @@ export default function DashboardPage() {
               <textarea
                 value={pasteText}
                 onChange={(e) => setPasteText(e.target.value)}
-                disabled={isPasting}
+                disabled={isPasting || !intakeEnabled}
                 placeholder="Paste subcontract clauses, solicitation language, or email pushback text here..."
                 className="w-full min-h-[160px] p-4 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#FF5F1F] focus:border-[#FF5F1F] disabled:bg-slate-50 disabled:text-slate-400 font-mono resize-none"
               />
@@ -553,7 +613,7 @@ export default function DashboardPage() {
                 </span>
                 <button
                   onClick={processPastedText}
-                  disabled={isPasting || !pasteText.trim()}
+                  disabled={isPasting || !pasteText.trim() || !intakeEnabled}
                   className="bg-[#FF5F1F] hover:bg-[#E04F1A] text-white text-xs font-black uppercase tracking-wider py-2.5 px-6 rounded-lg transition disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed w-full sm:w-auto"
                 >
                   {isPasting ? "Scanning..." : "Run Triage On Pasted Text"}
@@ -601,9 +661,19 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-4">
-                            <Link href={`/report/${audit.id}`} className="text-xs font-bold text-[#FF5F1F] hover:underline uppercase tracking-wide">
-                              View Report
-                            </Link>
+                            {audit.status === 'Review Ready' && hasGeneratedReport(audit.ai_results) ? (
+                              <Link href={`/report/${audit.id}`} className="text-xs font-bold text-[#FF5F1F] hover:underline uppercase tracking-wide">
+                                View Report
+                              </Link>
+                            ) : audit.status === 'Awaiting Credits' ? (
+                              <Link href="/pricing" className="text-xs font-bold text-[#1A3668] hover:underline uppercase tracking-wide">
+                                Purchase Credits
+                              </Link>
+                            ) : (
+                              <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">
+                                {audit.status === 'Processing Failed' ? 'Processing Failed' : 'Report Not Ready'}
+                              </span>
+                            )}
                             <button
                               onClick={() => openDeleteModal(audit)}
                               className="text-slate-400 hover:text-red-600 transition-colors"

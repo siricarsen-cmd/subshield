@@ -67,7 +67,9 @@ end;
 $$;
 
 create table if not exists public.review_credit_reservations (
-  audit_id uuid primary key references public.contract_audits(id) on delete cascade,
+  -- Deliberately not a foreign key: this billing/support ledger must outlive a
+  -- customer-initiated deletion of the contract_audits content/result row.
+  audit_id uuid primary key,
   user_id uuid not null,
   status text not null check (status in ('reserved', 'completed', 'refunded')),
   attempt_count integer not null default 1 check (attempt_count > 0),
@@ -258,6 +260,48 @@ begin
 end;
 $$;
 
+create or replace function public.delete_review_if_not_reserved(
+  p_user_id uuid,
+  p_audit_id uuid
+)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  audit_owner uuid;
+  reservation_status text;
+begin
+  select user_id
+    into audit_owner
+    from public.contract_audits
+    where id = p_audit_id
+    for update;
+
+  if audit_owner is null then
+    return 'not_found';
+  end if;
+  if audit_owner <> p_user_id then
+    return 'forbidden';
+  end if;
+
+  select status
+    into reservation_status
+    from public.review_credit_reservations
+    where audit_id = p_audit_id;
+
+  if reservation_status = 'reserved' then
+    return 'reserved';
+  end if;
+
+  delete from public.contract_audits
+    where id = p_audit_id and user_id = p_user_id;
+
+  return 'deleted';
+end;
+$$;
+
 create or replace function public.claim_pending_credits(
   p_user_id uuid,
   p_email text
@@ -309,10 +353,12 @@ revoke all on function public.claim_pending_credits(uuid, text) from public, ano
 revoke all on function public.reserve_review_credit(uuid, uuid) from public, anon, authenticated;
 revoke all on function public.complete_review_credit(uuid, uuid, jsonb) from public, anon, authenticated;
 revoke all on function public.refund_review_credit(uuid, uuid, text) from public, anon, authenticated;
+revoke all on function public.delete_review_if_not_reserved(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.fulfill_stripe_credits(text, text, text, text, integer) to service_role;
 grant execute on function public.claim_pending_credits(uuid, text) to service_role;
 grant execute on function public.reserve_review_credit(uuid, uuid) to service_role;
 grant execute on function public.complete_review_credit(uuid, uuid, jsonb) to service_role;
 grant execute on function public.refund_review_credit(uuid, uuid, text) to service_role;
+grant execute on function public.delete_review_if_not_reserved(uuid, uuid) to service_role;
 
 commit;

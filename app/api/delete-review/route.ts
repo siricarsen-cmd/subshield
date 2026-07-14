@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { canDeleteReviewWithReservation } from "@/lib/review-launch-policy";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
       console.error("[DELETE-REVIEW] Reservation check failed:", reservationError.message);
       return NextResponse.json({ error: "Review state could not be verified." }, { status: 500 });
     }
-    if (reservation?.status === 'reserved') {
+    if (!canDeleteReviewWithReservation(reservation?.status ?? null)) {
       return NextResponse.json(
         { error: "A review cannot be deleted while analysis is processing." },
         { status: 409 }
@@ -67,17 +68,35 @@ export async function POST(req: Request) {
 
       if (storageError) {
         console.error("[DELETE-REVIEW] Storage cleanup failed:", storageError.message);
+        return NextResponse.json(
+          { error: "The uploaded file could not be removed, so the review was retained." },
+          { status: 500 }
+        );
       }
     }
 
-    // 5. Hard-delete the registry record
-    const { error: deleteError } = await supabase
-      .from('contract_audits')
-      .delete()
-      .eq('id', id);
+    // 5. Atomically re-check ownership/reservation state while locking the audit.
+    // This closes the accounting race between the preliminary check above and
+    // deletion if an analysis request attempts to reserve a credit concurrently.
+    const { data: deleteOutcome, error: deleteError } = await supabase.rpc(
+      'delete_review_if_not_reserved',
+      { p_audit_id: id, p_user_id: user.id }
+    );
 
     if (deleteError) {
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    }
+    if (deleteOutcome === 'reserved') {
+      return NextResponse.json(
+        { error: "A review cannot be deleted while analysis is processing." },
+        { status: 409 }
+      );
+    }
+    if (deleteOutcome === 'forbidden') {
+      return NextResponse.json({ error: "Unauthorized request" }, { status: 403 });
+    }
+    if (deleteOutcome !== 'deleted') {
+      return NextResponse.json({ error: "Review not found" }, { status: 404 });
     }
 
     return NextResponse.json({ success: true });
