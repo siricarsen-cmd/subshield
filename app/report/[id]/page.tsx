@@ -4,8 +4,10 @@ import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, ShieldAlert, AlertTriangle, CheckCircle, Copy, CreditCard, Activity, Info, Download } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, AlertTriangle, CheckCircle, Copy, Activity, Info, Download } from 'lucide-react';
 import type { AnalyzerResult, Finding } from '@/lib/analyzer/types';
+import { getReportAccessDecision } from '@/lib/review-launch-policy';
+import { normalizeAuditId } from '@/lib/audit-id';
 
 // --- KEYS ---
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fqwkvyypjnxkiojbubdf.supabase.co";
@@ -22,8 +24,10 @@ interface ReportAiResults extends Partial<AnalyzerResult> {
 }
 
 interface ReportRow {
+  user_id: string;
   file_name: string;
-  ai_results?: ReportAiResults;
+  status: string;
+  ai_results: ReportAiResults | null;
 }
 
 export default function ReportPage() {
@@ -35,10 +39,13 @@ export default function ReportPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    const fetchDataAndVerifyCredits = async () => {
+    const fetchOwnedReadyReport = async () => {
       try {
-        const documentId = params?.id;
-        if (!documentId) return;
+        const documentId = normalizeAuditId(params?.id);
+        if (!documentId) {
+          setErrorDetails('NOT_FOUND');
+          return;
+        }
 
         // 1. Get Auth User
         const { data: { user } } = await supabase.auth.getUser();
@@ -47,28 +54,24 @@ export default function ReportPage() {
           return;
         }
 
-        // 2. Check Credits
-        const { data: creditData, error: creditError } = await supabase
-          .from('user_credits')
-          .select('credits')
-          .eq('user_id', user.id)
-          .single();
-
-        if (creditError || !creditData || creditData.credits <= 0) {
-          setErrorDetails("INSUFFICIENT_CREDITS");
-          return;
-        }
-
-        // 3. Fetch Report (scoped to the authenticated owner)
+        // 2. Fetch the report only through an owner-scoped query. Viewing an
+        // existing report never checks or consumes the user's current balance.
         const { data: reportData, error: reportError } = await supabase
           .from('contract_audits')
-          .select('*')
+          .select('user_id, file_name, status, ai_results')
           .eq('id', documentId)
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (reportError) throw new Error(reportError.message);
-        setData(reportData);
+        const decision = getReportAccessDecision(reportData, user.id);
+        if (decision.kind === 'ready') {
+          setData(reportData);
+        } else if (decision.kind === 'not_ready') {
+          setErrorDetails(`NOT_READY:${decision.status}`);
+        } else {
+          setErrorDetails('NOT_FOUND');
+        }
 
       } catch (err) {
         setErrorDetails(err instanceof Error ? err.message : "An unknown error occurred.");
@@ -77,7 +80,7 @@ export default function ReportPage() {
       }
     };
 
-    fetchDataAndVerifyCredits();
+    fetchOwnedReadyReport();
   }, [params, router]);
 
   const handleCopyEmail = () => {
@@ -100,15 +103,33 @@ export default function ReportPage() {
   }
 
   if (errorDetails) {
+    const nonReadyStatus = errorDetails.startsWith('NOT_READY:')
+      ? errorDetails.slice('NOT_READY:'.length)
+      : null;
+    const nonReadyTitle = nonReadyStatus === 'Processing'
+      ? 'Review Processing'
+      : nonReadyStatus === 'Awaiting Credits'
+        ? 'Credits Required To Start'
+        : nonReadyStatus === 'Processing Failed'
+          ? 'Review Processing Failed'
+          : 'Report Not Ready';
+    const nonReadyMessage = nonReadyStatus === 'Processing'
+      ? 'This review is still processing. Return to the dashboard to check its progress.'
+      : nonReadyStatus === 'Awaiting Credits'
+        ? 'This review has not started because there were not enough credits. Purchase a credit and submit the review again.'
+        : nonReadyStatus === 'Processing Failed'
+          ? 'Processing failed and the reserved credit was restored. The failed review remains available to delete from the dashboard.'
+          : `This review is currently ${nonReadyStatus || 'not ready'} and does not have a generated report.`;
+
     return (
       <div className="min-h-screen bg-[#F4F5F7] flex flex-col items-center justify-center p-10 text-center">
-        {errorDetails === "INSUFFICIENT_CREDITS" ? (
+        {nonReadyStatus ? (
           <>
-            <CreditCard className="w-16 h-16 text-[#FF5F1F] mb-4" />
-            <h1 className="text-2xl font-black text-[#1A3668] mb-2 uppercase tracking-tight">Credits Required</h1>
-            <p className="text-slate-600 mb-6 font-medium max-w-sm">You have no remaining credits to view this report. Please purchase a plan to continue.</p>
-            <Link href="/pricing" className="bg-[#1A3668] text-white font-black px-6 py-3 rounded-lg hover:bg-slate-800 transition uppercase text-sm tracking-wider">
-              View Pricing Plans
+            <AlertTriangle className="w-16 h-16 text-amber-500 mb-4" />
+            <h1 className="text-2xl font-black text-[#1A3668] mb-2 uppercase tracking-tight">{nonReadyTitle}</h1>
+            <p className="text-slate-600 mb-6 font-medium max-w-md">{nonReadyMessage}</p>
+            <Link href="/dashboard" className="text-[#FF5F1F] font-black hover:underline tracking-wider uppercase text-sm flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" /> Back to Dashboard
             </Link>
           </>
         ) : (
@@ -125,7 +146,7 @@ export default function ReportPage() {
     );
   }
 
-  const aiResults = data!.ai_results || {};
+  const aiResults = data!.ai_results!;
   const primaryTraps = aiResults.primaryTraps || aiResults.criticalTraps || [];
   const secondaryConcerns = aiResults.secondaryConcerns || [];
   const emailDraft = aiResults.emailDraft || "";

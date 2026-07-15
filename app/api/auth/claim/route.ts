@@ -1,10 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { claimCreditsAndGetBalance, type CreditDatabase } from "@/lib/credit-fulfillment";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY! // Server-side only: privileged reads/writes happen only after the caller's identity is verified below
 );
+const creditDatabase = supabase as unknown as CreditDatabase;
 
 export async function POST(req: Request) {
   try {
@@ -13,7 +15,10 @@ export async function POST(req: Request) {
     if (!authHeader) {
       return NextResponse.json({ error: "Missing Auth Token" }, { status: 401 });
     }
-    const token = authHeader.replace('Bearer ', '');
+    const token = authHeader.match(/^Bearer\s+(.+)$/i)?.[1];
+    if (!token) {
+      return NextResponse.json({ error: "Invalid Auth Token" }, { status: 401 });
+    }
 
     // 2. Verify the token with Supabase auth using an anon-keyed client (mirrors create-portal)
     const authClient = createClient(
@@ -25,50 +30,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized request" }, { status: 401 });
     }
 
-    if (!user.email) {
+    if (!user.email || !user.email_confirmed_at) {
       return NextResponse.json({ error: "Account has no verified email on file." }, { status: 400 });
     }
 
-    const email = user.email.toLowerCase();
-    const userId = user.id;
+    const result = await claimCreditsAndGetBalance(creditDatabase, {
+      userId: user.id,
+      email: user.email,
+    });
 
-    // 3. Find pending credits for the verified user's own email only
-    const { data: pending } = await supabase
-      .from('pending_credits')
-      .select('credits')
-      .eq('email', email)
-      .single();
-
-    if (pending) {
-      // 4. Get existing credits for the verified user
-      const { data: currentRecord } = await supabase
-        .from('user_credits')
-        .select('credits')
-        .eq('user_id', userId)
-        .single();
-
-      const existingCredits = currentRecord?.credits || 0;
-
-      // 5. Apply credits to the verified user's row
-      const { error: upsertError } = await supabase
-        .from('user_credits')
-        .upsert({ user_id: userId, credits: existingCredits + pending.credits }, { onConflict: 'user_id' });
-
-      if (upsertError) {
-        console.error("[CLAIM] Failed to apply credits:", upsertError.message);
-        return NextResponse.json({ error: "Failed to apply credits." }, { status: 500 });
-      }
-
-      // 6. Only clear the pending record once credits are confirmed applied
-      await supabase
-        .from('pending_credits')
-        .delete()
-        .eq('email', email);
+    if (result.claimError) {
+      console.error("[CLAIM] Failed to claim pending credits:", result.claimError);
+      return NextResponse.json(
+        { error: "Pending credits could not be claimed. Please retry.", credits: result.credits },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
+    return NextResponse.json({ success: true, credits: result.credits });
+  } catch (error: unknown) {
     console.error("Claim Credits Error:", error);
-    return NextResponse.json({ error: error.message || "Claim failed." }, { status: 500 });
+    return NextResponse.json({ error: "Credit balance could not be loaded." }, { status: 500 });
   }
 }
