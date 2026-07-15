@@ -3,6 +3,7 @@ export type ReviewReservationOutcome =
   | "already_reserved"
   | "already_completed"
   | "insufficient_credits"
+  | "deleting"
   | "not_found"
   | "forbidden";
 
@@ -94,6 +95,8 @@ function reservationError(outcome: ReviewReservationOutcome): ReviewCreditError 
       return new ReviewCreditError("Review not found.", 404, outcome);
     case "already_reserved":
       return new ReviewCreditError("This review is already processing.", 409, outcome);
+    case "deleting":
+      return new ReviewCreditError("This review is being deleted.", 409, outcome);
     default:
       return new ReviewCreditError("Review credit could not be reserved.", 500, outcome);
   }

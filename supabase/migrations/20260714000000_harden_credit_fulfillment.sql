@@ -83,6 +83,10 @@ create index if not exists review_credit_reservations_user_id_idx
 
 alter table public.review_credit_reservations enable row level security;
 
+alter table public.contract_audits
+  add column if not exists deletion_previous_status text,
+  add column if not exists deletion_started_at timestamptz;
+
 create or replace function public.reserve_review_credit(
   p_user_id uuid,
   p_audit_id uuid
@@ -94,11 +98,12 @@ set search_path = ''
 as $$
 declare
   audit_owner uuid;
+  audit_status text;
   reservation_status text;
   reservation_time timestamptz;
 begin
-  select user_id
-    into audit_owner
+  select user_id, status
+    into audit_owner, audit_status
     from public.contract_audits
     where id = p_audit_id
     for update;
@@ -108,6 +113,9 @@ begin
   end if;
   if audit_owner <> p_user_id then
     return 'forbidden';
+  end if;
+  if audit_status = 'Deletion Pending' then
+    return 'deleting';
   end if;
 
   select status, reserved_at
@@ -260,7 +268,96 @@ begin
 end;
 $$;
 
-create or replace function public.delete_review_if_not_reserved(
+create or replace function public.begin_review_deletion(
+  p_user_id uuid,
+  p_audit_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  audit_owner uuid;
+  audit_status text;
+  prior_status text;
+  trusted_file_path text;
+  reservation_status text;
+begin
+  select user_id, status, deletion_previous_status, file_path
+    into audit_owner, audit_status, prior_status, trusted_file_path
+    from public.contract_audits
+    where id = p_audit_id
+    for update;
+
+  if audit_owner is null then
+    return jsonb_build_object('outcome', 'not_found');
+  end if;
+  if audit_owner <> p_user_id then
+    return jsonb_build_object('outcome', 'forbidden');
+  end if;
+
+  select status
+    into reservation_status
+    from public.review_credit_reservations
+    where audit_id = p_audit_id;
+
+  if reservation_status = 'reserved' then
+    return jsonb_build_object('outcome', 'reserved');
+  end if;
+
+  if audit_status <> 'Deletion Pending' then
+    prior_status := audit_status;
+    update public.contract_audits
+      set status = 'Deletion Pending',
+          deletion_previous_status = prior_status,
+          deletion_started_at = now()
+      where id = p_audit_id;
+  end if;
+
+  return jsonb_build_object(
+    'outcome', 'locked',
+    'file_path', trusted_file_path,
+    'previous_status', prior_status
+  );
+end;
+$$;
+
+create or replace function public.cancel_review_deletion(
+  p_user_id uuid,
+  p_audit_id uuid
+)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  restored_status text;
+begin
+  select deletion_previous_status
+    into restored_status
+    from public.contract_audits
+    where id = p_audit_id
+      and user_id = p_user_id
+      and status = 'Deletion Pending'
+    for update;
+
+  if restored_status is null then
+    return 'not_locked';
+  end if;
+
+  update public.contract_audits
+    set status = restored_status,
+        deletion_previous_status = null,
+        deletion_started_at = null
+    where id = p_audit_id and user_id = p_user_id;
+
+  return 'restored';
+end;
+$$;
+
+create or replace function public.finalize_review_deletion(
   p_user_id uuid,
   p_audit_id uuid
 )
@@ -271,10 +368,11 @@ set search_path = ''
 as $$
 declare
   audit_owner uuid;
+  audit_status text;
   reservation_status text;
 begin
-  select user_id
-    into audit_owner
+  select user_id, status
+    into audit_owner, audit_status
     from public.contract_audits
     where id = p_audit_id
     for update;
@@ -284,6 +382,9 @@ begin
   end if;
   if audit_owner <> p_user_id then
     return 'forbidden';
+  end if;
+  if audit_status <> 'Deletion Pending' then
+    return 'not_locked';
   end if;
 
   select status
@@ -353,12 +454,16 @@ revoke all on function public.claim_pending_credits(uuid, text) from public, ano
 revoke all on function public.reserve_review_credit(uuid, uuid) from public, anon, authenticated;
 revoke all on function public.complete_review_credit(uuid, uuid, jsonb) from public, anon, authenticated;
 revoke all on function public.refund_review_credit(uuid, uuid, text) from public, anon, authenticated;
-revoke all on function public.delete_review_if_not_reserved(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.begin_review_deletion(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.cancel_review_deletion(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.finalize_review_deletion(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.fulfill_stripe_credits(text, text, text, text, integer) to service_role;
 grant execute on function public.claim_pending_credits(uuid, text) to service_role;
 grant execute on function public.reserve_review_credit(uuid, uuid) to service_role;
 grant execute on function public.complete_review_credit(uuid, uuid, jsonb) to service_role;
 grant execute on function public.refund_review_credit(uuid, uuid, text) to service_role;
-grant execute on function public.delete_review_if_not_reserved(uuid, uuid) to service_role;
+grant execute on function public.begin_review_deletion(uuid, uuid) to service_role;
+grant execute on function public.cancel_review_deletion(uuid, uuid) to service_role;
+grant execute on function public.finalize_review_deletion(uuid, uuid) to service_role;
 
 commit;

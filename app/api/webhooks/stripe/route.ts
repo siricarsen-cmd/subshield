@@ -1,9 +1,10 @@
 import { stripe } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { getStripePlanByPriceId, requireStripePlanEnv } from "@/lib/stripe-plans";
+import { getStripePlanByPriceId, requireStripePlanEnv, STRIPE_PLANS } from "@/lib/stripe-plans";
 import { fulfillCheckoutCredits, type CreditDatabase } from "@/lib/credit-fulfillment";
-import { shouldFulfillCheckout, shouldFulfillSubscriptionInvoice } from "@/lib/stripe-credit-grants";
+import { shouldFulfillCheckout } from "@/lib/stripe-credit-grants";
+import { resolveSubscriptionInvoiceGrant } from "@/lib/stripe-subscription-invoice";
 import type Stripe from "stripe";
 
 const supabase = createClient(
@@ -65,29 +66,18 @@ export async function POST(req: Request) {
 
     if (event.type === "invoice.paid") {
       const invoice = event.data.object as Stripe.Invoice;
-      const lineItems = await stripe.invoices.listLineItems(invoice.id);
-      const linePriceIds = lineItems.data.flatMap((line) => {
-        const price = line.pricing?.price_details?.price;
-        const priceId = typeof price === "string" ? price : price?.id;
-        return priceId ? [priceId] : [];
-      });
-      const plan = linePriceIds
-        .map((priceId) => getStripePlanByPriceId(priceId))
-        .find((candidate) => candidate?.mode === "subscription");
-
-      if (!plan || !shouldFulfillSubscriptionInvoice({
-        status: invoice.status,
-        billingReason: invoice.billing_reason,
-        linePriceIds,
-        activeBidderPriceId: plan.priceId,
-      })) {
-        return new NextResponse(null, { status: 200 });
+      const plan = STRIPE_PLANS.find((candidate) => candidate.mode === "subscription")!;
+      let grant;
+      try {
+        grant = await resolveSubscriptionInvoiceGrant(stripe, invoice, plan);
+      } catch (error: unknown) {
+        console.error(`[STRIPE LOOKUP FAULT] Could not verify subscription invoice ${invoice.id}:`, error);
+        return new NextResponse("Stripe verification unavailable", { status: 500 });
       }
 
-      const email = invoice.customer_email;
-      if (!email) {
-        console.error(`[WEBHOOK FAULT] Paid subscription invoice ${invoice.id} has no customer email.`);
-        return new NextResponse("Missing email context", { status: 400 });
+      if (!grant) {
+        console.log(`[IGNORED] Subscription invoice ${invoice.id} was ineligible or had no verified Stripe email.`);
+        return new NextResponse(null, { status: 200 });
       }
 
       try {
@@ -95,12 +85,12 @@ export async function POST(req: Request) {
           eventId: event.id,
           sourceType: "invoice",
           sourceId: invoice.id,
-          email,
-          credits: plan.credits,
+          email: grant.email,
+          credits: grant.credits,
         });
         console.log(
           fulfilled
-            ? `[SUCCESS] Provisioned ${plan.credits} subscription credits for invoice ${invoice.id}.`
+            ? `[SUCCESS] Provisioned ${grant.credits} subscription credits for invoice ${invoice.id}.`
             : `[IDEMPOTENT] Invoice ${invoice.id} was already fulfilled.`
         );
       } catch (error: unknown) {

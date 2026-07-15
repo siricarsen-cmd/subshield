@@ -40,7 +40,3 @@ export function canSubmitReview(status: CreditLoadStatus, balance: number | null
 export function shouldCleanupInsufficientCreditIntake(httpStatus: number, code: unknown): boolean {
   return httpStatus === 402 && code === "insufficient_credits";
 }
-
-export function canDeleteReviewWithReservation(reservationStatus: string | null): boolean {
-  return reservationStatus !== "reserved";
-}
