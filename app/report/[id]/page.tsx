@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, ShieldAlert, AlertTriangle, CheckCircle, Copy, Activity, Info, Download } from 'lucide-react';
 import type { AnalyzerResult, Finding } from '@/lib/analyzer/types';
 import { getReportAccessDecision } from '@/lib/review-launch-policy';
+import { normalizeAuditId } from '@/lib/audit-id';
 
 // --- KEYS ---
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fqwkvyypjnxkiojbubdf.supabase.co";
@@ -40,8 +41,11 @@ export default function ReportPage() {
   useEffect(() => {
     const fetchOwnedReadyReport = async () => {
       try {
-        const documentId = params?.id;
-        if (!documentId) return;
+        const documentId = normalizeAuditId(params?.id);
+        if (!documentId) {
+          setErrorDetails('NOT_FOUND');
+          return;
+        }
 
         // 1. Get Auth User
         const { data: { user } } = await supabase.auth.getUser();

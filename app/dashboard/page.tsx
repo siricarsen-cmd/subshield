@@ -10,6 +10,7 @@ import {
   hasGeneratedReport,
   shouldCleanupInsufficientCreditIntake,
 } from "@/lib/review-launch-policy";
+import { normalizeAuditId } from "@/lib/audit-id";
 
 // Uses environment variables first, falls back to your temporary bypass keys if needed
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fqwkvyypjnxkiojbubdf.supabase.co";
@@ -99,7 +100,15 @@ export default function DashboardPage() {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      setAudits(data);
+      const normalizedAudits = data.flatMap((audit) => {
+        const id = normalizeAuditId(audit.id);
+        if (!id) {
+          console.error("[DASHBOARD] Rejected an audit row with an unsafe or invalid bigint ID.");
+          return [];
+        }
+        return [{ ...audit, id } as AuditRow];
+      });
+      setAudits(normalizedAudits);
     }
   };
 
@@ -330,7 +339,11 @@ export default function DashboardPage() {
         throw dbError;
       }
       
-      const newRecordId = insertData[0].id;
+      const newRecordId = normalizeAuditId(insertData[0]?.id);
+      if (!newRecordId) {
+        await supabase.storage.from('contracts').remove([filePath]);
+        throw new Error("The review was created with an invalid database ID and cannot be processed safely.");
+      }
       
       setUploadStatus({ type: 'success', msg: `${file.name} uploaded. Engine is scanning for risks...` });
       await fetchAudits(user.id); 
@@ -338,7 +351,7 @@ export default function DashboardPage() {
       // 3. Send file to the AI Parsing Route
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("auditId", newRecordId);
+      formData.append("auditId", String(newRecordId));
 
       const aiResponse = await fetch('/api/analyze-contract', {
         method: 'POST',
@@ -413,7 +426,10 @@ export default function DashboardPage() {
 
       if (dbError) throw dbError;
 
-      const newRecordId = insertData[0].id;
+      const newRecordId = normalizeAuditId(insertData[0]?.id);
+      if (!newRecordId) {
+        throw new Error("The review was created with an invalid database ID and cannot be processed safely.");
+      }
 
       setUploadStatus({ type: 'success', msg: 'Pasted text submitted. Engine is scanning for risks...' });
       await fetchAudits(user.id);
@@ -425,7 +441,7 @@ export default function DashboardPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ text: trimmed, fileName, auditId: newRecordId }),
+        body: JSON.stringify({ text: trimmed, fileName, auditId: String(newRecordId) }),
       });
 
       const aiData = await aiResponse.json();

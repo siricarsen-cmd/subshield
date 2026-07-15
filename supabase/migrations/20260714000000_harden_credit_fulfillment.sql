@@ -69,7 +69,7 @@ $$;
 create table if not exists public.review_credit_reservations (
   -- Deliberately not a foreign key: this billing/support ledger must outlive a
   -- customer-initiated deletion of the contract_audits content/result row.
-  audit_id uuid primary key,
+  audit_id bigint primary key,
   user_id uuid not null,
   status text not null check (status in ('reserved', 'completed', 'refunded')),
   attempt_count integer not null default 1 check (attempt_count > 0),
@@ -89,7 +89,7 @@ alter table public.contract_audits
 
 create or replace function public.reserve_review_credit(
   p_user_id uuid,
-  p_audit_id uuid
+  p_audit_id bigint
 )
 returns text
 language plpgsql
@@ -179,7 +179,7 @@ $$;
 
 create or replace function public.complete_review_credit(
   p_user_id uuid,
-  p_audit_id uuid,
+  p_audit_id bigint,
   p_ai_results jsonb
 )
 returns boolean
@@ -224,7 +224,7 @@ $$;
 
 create or replace function public.refund_review_credit(
   p_user_id uuid,
-  p_audit_id uuid,
+  p_audit_id bigint,
   p_error text
 )
 returns boolean
@@ -270,7 +270,7 @@ $$;
 
 create or replace function public.begin_review_deletion(
   p_user_id uuid,
-  p_audit_id uuid
+  p_audit_id bigint
 )
 returns jsonb
 language plpgsql
@@ -325,7 +325,7 @@ $$;
 
 create or replace function public.cancel_review_deletion(
   p_user_id uuid,
-  p_audit_id uuid
+  p_audit_id bigint
 )
 returns text
 language plpgsql
@@ -359,7 +359,7 @@ $$;
 
 create or replace function public.finalize_review_deletion(
   p_user_id uuid,
-  p_audit_id uuid
+  p_audit_id bigint
 )
 returns text
 language plpgsql
@@ -451,19 +451,19 @@ revoke all on table public.stripe_credit_events from public, anon, authenticated
 revoke all on table public.review_credit_reservations from public, anon, authenticated;
 revoke all on function public.fulfill_stripe_credits(text, text, text, text, integer) from public, anon, authenticated;
 revoke all on function public.claim_pending_credits(uuid, text) from public, anon, authenticated;
-revoke all on function public.reserve_review_credit(uuid, uuid) from public, anon, authenticated;
-revoke all on function public.complete_review_credit(uuid, uuid, jsonb) from public, anon, authenticated;
-revoke all on function public.refund_review_credit(uuid, uuid, text) from public, anon, authenticated;
-revoke all on function public.begin_review_deletion(uuid, uuid) from public, anon, authenticated;
-revoke all on function public.cancel_review_deletion(uuid, uuid) from public, anon, authenticated;
-revoke all on function public.finalize_review_deletion(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.reserve_review_credit(uuid, bigint) from public, anon, authenticated;
+revoke all on function public.complete_review_credit(uuid, bigint, jsonb) from public, anon, authenticated;
+revoke all on function public.refund_review_credit(uuid, bigint, text) from public, anon, authenticated;
+revoke all on function public.begin_review_deletion(uuid, bigint) from public, anon, authenticated;
+revoke all on function public.cancel_review_deletion(uuid, bigint) from public, anon, authenticated;
+revoke all on function public.finalize_review_deletion(uuid, bigint) from public, anon, authenticated;
 grant execute on function public.fulfill_stripe_credits(text, text, text, text, integer) to service_role;
 grant execute on function public.claim_pending_credits(uuid, text) to service_role;
-grant execute on function public.reserve_review_credit(uuid, uuid) to service_role;
-grant execute on function public.complete_review_credit(uuid, uuid, jsonb) to service_role;
-grant execute on function public.refund_review_credit(uuid, uuid, text) to service_role;
-grant execute on function public.begin_review_deletion(uuid, uuid) to service_role;
-grant execute on function public.cancel_review_deletion(uuid, uuid) to service_role;
-grant execute on function public.finalize_review_deletion(uuid, uuid) to service_role;
+grant execute on function public.reserve_review_credit(uuid, bigint) to service_role;
+grant execute on function public.complete_review_credit(uuid, bigint, jsonb) to service_role;
+grant execute on function public.refund_review_credit(uuid, bigint, text) to service_role;
+grant execute on function public.begin_review_deletion(uuid, bigint) to service_role;
+grant execute on function public.cancel_review_deletion(uuid, bigint) to service_role;
+grant execute on function public.finalize_review_deletion(uuid, bigint) to service_role;
 
 commit;

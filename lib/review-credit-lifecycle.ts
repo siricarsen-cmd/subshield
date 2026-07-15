@@ -1,3 +1,5 @@
+import { normalizeAuditId } from "./audit-id";
+
 export type ReviewReservationOutcome =
   | "reserved"
   | "already_reserved"
@@ -104,17 +106,22 @@ function reservationError(outcome: ReviewReservationOutcome): ReviewCreditError 
 
 export async function executePaidReview<T>(
   database: ReviewCreditDatabase,
-  input: { userId: string; auditId: string },
+  input: { userId: string; auditId: unknown },
   analyze: () => Promise<T>
 ): Promise<{ result: T | unknown; replayed: boolean }> {
+  const auditId = normalizeAuditId(input.auditId);
+  if (!auditId) {
+    throw new ReviewCreditError("A valid review ID is required.", 400, "invalid_audit_id");
+  }
+
   const outcome = await callRpc(database, "reserve_review_credit", {
     p_user_id: input.userId,
-    p_audit_id: input.auditId,
+    p_audit_id: auditId,
   }) as ReviewReservationOutcome;
 
   if (outcome === "already_completed") {
     return {
-      result: await getCompletedResult(database, input.userId, input.auditId),
+      result: await getCompletedResult(database, input.userId, auditId),
       replayed: true,
     };
   }
@@ -124,7 +131,7 @@ export async function executePaidReview<T>(
     const result = await analyze();
     const completed = await callRpc(database, "complete_review_credit", {
       p_user_id: input.userId,
-      p_audit_id: input.auditId,
+      p_audit_id: auditId,
       p_ai_results: result,
     });
     if (completed !== true) throw new Error("Review completion was not persisted.");
@@ -135,7 +142,7 @@ export async function executePaidReview<T>(
     try {
       creditRestored = await callRpc(database, "refund_review_credit", {
         p_user_id: input.userId,
-        p_audit_id: input.auditId,
+        p_audit_id: auditId,
         p_error: error instanceof Error ? error.message.slice(0, 500) : "Unknown processing failure",
       }) === true;
     } catch (refundError: unknown) {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { normalizeAuditId } from "@/lib/audit-id";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -21,7 +22,8 @@ export async function POST(req: Request) {
     }
 
     // 2. Validate the target review id
-    const { id } = await req.json();
+    const { id: rawId } = await req.json();
+    const id = normalizeAuditId(rawId);
     if (!id) {
       return NextResponse.json({ error: "Missing review id" }, { status: 400 });
     }

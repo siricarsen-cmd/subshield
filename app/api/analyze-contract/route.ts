@@ -9,6 +9,7 @@ import {
   ReviewProcessingError,
   type ReviewCreditDatabase,
 } from '@/lib/review-credit-lifecycle';
+import { normalizeAuditId } from '@/lib/audit-id';
 
 export const runtime = 'nodejs';
 // OCR fallback (rasterize + tesseract.js) can legitimately take tens of
@@ -20,7 +21,6 @@ export const maxDuration = 60;
 // Mirrors the dashboard's client-side cap (app/dashboard/page.tsx) so a direct
 // API call can't bypass it and push an oversized payload into runAnalyzer.
 const MAX_PASTED_TEXT_LENGTH = 200_000;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const serviceDatabase = createClient(
   process.env.SUPABASE_URL!,
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     if (contentType.includes('application/json')) {
       const body = await req.json().catch(() => null);
       const text = typeof body?.text === 'string' ? body.text : '';
-      const auditId = typeof body?.auditId === 'string' ? body.auditId : '';
+      const auditId = normalizeAuditId(body?.auditId);
 
       if (!text.trim()) {
         return NextResponse.json({ error: "No contract text provided." }, { status: 400 });
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
-      if (!UUID_PATTERN.test(auditId)) {
+      if (!auditId) {
         return NextResponse.json({ error: "A valid review ID is required." }, { status: 400 });
       }
 
@@ -97,12 +97,12 @@ export async function POST(req: Request) {
 
     const formData = await req.formData();
     const file = formData.get('file') as File;
-    const auditId = formData.get('auditId');
+    const auditId = normalizeAuditId(formData.get('auditId'));
 
     if (!file) {
       return NextResponse.json({ error: "No file provided." }, { status: 400 });
     }
-    if (typeof auditId !== 'string' || !UUID_PATTERN.test(auditId)) {
+    if (!auditId) {
       return NextResponse.json({ error: "A valid review ID is required." }, { status: 400 });
     }
 
