@@ -4,7 +4,10 @@ import { NextResponse } from "next/server";
 import { getStripePlanByPriceId, requireStripePlanEnv, STRIPE_PLANS } from "@/lib/stripe-plans";
 import { fulfillCheckoutCredits, type CreditDatabase } from "@/lib/credit-fulfillment";
 import { shouldFulfillCheckout } from "@/lib/stripe-credit-grants";
-import { resolveSubscriptionInvoiceGrant } from "@/lib/stripe-subscription-invoice";
+import {
+  resolveSubscriptionInvoiceGrant,
+  subscriptionInvoiceResponseStatus,
+} from "@/lib/stripe-subscription-invoice";
 import type Stripe from "stripe";
 
 const supabase = createClient(
@@ -67,16 +70,30 @@ export async function POST(req: Request) {
     if (event.type === "invoice.paid") {
       const invoice = event.data.object as Stripe.Invoice;
       const plan = STRIPE_PLANS.find((candidate) => candidate.mode === "subscription")!;
-      let grant;
+      let resolution;
       try {
-        grant = await resolveSubscriptionInvoiceGrant(stripe, invoice, plan);
+        resolution = await resolveSubscriptionInvoiceGrant(stripe, invoice, plan);
       } catch (error: unknown) {
         console.error(`[STRIPE LOOKUP FAULT] Could not verify subscription invoice ${invoice.id}:`, error);
         return new NextResponse("Stripe verification unavailable", { status: 500 });
       }
 
-      if (!grant) {
-        console.log(`[IGNORED] Subscription invoice ${invoice.id} was ineligible or had no verified Stripe email.`);
+      if (resolution.kind === "needs_reconciliation") {
+        console.error("[SUBSCRIPTION_CREDIT_RECONCILIATION]", {
+          eventId: event.id,
+          invoiceId: invoice.id,
+          subscriptionId: resolution.subscriptionId,
+          customerId: resolution.customerId,
+          reason: resolution.reason,
+        });
+        return new NextResponse(
+          "Subscription credit identity requires reconciliation",
+          { status: subscriptionInvoiceResponseStatus(resolution) },
+        );
+      }
+
+      if (resolution.kind === "ineligible") {
+        console.log(`[IGNORED] Subscription invoice ${invoice.id}: ${resolution.reason}.`);
         return new NextResponse(null, { status: 200 });
       }
 
@@ -85,12 +102,12 @@ export async function POST(req: Request) {
           eventId: event.id,
           sourceType: "invoice",
           sourceId: invoice.id,
-          email: grant.email,
-          credits: grant.credits,
+          email: resolution.email,
+          credits: resolution.credits,
         });
         console.log(
           fulfilled
-            ? `[SUCCESS] Provisioned ${grant.credits} subscription credits for invoice ${invoice.id}.`
+            ? `[SUCCESS] Provisioned ${resolution.credits} subscription credits for invoice ${invoice.id}.`
             : `[IDEMPOTENT] Invoice ${invoice.id} was already fulfilled.`
         );
       } catch (error: unknown) {

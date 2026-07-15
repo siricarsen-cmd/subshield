@@ -14,9 +14,13 @@ interface SubscriptionInvoiceStripeClient {
   };
 }
 
-export interface SubscriptionInvoiceGrant {
-  email: string;
-  credits: number;
+export type SubscriptionInvoiceResolution =
+  | { kind: "eligible"; email: string; credits: number; subscriptionId: string; customerId: string | null }
+  | { kind: "ineligible"; reason: "invoice_state" | "unrecognized_price" | "missing_subscription" | "inactive_subscription" }
+  | { kind: "needs_reconciliation"; reason: "missing_stripe_email"; subscriptionId: string; customerId: string | null };
+
+export function subscriptionInvoiceResponseStatus(result: SubscriptionInvoiceResolution): 200 | 500 {
+  return result.kind === "needs_reconciliation" ? 500 : 200;
 }
 
 function usableEmail(value: string | null | undefined): string | null {
@@ -36,16 +40,20 @@ async function getStripeCustomerEmail(
   return usableEmail(resolved.email);
 }
 
+function stripeObjectId(value: { id: string } | string | null): string | null {
+  return typeof value === "string" ? value : value?.id ?? null;
+}
+
 export async function resolveSubscriptionInvoiceGrant(
   client: SubscriptionInvoiceStripeClient,
   invoice: Stripe.Invoice,
   plan: StripePlanConfig,
-): Promise<SubscriptionInvoiceGrant | null> {
+): Promise<SubscriptionInvoiceResolution> {
   if (
     invoice.status !== "paid"
     || (invoice.billing_reason !== "subscription_create" && invoice.billing_reason !== "subscription_cycle")
   ) {
-    return null;
+    return { kind: "ineligible", reason: "invoice_state" };
   }
 
   const linePriceIds: string[] = [];
@@ -64,20 +72,31 @@ export async function resolveSubscriptionInvoiceGrant(
     activeBidderPriceId: plan.priceId,
     subscriptionStatus: "active",
   })) {
-    return null;
+    return { kind: "ineligible", reason: "unrecognized_price" };
   }
 
   const subscriptionReference = invoice.parent?.subscription_details?.subscription;
-  if (!subscriptionReference) return null;
+  if (!subscriptionReference) return { kind: "ineligible", reason: "missing_subscription" };
   const subscription = typeof subscriptionReference === "string"
     ? await client.subscriptions.retrieve(subscriptionReference)
     : subscriptionReference;
+  const subscriptionId = subscription.id;
+  const customerId = stripeObjectId(invoice.customer);
 
-  if (subscription.status !== "active") return null;
+  if (subscription.status !== "active") {
+    return { kind: "ineligible", reason: "inactive_subscription" };
+  }
 
   const email = usableEmail(invoice.customer_email)
     ?? await getStripeCustomerEmail(client, invoice.customer);
-  if (!email) return null;
+  if (!email) {
+    return {
+      kind: "needs_reconciliation",
+      reason: "missing_stripe_email",
+      subscriptionId,
+      customerId,
+    };
+  }
 
-  return { email, credits: plan.credits };
+  return { kind: "eligible", email, credits: plan.credits, subscriptionId, customerId };
 }
