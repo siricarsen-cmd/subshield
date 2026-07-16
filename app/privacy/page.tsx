@@ -1,143 +1,169 @@
-"use client";
-
-import React from "react";
 import Link from "next/link";
-import { 
-  Lock, 
-  UserCheck, 
-  Eye, 
-  ShieldCheck, 
-  Globe, 
-  Database, 
-  CreditCard 
+import {
+  CreditCard,
+  Database,
+  FileText,
+  Lock,
+  Server,
+  ShieldCheck,
+  UserCheck,
 } from "lucide-react";
 
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-[#F4F5F7] text-slate-900 pb-16">
-      
-      {/* Page Header Segment */}
-      <div className="bg-[#0A192F] text-white py-14 px-6 border-b border-slate-800 text-center">
+      <header className="bg-[#0A192F] text-white py-14 px-6 border-b border-slate-800 text-center">
         <div className="max-w-4xl mx-auto space-y-3">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-white/5 border border-white/10 text-[#FF6B00] mb-2">
-            <Lock className="w-6 h-6 stroke-[2]" />
+            <Lock className="w-6 h-6 stroke-[2]" aria-hidden="true" />
           </div>
           <h1 className="text-3xl font-black uppercase tracking-tight">
             Privacy Policy
           </h1>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Corporate Profile & System Interaction Data Policies
+            Effective July 15, 2026
           </p>
         </div>
-      </div>
+      </header>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 space-y-8">
-        
-        {/* Core Introductory Context Block */}
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+        <section className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm" aria-labelledby="privacy-overview">
+          <h2 id="privacy-overview" className="text-base font-black text-[#0A192F] uppercase tracking-tight mb-3">
+            Overview
+          </h2>
           <p className="text-sm text-slate-600 leading-relaxed font-medium">
-            While our Document Terms page specifically governs how raw contract text files are analyzed, this Privacy Policy details how SubShield handles your corporate profile credentials, payment processing pathways, and basic website interaction data. We treat your operational business data with the highest standard of corporate confidentiality.
+            This Privacy Policy explains the information SubShield handles when you create an account, submit material for review, purchase credits or a subscription, view reports, or use an available support workflow. It also explains how that information is used and the choices available to you.
           </p>
-        </div>
+        </section>
 
-        {/* Section: Information We Collect */}
-        <div className="bg-white border border-slate-200 rounded-xl p-6 md:p-8 shadow-sm space-y-6">
-          <h3 className="text-xs font-black text-[#0A192F] uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
-            <UserCheck className="w-4 h-4 text-[#FF6B00]" />
-            Information Collected and Processed
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs leading-relaxed font-medium text-slate-600">
+        <section className="bg-white border border-slate-200 rounded-xl p-6 md:p-8 shadow-sm space-y-6" aria-labelledby="information-provided">
+          <h2 id="information-provided" className="text-sm font-black text-[#0A192F] uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
+            <UserCheck className="w-4 h-4 text-[#FF6B00]" aria-hidden="true" />
+            Information You Provide
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm leading-relaxed font-medium text-slate-600">
             <div className="space-y-1.5">
-              <h4 className="font-black text-slate-800 uppercase tracking-tight">Firm Registration Data</h4>
-              <p>When establishing your profile workspace, we collect your corporate email address, registered company name, and your primary trade or scope specialty (such as Electrical, HVAC, Plumbing, Structural Metals, Finishes, or Material Distribution). This data is used solely to configure your local account architecture.</p>
+              <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">Account Information</h3>
+              <p>SubShield handles the email address and authentication information associated with your account.</p>
             </div>
-
             <div className="space-y-1.5">
-              <h4 className="font-black text-slate-800 uppercase tracking-tight">System Operational Tracking</h4>
-              <p>We log high-level metadata regarding your active evaluations, such as file sizes, date checked timestamps, tracking IDs, and the number of flagged risk criteria found[cite: 1]. This keeps your workflow dashboard logs accurate and helps track your available review credits[cite: 1].</p>
+              <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">Review Submissions</h3>
+              <p>This includes PDF, DOCX, or TXT files and text you paste into the service for analysis.</p>
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">Payment References</h3>
+              <p>Stripe processes payments. SubShield receives payment-related transaction and fulfillment references but does not store complete payment-card numbers.</p>
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">Support Communications</h3>
+              <p>If a support or contact workflow is made available and you use it, SubShield may handle the information included in that communication.</p>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Section: Data Protection Guardrails */}
-        <div className="bg-white border border-slate-200 rounded-xl p-6 md:p-8 shadow-sm space-y-6">
-          <h3 className="text-xs font-black text-[#0A192F] uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            Data Protection Rules & Third-Party Gateways
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs leading-relaxed font-medium text-slate-600">
-            <div className="space-y-1.5">
-              <h4 className="font-black text-slate-800 uppercase tracking-tight flex items-center gap-1.5">
-                <CreditCard className="w-3.5 h-3.5 text-slate-400" />
-                Financial Data Isolation
-              </h4>
-              <p>All single contract review purchases ($149.99 per-cycle) or ongoing corporate subscriptions ($199.00 monthly) are executed exclusively through Stripe[cite: 1]. SubShield does not direct, witness, or store full credit card numbers or billing authentication details on our servers.</p>
-            </div>
-
-            <div className="space-y-1.5">
-              <h4 className="font-black text-slate-800 uppercase tracking-tight flex items-center gap-1.5">
-                <Eye className="w-3.5 h-3.5 text-slate-400" />
-                Zero Commercial Data Selling
-              </h4>
-              <p>SubShield does not trade, rent, sell, or commercially distribute corporate profile emails, trade parameters, or operational audit history metrics to outside market entities or public lead generators.</p>
-            </div>
-
-            <div className="space-y-1.5 border-t border-slate-100 pt-4 md:pt-0 md:border-t-0">
-              <h4 className="font-black text-slate-800 uppercase tracking-tight flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5 text-slate-400" />
-                Basic Web Logs & Analytical Cookies
-              </h4>
-              <p>We log basic network connection details, browser types, and localized page navigation metrics. This is standard infrastructure tracking used purely to ensure that dashboard assets and public text frameworks scale appropriately across mobile devices and field tablet screens.</p>
-            </div>
-
-            <div className="space-y-1.5 border-t border-slate-100 pt-4 md:pt-0 md:border-t-0">
-              <h4 className="font-black text-slate-800 uppercase tracking-tight flex items-center gap-1.5">
-                <Database className="w-3.5 h-3.5 text-slate-400" />
-                Infrastructure Security Measures
-              </h4>
-              <p>Your profile access credentials and system operation trackers are protected using standard web token authentication guards and database security boundaries designed to block unauthorized cross-account visibility.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Mandatory Legal Disclaimer Reference Link */}
-        <div className="bg-slate-900 text-slate-400 p-5 rounded-xl shadow-sm space-y-2">
-          <span className="text-[10px] font-black tracking-widest text-[#FF6B00] uppercase block">
-            Regulatory Compliance Reminder
-          </span>
-          <p className="text-xs leading-relaxed text-slate-400 font-medium text-justify">
-            SubShield functions as an interactive educational evaluation toolkit and an architectural billable hour compactor—it is not a law firm and does not supply formal legal representation or legal opinions. All account data processing is tailored around pre-lawyer document preparation protocols[cite: 1].
+        <section className="bg-white border border-slate-200 rounded-xl p-6 md:p-8 shadow-sm space-y-4" aria-labelledby="service-information">
+          <h2 id="service-information" className="text-sm font-black text-[#0A192F] uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
+            <Database className="w-4 h-4 text-[#FF6B00]" aria-hidden="true" />
+            Information Produced by the Service
+          </h2>
+          <p className="text-sm text-slate-600 leading-relaxed font-medium">
+            SubShield produces and maintains information needed to operate reviews and customer accounts. Depending on how you use the service, this may include report results, review status, timestamps, filenames, Storage paths, extraction and processing metadata, and records used to account for review credits, purchases, and fulfillment.
           </p>
-        </div>
+        </section>
 
-        {/* Bottom Closing CTA Block */}
-        <div className="bg-white border border-slate-200 rounded-xl p-8 text-center space-y-4 shadow-sm">
-          <div className="space-y-1">
-            <h3 className="text-base font-black text-[#0A192F] uppercase tracking-tight">
-              Protect Your Trade Margins
-            </h3>
-            <p className="text-xs text-slate-500 font-medium max-w-xl mx-auto leading-relaxed">
-              Ready to isolate predatory boilerplate lines, flow-down liabilities, and contingent payment traps before signing your next project agreement?[cite: 1]
-            </p>
-          </div>
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link 
-              href="/dashboard" 
-              className="w-full sm:w-auto bg-[#FF6B00] text-white text-xs font-black uppercase tracking-wider px-8 py-3.5 rounded-xl hover:bg-[#0A192F] transition-all shadow-sm text-center"
-            >
-              Start Free Triage
-            </Link>
-            <Link 
-              href="/terms" 
-              className="w-full sm:w-auto border border-slate-200 bg-white text-slate-700 text-xs font-black uppercase tracking-wider px-8 py-3.5 rounded-xl hover:border-[#0A192F] transition-all text-center"
-            >
-              View Document Terms
-            </Link>
-          </div>
-        </div>
+        <section className="bg-white border border-slate-200 rounded-xl p-6 md:p-8 shadow-sm space-y-4" aria-labelledby="information-use">
+          <h2 id="information-use" className="text-sm font-black text-[#0A192F] uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" aria-hidden="true" />
+            How Information Is Used
+          </h2>
+          <ul className="list-disc pl-5 space-y-2 text-sm text-slate-600 leading-relaxed font-medium">
+            <li>Authenticate users and maintain account access.</li>
+            <li>Ingest submitted material, perform AI-assisted analysis, and generate and display reports.</li>
+            <li>Process purchase status, fulfill credits, and support subscription billing.</li>
+            <li>Respond through an available customer-support workflow.</li>
+            <li>Protect the service, prevent fraud and misuse, diagnose failures, and operate and improve service reliability.</li>
+          </ul>
+        </section>
 
+        <section className="bg-white border border-slate-200 rounded-xl p-6 md:p-8 shadow-sm space-y-4" aria-labelledby="service-providers">
+          <h2 id="service-providers" className="text-sm font-black text-[#0A192F] uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
+            <Server className="w-4 h-4 text-[#FF6B00]" aria-hidden="true" />
+            Service Providers
+          </h2>
+          <p className="text-sm text-slate-600 leading-relaxed font-medium">
+            SubShield relies on service providers for website hosting, authentication, database and file storage, payment processing, and AI-assisted analysis. These providers handle information as needed to deliver their services. Stripe processes payments and billing-portal access. This Policy does not claim certifications, government authorizations, or contractual protections that have not been verified.
+          </p>
+        </section>
+
+        <section className="bg-white border border-slate-200 rounded-xl p-6 md:p-8 shadow-sm space-y-4" aria-labelledby="document-handling">
+          <h2 id="document-handling" className="text-sm font-black text-[#0A192F] uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
+            <FileText className="w-4 h-4 text-[#FF6B00]" aria-hidden="true" />
+            Document Handling and Deletion
+          </h2>
+          <div className="space-y-3 text-sm text-slate-600 leading-relaxed font-medium">
+            <p>Uploaded files may remain associated with a review until you delete that review. Pasted text is processed to generate a report; this Policy does not promise that every temporary processing copy is retained or immediately erased.</p>
+            <p>Deleting a review from the dashboard removes the customer-facing review and its associated uploaded Storage file when one exists. Limited accounting, transaction, credit-fulfillment, security, and diagnostic records may remain after deletion.</p>
+            <p>SubShield does not promise immediate removal from every backup or an automatic retention period that is not implemented.</p>
+          </div>
+        </section>
+
+        <section className="bg-amber-50 border border-amber-200 rounded-xl p-6 md:p-8 shadow-sm space-y-4" aria-labelledby="do-not-submit">
+          <h2 id="do-not-submit" className="text-sm font-black text-amber-900 uppercase tracking-wider border-b border-amber-200 pb-3">
+            Information You Should Not Submit
+          </h2>
+          <div className="space-y-3 text-sm text-amber-900 leading-relaxed font-medium">
+            <p>Do not submit classified information, export-controlled information, passwords, complete payment-card data, Social Security numbers, medical records, or personal information that is not necessary for the review.</p>
+            <p>SubShield is not represented as an authorized system for classified information, export-controlled information, Controlled Unclassified Information (CUI), FedRAMP workloads, or other government-restricted information. You are responsible for having the right and authority to submit all material you provide.</p>
+          </div>
+        </section>
+
+        <section className="bg-white border border-slate-200 rounded-xl p-6 md:p-8 shadow-sm space-y-6" aria-labelledby="security-selling">
+          <h2 id="security-selling" className="text-sm font-black text-[#0A192F] uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
+            <Lock className="w-4 h-4 text-[#FF6B00]" aria-hidden="true" />
+            Security and Data Selling
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm leading-relaxed font-medium text-slate-600">
+            <div className="space-y-1.5">
+              <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">Security</h3>
+              <p>SubShield uses HTTPS and reasonable access controls intended to protect account and review information. No online service can guarantee absolute security, and SubShield does not claim unverified security certifications or government approval.</p>
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">No Data-Broker Sales</h3>
+              <p>SubShield does not sell uploaded contract documents or account information as a data-broker product.</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-white border border-slate-200 rounded-xl p-6 md:p-8 shadow-sm space-y-4" aria-labelledby="user-choices">
+          <h2 id="user-choices" className="text-sm font-black text-[#0A192F] uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
+            <CreditCard className="w-4 h-4 text-[#FF6B00]" aria-hidden="true" />
+            Your Choices
+          </h2>
+          <ul className="list-disc pl-5 space-y-2 text-sm text-slate-600 leading-relaxed font-medium">
+            <li>Access your dashboard to view available reviews, reports, and credit information.</li>
+            <li>Delete reviews from the dashboard.</li>
+            <li>Manage applicable subscription billing through the Stripe billing portal.</li>
+            <li>Once the contact workflow is operational, use the <Link href="/contact" className="font-bold text-[#1A3668] underline decoration-[#FF6B00] underline-offset-2">Contact page</Link> for privacy questions.</li>
+          </ul>
+        </section>
+
+        <section className="bg-white border border-slate-200 rounded-xl p-6 md:p-8 shadow-sm space-y-4" aria-labelledby="policy-changes">
+          <h2 id="policy-changes" className="text-sm font-black text-[#0A192F] uppercase tracking-wider border-b border-slate-100 pb-3">
+            Changes to This Policy
+          </h2>
+          <p className="text-sm text-slate-600 leading-relaxed font-medium">
+            SubShield may update this Privacy Policy as the service changes. A revised policy will be posted on this page with an updated effective date.
+          </p>
+        </section>
+
+        <section className="bg-slate-900 text-slate-300 p-6 rounded-xl shadow-sm space-y-3" aria-labelledby="privacy-contact">
+          <h2 id="privacy-contact" className="text-sm font-black tracking-widest text-[#FF6B00] uppercase">
+            Contact
+          </h2>
+          <p className="text-sm leading-relaxed font-medium">
+            For privacy questions, visit the <Link href="/contact" className="font-bold text-white underline decoration-[#FF6B00] underline-offset-2">Contact page</Link>. Do not include sensitive contract details in the public contact form.
+          </p>
+        </section>
       </div>
     </div>
   );

@@ -1,22 +1,6 @@
-"use client";
-
-import React, { useState } from "react";
 import Link from "next/link";
 
 export default function ContactPage() {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    reason: "Question before starting a review",
-    message: "",
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Form Submitted:", formData);
-    alert("Thank you! Your message has been sent.");
-  };
-
   return (
     <div className="bg-white min-h-screen text-slate-900 font-sans">
       <div className="max-w-7xl mx-auto px-6 py-16">
@@ -26,7 +10,7 @@ export default function ContactPage() {
             Contact Us
           </h1>
           <p className="text-base text-[#596A7D] font-bold mt-2 tracking-wide uppercase">
-            Questions Before You Start?
+            Public Contact Workflow Coming Soon
           </p>
         </div>
 
@@ -39,13 +23,13 @@ export default function ContactPage() {
                 Before You Send Sensitive Information
               </h3>
               <p className="text-sm text-[#596A7D] leading-relaxed font-medium">
-                Please do not include confidential, proprietary, or sensitive contract details in this general contact form. If you start a SubShield Review Cycle, you will be able to securely upload your complete documents through your private client portal. For general inquiries, a brief summary of your question is enough.
+                Please do not include confidential, proprietary, or sensitive contract details in this general contact form. If you start a SubShield Review Cycle, you can submit supported documents through your account dashboard. For general inquiries, a brief summary of your question is enough.
               </p>
             </div>
 
             <div className="space-y-3">
               <h3 className="text-sm font-black uppercase tracking-widest text-[#1A3668]">
-                Common Reasons to Contact Us
+                Future Contact Topics
               </h3>
               <ul className="space-y-2 text-sm text-[#596A7D] font-bold">
                 <li className="flex items-start">
@@ -54,7 +38,7 @@ export default function ContactPage() {
                 </li>
                 <li className="flex items-start">
                   <span className="text-[#FF5F1F] mr-2 mt-0.5">•</span> 
-                  <span>You have questions about our $149.99 Single Review Cycle, $249 Active Bidder Plan, or Enterprise Plan</span>
+                  <span>You have questions about our $149.99 Single Review Cycle, $249 monthly Active Bidder Plan, or $1,999 Enterprise Credit Pack</span>
                 </li>
                 <li className="flex items-start">
                   <span className="text-[#FF5F1F] mr-2 mt-0.5">•</span> 
@@ -62,97 +46,37 @@ export default function ContactPage() {
                 </li>
                 <li className="flex items-start">
                   <span className="text-[#FF5F1F] mr-2 mt-0.5">•</span> 
-                  <span>You are encountering an asset uploading or portal processing issue</span>
+                  <span>You are encountering a document uploading or portal processing issue</span>
                 </li>
               </ul>
             </div>
 
             <div className="bg-slate-50 border border-slate-100 p-5 rounded-xl space-y-2.5">
               <h4 className="text-xs font-black uppercase tracking-widest text-[#1A3668]">
-                Strict Operational Disclaimer
+                Service Disclaimer
               </h4>
               <p className="text-xs text-[#596A7D] leading-relaxed font-medium">
-                SubShield is an automated compliance utility, not a law firm. We can answer questions regarding platform features, document ingestion capabilities, and credit billing configurations. We cannot provide legal advice, contract interpretations, or legal opinions through this form.
+                SubShield is an AI-assisted contract risk-screening tool, not a law firm. Once the contact workflow is available, it will support questions about platform features, supported document intake, and credit billing. SubShield cannot provide legal advice, contract interpretations, or legal opinions.
               </p>
             </div>
 
           </div>
 
-          <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-            <h3 className="text-lg font-black text-[#1A3668] uppercase tracking-wide mb-6">
-              Send a Message
-            </h3>
-            
-            <form onSubmit={handleSubmit} className="space-y-5">
-              
-              <div>
-                <label className="block text-xs font-black uppercase tracking-wider text-[#596A7D] mb-2">
-                  Full Name
-                </label>
-                <input 
-                  type="text"
-                  required
-                  className="w-full border border-slate-200 bg-slate-50/50 rounded-lg p-3 text-sm font-medium focus:outline-none focus:border-[#FF5F1F] focus:bg-white transition-all"
-                  placeholder="e.g., John Doe"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-black uppercase tracking-wider text-[#596A7D] mb-2">
-                  Email Address
-                </label>
-                <input 
-                  type="email"
-                  required
-                  className="w-full border border-slate-200 bg-slate-50/50 rounded-lg p-3 text-sm font-medium focus:outline-none focus:border-[#FF5F1F] focus:bg-white transition-all"
-                  placeholder="you@company.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-black uppercase tracking-wider text-[#596A7D] mb-2">
-                  What can we help with?
-                </label>
-                <select 
-                  className="w-full border border-slate-200 bg-slate-50/50 rounded-lg p-3 text-sm font-bold text-[#596A7D] focus:outline-none focus:border-[#FF5F1F] focus:bg-white transition-all"
-                  value={formData.reason}
-                  onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                >
-                  <option>Question before starting a review</option>
-                  <option>Help with an existing review</option>
-                  <option>Question about document types</option>
-                  <option>Question about pricing</option>
-                  <option>General question</option>
-                  <option>Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-black uppercase tracking-wider text-[#596A7D] mb-2">
-                  Your Message
-                </label>
-                <textarea 
-                  rows={5}
-                  required
-                  className="w-full border border-slate-200 bg-slate-50/50 rounded-lg p-3 text-sm font-medium focus:outline-none focus:border-[#FF5F1F] focus:bg-white transition-all resize-none"
-                  placeholder="Describe how we can support your business..."
-                  value={formData.message}
-                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                />
-              </div>
-
-              <button 
-                type="submit"
-                className="w-full bg-[#FF5F1F] hover:bg-orange-600 text-white font-bold py-3.5 px-6 rounded-xl text-sm uppercase tracking-widest transition-all shadow-sm mt-2"
-              >
-                Submit Request
-              </button>
-
-            </form>
+          <div className="lg:col-span-7 bg-slate-50 border border-slate-200 rounded-2xl p-8 shadow-sm">
+            <div className="h-full min-h-72 flex flex-col items-center justify-center text-center space-y-4 max-w-xl mx-auto">
+              <span className="text-[10px] font-black text-[#FF5F1F] uppercase tracking-widest bg-orange-50 border border-orange-200 px-3 py-1 rounded-full">
+                Not Yet Available
+              </span>
+              <h2 className="text-2xl font-black text-[#1A3668] uppercase tracking-tight">
+                Contact Requests Are Not Being Accepted Yet
+              </h2>
+              <p className="text-sm text-[#596A7D] leading-relaxed font-medium">
+                SubShield has not launched its public contact workflow. There is no message form on this page, and no information entered here is collected or delivered. This page will be updated when the contact workflow is ready.
+              </p>
+              <p className="text-xs text-slate-500 leading-relaxed font-bold">
+                Do not send sensitive contract details through public contact channels.
+              </p>
+            </div>
           </div>
 
         </div>
