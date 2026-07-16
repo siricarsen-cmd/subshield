@@ -32,7 +32,7 @@ export default function PrivacyPage() {
             Overview
           </h2>
           <p className="text-sm text-slate-600 leading-relaxed font-medium">
-            This Privacy Policy explains the information SubShield handles when you create an account, submit material for review, purchase credits or a subscription, view reports, or use an available support workflow. It also explains how that information is used and the choices available to you.
+            This Privacy Policy explains the information SubShield handles when you create an account, submit material for review, purchase credits or a subscription, view reports, or use the Contact form. It also explains how that information is used and the choices available to you.
           </p>
         </section>
 
@@ -56,7 +56,7 @@ export default function PrivacyPage() {
             </div>
             <div className="space-y-1.5">
               <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">Support Communications</h3>
-              <p>If a support or contact workflow is made available and you use it, SubShield may handle the information included in that communication.</p>
+              <p>When you use the Contact form, SubShield handles the name, email address, optional company name, inquiry reason, and message you submit.</p>
             </div>
           </div>
         </section>
@@ -80,7 +80,7 @@ export default function PrivacyPage() {
             <li>Authenticate users and maintain account access.</li>
             <li>Ingest submitted material, perform AI-assisted analysis, and generate and display reports.</li>
             <li>Process purchase status, fulfill credits, and support subscription billing.</li>
-            <li>Respond through an available customer-support workflow.</li>
+            <li>Respond to support and general inquiries submitted through the Contact form.</li>
             <li>Protect the service, prevent fraud and misuse, diagnose failures, and operate and improve service reliability.</li>
           </ul>
         </section>
@@ -143,7 +143,7 @@ export default function PrivacyPage() {
             <li>Access your dashboard to view available reviews, reports, and credit information.</li>
             <li>Delete reviews from the dashboard.</li>
             <li>Manage applicable subscription billing through the Stripe billing portal.</li>
-            <li>Once the contact workflow is operational, use the <Link href="/contact" className="font-bold text-[#1A3668] underline decoration-[#FF6B00] underline-offset-2">Contact page</Link> for privacy questions.</li>
+            <li>Use the <Link href="/contact" className="font-bold text-[#1A3668] underline decoration-[#FF6B00] underline-offset-2">Contact page</Link> for privacy questions.</li>
           </ul>
         </section>
 

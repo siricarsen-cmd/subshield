@@ -165,7 +165,7 @@ export default function TermsPage() {
             Contact
           </h2>
           <p className="text-sm text-slate-500 font-medium max-w-xl mx-auto leading-relaxed">
-            For questions about these Terms, visit the Contact page. Do not send sensitive contract information through public contact channels.
+            You may submit general questions through the Contact page. Do not include sensitive contract information in a Contact message.
           </p>
           <Link
             href="/contact"
