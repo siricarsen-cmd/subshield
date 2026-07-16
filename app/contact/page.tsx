@@ -439,7 +439,7 @@ export default function ContactPage() {
               <div className="mt-4 min-h-12">
                 {status === "submitting" && (
                   <p role="status" aria-live="polite" className="text-sm font-bold text-[#1A3668]">
-                    Sending your message securely...
+                    Sending your message...
                   </p>
                 )}
                 {status === "success" && (
