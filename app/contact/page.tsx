@@ -23,7 +23,7 @@ export default function ContactPage() {
                 Before You Send Sensitive Information
               </h3>
               <p className="text-sm text-[#596A7D] leading-relaxed font-medium">
-                Please do not include confidential, proprietary, or sensitive contract details in this general contact form. If you start a SubShield Review Cycle, you can submit supported documents through your account dashboard. For general inquiries, a brief summary of your question is enough.
+                Please do not send confidential, proprietary, or sensitive contract details through public contact channels. When SubShield’s contact workflow becomes available, a brief summary of a general question will be enough. Submit supported review documents only through your account dashboard.
               </p>
             </div>
 

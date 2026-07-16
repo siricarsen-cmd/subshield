@@ -161,7 +161,7 @@ export default function PrivacyPage() {
             Contact
           </h2>
           <p className="text-sm leading-relaxed font-medium">
-            For privacy questions, visit the <Link href="/contact" className="font-bold text-white underline decoration-[#FF6B00] underline-offset-2">Contact page</Link>. Do not include sensitive contract details in the public contact form.
+            For privacy questions, visit the <Link href="/contact" className="font-bold text-white underline decoration-[#FF6B00] underline-offset-2">Contact page</Link>. Do not send sensitive contract details through public contact channels.
           </p>
         </section>
       </div>

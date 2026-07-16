@@ -51,7 +51,6 @@ export default function PricingPage() {
     } catch (error: unknown) {
       console.error("Checkout could not be started:", error);
       setCheckoutError(CHECKOUT_ERROR_MESSAGE);
-    } finally {
       setCheckoutPlan(null);
     }
   };
