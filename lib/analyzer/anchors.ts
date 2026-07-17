@@ -12,6 +12,24 @@ function firstMatch(text: string, pattern: RegExp): string | undefined {
   return value.length > 0 ? value.slice(0, 160) : undefined;
 }
 
+function firstValidMatch(
+  text: string,
+  pattern: RegExp,
+  isValidCandidate: (candidate: string) => boolean
+): string | undefined {
+  const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+  const re = new RegExp(pattern.source, flags);
+  let m: RegExpExecArray | null;
+
+  while ((m = re.exec(text)) !== null) {
+    const value = (m[1] ?? m[0]).trim().replace(/\s+/g, " ");
+    if (value.length > 0 && isValidCandidate(value)) return value.slice(0, 160);
+    if (m.index === re.lastIndex) re.lastIndex++;
+  }
+
+  return undefined;
+}
+
 function allMatches(text: string, pattern: RegExp, limit: number): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -30,6 +48,27 @@ function allMatches(text: string, pattern: RegExp, limit: number): string[] {
 }
 
 const SUBCONTRACT_NUMBER = /subcontract\s*(?:agreement\s*)?(?:no\.?|number|#)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-\/\.]{3,30})/i;
+const REJECTED_SUBCONTRACT_NUMBER_LABELS = new Set([
+  "invoice",
+  "invoice date",
+  "date",
+  "amount",
+  "total",
+  "page",
+  "description",
+  "subcontractor",
+  "contractor",
+  "vendor",
+  "customer",
+  "project",
+  "contract",
+]);
+
+function isValidSubcontractNumberCandidate(candidate: string): boolean {
+  const normalized = candidate.toLowerCase().replace(/[.\-/]+/g, " ").replace(/\s+/g, " ").trim();
+  return !REJECTED_SUBCONTRACT_NUMBER_LABELS.has(normalized);
+}
+
 const PRIME_CONTRACT_NUMBER = /prime\s*contract\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-\/\.]{3,30})/i;
 const GOVT_CONTRACT_NUMBER = /\b(?:government|govt\.?|GS-|contract)\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-\/\.]{5,30})/i;
 const DELIVERY_ORDER = /(?:delivery|task)\s*order\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-\/\.]{2,30})/i;
@@ -76,7 +115,7 @@ export function extractAnchorCandidates(documentText: string, fileName?: string)
   const anchors: DocumentAnchors = {
     fileName,
     parties: firstMatch(text, PARTIES),
-    subcontractNumber: firstMatch(text, SUBCONTRACT_NUMBER),
+    subcontractNumber: firstValidMatch(text, SUBCONTRACT_NUMBER, isValidSubcontractNumberCandidate),
     subcontractType: explicitTypeLabel || contractTypeMatch?.label,
     primeContractNumber: firstMatch(text, PRIME_CONTRACT_NUMBER) || firstMatch(text, GOVT_CONTRACT_NUMBER),
     deliveryOrderNumber: firstMatch(text, DELIVERY_ORDER),
