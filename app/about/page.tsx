@@ -32,7 +32,7 @@ export default function About() {
             <div className="w-24 h-24 mb-6 rounded-full overflow-hidden border-2 border-orange-300 bg-[#596A7D] shrink-0 shadow-lg">
               <img 
                 src="/founder.jpg" 
-                alt="Carsen Siri" 
+                alt="Carsen Siri, Founder of SubShield"
                 className="w-full h-full object-cover"
               />
             </div>

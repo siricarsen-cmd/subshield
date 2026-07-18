@@ -20,6 +20,7 @@ export default function Navbar() {
           <Link href="/sample-report" className="hover:text-[#FF5F1F] transition-colors">Sample Report</Link>
           <Link href="/pricing" className="hover:text-[#FF5F1F] transition-colors">Pricing</Link>
           <Link href="/about" className="hover:text-[#FF5F1F] transition-colors">About</Link>
+          <Link href="/faq" className="hover:text-[#FF5F1F] transition-colors">FAQ</Link>
           <Link href="/contact" className="hover:text-[#FF5F1F] transition-colors">Contact</Link>
         </div>
 
