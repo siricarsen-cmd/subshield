@@ -1,5 +1,14 @@
-import Link from "next/link";
-import { HelpCircle, Scale, FileSearch, Clock, Shield, Lock, FileText, ChevronRight } from "lucide-react";
+import {
+  Building2,
+  Clock,
+  CreditCard,
+  FileInput,
+  FileSearch,
+  FileText,
+  Scale,
+  Shield,
+  ShieldAlert,
+} from "lucide-react";
 import FinalCTA from "@/components/FinalCTA";
 
 export default function FAQPage() {
@@ -7,27 +16,47 @@ export default function FAQPage() {
     {
       icon: Scale,
       q: "Is SubShield a law firm or a replacement for an attorney?",
-      a: "No. SubShield is an automated Attorney Prep Toolkit. We scan government solicitation materials, teaming agreements, and draft subcontracts to isolate commercial liabilities, hidden scope gaps, and payment traps. We do not provide formal legal representation. Instead, we give you an organized risk layout so you can direct your construction attorney's billable hours purely on targeted drafting and negotiation."
+      a: "No. SubShield is an automated contract risk-screening and document-organization tool. It identifies targeted government-contracting issues, quotes supporting contract text, and organizes questions for negotiation and attorney review. SubShield does not provide legal advice, legal opinions, or legal representation."
     },
     {
       icon: FileSearch,
-      q: "What is the difference between the Proposal-Stage and Award-Stage review?",
-      a: "Proposal-Stage review is built for contractors responding to quick prime emails, pre-solicitation notices, or brief teaming commitments. It focuses on missing protections—like unbacked workshare promises or proprietary rate exposure. Award-Stage review handles finalized, multi-page draft subcontracts, scanning line-by-line for aggressive pass-down indemnifications, pay-if-paid clauses, and tight claims windows."
+      q: "What types of documents are a good fit for SubShield?",
+      a: "SubShield is designed for government-contracting documents provided by prime contractors, including solicitation packages, teaming agreements, draft subcontracts, flow-down packages, amendments, and related supporting documents. Its primary use is reviewing terms before bidding, signing, or committing resources."
+    },
+    {
+      icon: FileInput,
+      q: "What file types can I submit?",
+      a: "SubShield accepts PDF, DOCX, TXT, and pasted contract text. Scanned PDFs may require optical character recognition. When the document text cannot be reviewed reliably, SubShield displays a Limited Scan or Partial OCR notice rather than presenting the result as a clean review."
     },
     {
       icon: Clock,
-      q: "How fast do I receive my completed Risk Report?",
-      a: "Government bidding scales on strict timelines, so our engine processes data rapidly. Once you upload your document draft or paste your raw text intake files into your secure portal, your comprehensive, plain-English SubShield Risk Report is compiled and ready within 24 hours."
+      q: "How long does a review take?",
+      a: "Analysis begins after a document is uploaded or text is submitted. Text-based documents generally process more quickly, while large or scanned PDFs may take longer. The report becomes available after automated processing finishes. SubShield does not promise a fixed manual-review turnaround time."
+    },
+    {
+      icon: FileText,
+      q: "What does the report include?",
+      a: "Depending on the document and extraction quality, the report may include document anchors, targeted risk findings, exact quoted contract language, operational explanations, suggested negotiation language, missing-document concerns, important deadlines, and an organized memo for discussion with the prime contractor or qualified counsel."
+    },
+    {
+      icon: CreditCard,
+      q: "How do plans and review credits work?",
+      a: "Each plan provides the review credits described on the Pricing page. An available credit is required to run a document review. Revised documents or additional packages may require another credit, depending on the review being submitted. Current plan details are always shown on the Pricing page."
     },
     {
       icon: Shield,
-      q: "Can I use SubShield for standard commercial or residential projects?",
-      a: "SubShield is engineered specifically for federal, state, and local government procurement parameters. Our logic matrices are built around GovCon realities, FAR/DFARS flow-downs, small business participation goals, and prime-to-subcontractor compliance frameworks. It is not optimized for standard residential or commercial work."
+      q: "How are my documents and reports handled?",
+      a: "Documents and reports are associated with the signed-in account and are processed to provide the SubShield service. Users can delete saved reviews from the dashboard. When an associated contract file is stored with the review, the deletion workflow also removes that stored file. Additional details are provided in the Privacy Policy."
     },
     {
-      icon: Lock,
-      q: "How secure are my pricing models, past performance data, and files?",
-      a: "Security is our baseline. We utilize enterprise-grade encryption for all documents and raw text data both in transit and at rest. Your competitive labor rates, proprietary bidding methods, and company files are strictly private, completely segmented, and used exclusively to assemble your specific risk triage documents."
+      icon: ShieldAlert,
+      q: "Does “No Critical Flags Detected” mean the contract is safe to sign?",
+      a: "No. It means SubShield did not detect the targeted critical issues in the document text it was able to review. It is not a legal opinion, approval, or guarantee that the agreement is complete, favorable, enforceable, or safe to sign. Qualified legal review may still be appropriate."
+    },
+    {
+      icon: Building2,
+      q: "Can I use SubShield for ordinary residential or commercial contracts?",
+      a: "SubShield is designed specifically for government-contracting and prime-to-subcontractor documents. Its detection rules focus on GovCon risks such as payment conditions, workshare, flow-downs, FAR and DFARS obligations, notice periods, wage requirements, cybersecurity, termination, and related compliance issues. It is not optimized for ordinary residential or general commercial agreements."
     }
   ];
 
@@ -45,7 +74,7 @@ export default function FAQPage() {
             Frequently Asked Questions
           </h1>
           <p className="text-base sm:text-lg text-[#596A7D] font-medium max-w-xl mx-auto leading-relaxed">
-            Clear, direct answers about how SubShield protects your small business margins during GovCon teaming.
+            Clear answers about document fit, processing, credits, privacy, reports, and the role of qualified legal counsel.
           </p>
         </div>
       </section>

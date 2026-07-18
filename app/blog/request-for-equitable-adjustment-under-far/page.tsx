@@ -10,12 +10,14 @@ export default function ReaScopeCreepArticle() {
       {/* Article Header Banner */}
       <div className="bg-[#1A3668] text-white py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto space-y-4">
-          <a href="/blog" className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#FF5F1F] hover:text-white transition">
-            <ArrowLeft className="w-4 h-4" /> Back to Knowledge Hub
-          </a>
-          <span className="inline-block bg-[#FF5F1F] text-white text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded">
-            FAR Adjustments & Claims
-          </span>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <a href="/blog" className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#FF5F1F] hover:text-white transition">
+              <ArrowLeft className="w-4 h-4" /> Back to Knowledge Hub
+            </a>
+            <span className="self-start rounded-full border border-orange-300/60 bg-orange-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#FF5F1F]">
+              FAR Adjustments & Claims
+            </span>
+          </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
             Recovering from Scope Creep: The Subcontractor’s Guide to REAs Under the FAR
           </h1>
@@ -113,14 +115,14 @@ export default function ReaScopeCreepArticle() {
               Don't let general contractor design errors or hidden field delays slowly liquidate your company's hard-earned margins.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your prime agreement or change order paperwork into the **SubShield AI REA Auditor** to instantly flag aggressive notice constraints, isolate unfair waiver print, and arm your team with a complete strategic roadmap to demand full compensation.
+              Drop your prime agreement or change order paperwork into the <strong className="text-[#1A3668]">SubShield AI REA Auditor</strong> to instantly flag aggressive notice constraints, isolate unfair waiver print, and arm your team with a complete strategic roadmap to demand full compensation.
             </p>
             <hr className="border-slate-100" />
             <a 
-              href="/login" 
+              href="/pricing"
               className="block w-full py-2.5 text-center text-xs font-black uppercase tracking-wider text-white bg-[#FF5F1F] hover:bg-[#E04F1A] rounded-lg transition shadow-sm"
             >
-              Scan Your Contract Now
+              See Review Plans
             </a>
           </div>
         </div>

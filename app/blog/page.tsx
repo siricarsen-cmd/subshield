@@ -1,8 +1,9 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { posts } from "./articleData"; 
-import { ArrowUpRight, BookOpen, ShieldAlert } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 
 export default function BlogDashboardPage() {
   return (
@@ -41,8 +42,13 @@ export default function BlogDashboardPage() {
                   </span>
                 </div>
                 
-                <h3 className="text-sm font-black text-[#1A3668] uppercase tracking-wide leading-snug group-hover:text-[#FF5F1F] transition duration-150">
-                  {post.title}
+                <h3 className="text-sm font-black uppercase tracking-wide leading-snug">
+                  <Link
+                    href={`/blog/${post.slug}`}
+                    className="rounded-sm text-[#1A3668] transition duration-150 hover:text-[#FF5F1F] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5F1F] focus-visible:ring-offset-2 group-hover:text-[#FF5F1F]"
+                  >
+                    {post.title}
+                  </Link>
                 </h3>
                 
                 <p className="text-xs text-slate-600 leading-relaxed font-medium">
@@ -52,12 +58,12 @@ export default function BlogDashboardPage() {
 
               <div className="pt-6">
                 <hr className="border-slate-100 pb-4" />
-                <a 
+                <Link
                   href={`/blog/${post.slug}`} 
-                  className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#1A3668] hover:text-[#FF5F1F] transition"
+                  className="inline-flex items-center gap-1.5 rounded-sm text-xs font-black uppercase tracking-wider text-[#1A3668] hover:text-[#FF5F1F] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5F1F] focus-visible:ring-offset-2"
                 >
                   Read Operational Guide <ArrowUpRight className="w-4 h-4" />
-                </a>
+                </Link>
               </div>
             </div>
           ))}
@@ -76,18 +82,18 @@ export default function BlogDashboardPage() {
               Isolate unfair indemnities, identify hidden liability flow-downs, and secure your payment thresholds before your crews ever set foot on site.
             </p>
             <div className="pt-4 flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <a 
-                href="/login" 
+              <Link
+                href="/pricing"
                 className="w-full sm:w-auto px-6 py-3 bg-[#FF5F1F] hover:bg-[#E04F1A] text-white text-xs font-black uppercase tracking-wider rounded-xl transition shadow-md"
               >
-                Review Your Prime Package
-              </a>
-              <a 
+                See Review Plans
+              </Link>
+              <Link
                 href="/sample-report" 
                 className="w-full sm:w-auto px-6 py-3 bg-transparent hover:bg-white/5 text-white border border-white/20 text-xs font-black uppercase tracking-wider rounded-xl transition"
               >
                 View Sample Report
-              </a>
+              </Link>
             </div>
           </div>
         </div>

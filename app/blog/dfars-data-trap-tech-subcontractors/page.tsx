@@ -10,12 +10,14 @@ export default function DfarsDataTrapArticle() {
       {/* Header Banner */}
       <div className="bg-[#1A3668] text-white py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto space-y-4">
-          <a href="/blog" className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#FF5F1F] hover:text-white transition">
-            <ArrowLeft className="w-4 h-4" /> Back to Knowledge Hub
-          </a>
-          <span className="inline-block bg-[#FF5F1F] text-white text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded">
-            IT & Professional Services
-          </span>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <a href="/blog" className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#FF5F1F] hover:text-white transition">
+              <ArrowLeft className="w-4 h-4" /> Back to Knowledge Hub
+            </a>
+            <span className="self-start rounded-full border border-orange-300/60 bg-orange-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#FF5F1F]">
+              IT & Professional Services
+            </span>
+          </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
             The DFARS Data Trap: Protecting Your Tech Firm's IP from Predatory Subcontracts
           </h1>
@@ -98,8 +100,8 @@ export default function DfarsDataTrapArticle() {
               Use <strong className="text-[#1A3668]">SubShield</strong> to continuously audit incoming subcontracts, isolate predatory DFARS flow-downs, and ensure your intellectual property remains legally locked down.
             </p>
             <hr className="border-slate-100" />
-            <a href="/login" className="block w-full py-2.5 text-center text-xs font-black uppercase tracking-wider text-white bg-[#FF5F1F] hover:bg-[#E04F1A] rounded-lg transition shadow-sm">
-              Scan Your Contract Now
+            <a href="/pricing" className="block w-full py-2.5 text-center text-xs font-black uppercase tracking-wider text-white bg-[#FF5F1F] hover:bg-[#E04F1A] rounded-lg transition shadow-sm">
+              See Review Plans
             </a>
           </div>
         </div>

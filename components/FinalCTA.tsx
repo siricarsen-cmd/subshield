@@ -6,20 +6,19 @@ export default function FinalCTA() {
     <section className="bg-[#1A3668] text-white py-16 px-6 border-t border-slate-800">
       <div className="max-w-4xl mx-auto text-center space-y-6">
         <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">
-          Ready to Compact Your Billable Hours?
+          Ready to Review Before You Commit?
         </h2>
-        
-        {/* FIXED THE NATIONWIDE GOVCON LINE HERE */}
+
         <p className="text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed">
-          Isolate mandatory FAR flow-downs, strip out unfair liabilities, and compress your billable legal expenses before contract performance begins.
+          Compare plans, choose the review option that fits your current package, and organize the issues before final legal review.
         </p>
 
         <div className="pt-4 flex flex-col sm:flex-row justify-center gap-4">
-          <Link 
-            href="/intake" 
+          <Link
+            href="/pricing"
             className="bg-[#FF5F1F] text-white px-8 py-4 rounded-xl hover:bg-orange-600 transition-all font-black text-xs sm:text-sm tracking-widest uppercase inline-flex items-center justify-center gap-2 shadow-sm"
           >
-            START FREE TRIAGE <ArrowRight size={16} />
+            See Plans <ArrowRight size={16} />
           </Link>
           <Link 
             href="/sample-report" 

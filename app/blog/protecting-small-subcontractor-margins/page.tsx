@@ -10,12 +10,14 @@ export default function ProtectingSmallSubcontractorMarginsArticle() {
       {/* Article Header Banner */}
       <div className="bg-[#1A3668] text-white py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto space-y-4">
-          <a href="/blog" className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#FF5F1F] hover:text-white transition">
-            <ArrowLeft className="w-4 h-4" /> Back to Knowledge Hub
-          </a>
-          <span className="inline-block bg-[#FF5F1F] text-white text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded">
-            Small Business Defense
-          </span>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <a href="/blog" className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#FF5F1F] hover:text-white transition">
+              <ArrowLeft className="w-4 h-4" /> Back to Knowledge Hub
+            </a>
+            <span className="self-start rounded-full border border-orange-300/60 bg-orange-50 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#FF5F1F]">
+              Small Business Defense
+            </span>
+          </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
             Built for the Field: Why Small Trade Contractors Are the Target of Bad Contracts, and How to Fight Back
           </h1>
@@ -117,14 +119,14 @@ export default function ProtectingSmallSubcontractorMarginsArticle() {
               Don't let corporate legal boilerplates turn your independent trade business into an uncompensated insurance cushion for the general contractor.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your commercial agreement documents into the **SubShield AI Contract Guard** to instantly decode hidden liability shifts, flag aggressive payment terms, and secure your company's hard-earned margins before setting foot on site.
+              Drop your commercial agreement documents into the <strong className="text-[#1A3668]">SubShield AI Contract Guard</strong> to instantly decode hidden liability shifts, flag aggressive payment terms, and secure your company's hard-earned margins before setting foot on site.
             </p>
             <hr className="border-slate-100" />
             <a 
-              href="/login" 
+              href="/pricing"
               className="block w-full py-2.5 text-center text-xs font-black uppercase tracking-wider text-white bg-[#FF5F1F] hover:bg-[#E04F1A] rounded-lg transition shadow-sm"
             >
-              Scan Your Contract Now
+              See Review Plans
             </a>
           </div>
         </div>
