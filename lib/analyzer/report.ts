@@ -101,6 +101,50 @@ function normalizeForDedupe(s: string): string {
 // reportable per-clause.
 const INDEMNITY_LABEL_RE = /indemnif|duty\s+to\s+defend|hold\s+harmless/i;
 
+const CANONICAL_FUTURE_FLOWDOWN_LABEL = "Broad Future Flowdowns / Prime Contract Control";
+const CANONICAL_MISSING_DOCUMENTS_LABEL = "Missing / Deferred Contract Documents";
+
+// A model can quote the exact future-flowdown trap but label it with the
+// broader structure-family title. Canonicalize only when the finding's own
+// verified evidence unmistakably states that additional/revised/new/modified
+// flowdown requirements become binding on notice. This runs at the dedupe
+// boundary used by runAnalyzer, before model/deterministic collision
+// resolution, so the earlier model finding can keep its higher severity and
+// fuller analysis while receiving the correct risk identity. No other field
+// changes, and generic missing/deferred-document evidence cannot match.
+const BINDING_FUTURE_FLOWDOWN_EVIDENCE_RE =
+  /(?:additional|revised|new|modified)(?:\s+or\s+(?:additional|revised|new|modified))?\s+flow[\s-]?down\s+requirements?[\s\S]{0,420}(?:such|those|the)\s+requirements?\s+(?:become|are|shall\s+be)\s+binding\s+(?:upon|on|after)\s+(?:written\s+)?notice/i;
+
+// Missing-document normalization is independently evidence-gated: a named
+// material document must be paired in the finding's own verified quote with
+// an explicit current-absence statement or a post-execution/award/signing
+// delivery deferral. A named exhibit merely omitted from an order-of-
+// precedence list is not missing, so that specific structure phrasing is
+// excluded. Generic incorporation, conflict, precedence, and silence cannot
+// match these patterns.
+const MISSING_OR_DEFERRED_DOCUMENT_EVIDENCE_PATTERNS: RegExp[] = [
+  /(?:statements?\s+of\s+work|\bSOWs?\b|flow[\s-]?down\s+(?:lists?|matrix|matrices)|Prime\s+Contract\s+excerpts?|(?:identified|required|specified|applicable)\s+(?:attachments?|exhibits?|schedules?|appendices)|(?:Attachment|Exhibit|Schedule|Appendix)\s+[A-Z0-9][A-Z0-9._-]{0,20}\b)[^.]{0,240}(?:(?:(?:is|are|remain|has|have)\s+)?not\s+(?:currently\s+|yet\s+)?(?:been\s+)?(?:attached|included(?!\s+in\s+(?:the\s+)?order[\s-]of[\s-]precedence)|provided|available)|(?:will|shall|may)\s+be\s+(?:provided|furnished|attached|included)\s+(?:after\s+(?:execution|award|signing)|later))/i,
+  /(?:(?:(?:is|are|remain|has|have)\s+)?not\s+(?:currently\s+|yet\s+)?(?:been\s+)?(?:attached|included(?!\s+in\s+(?:the\s+)?order[\s-]of[\s-]precedence)|provided|available))[^.;:\n]{0,120}(?:statements?\s+of\s+work|\bSOWs?\b|flow[\s-]?down\s+(?:lists?|matrix|matrices)|Prime\s+Contract\s+excerpts?|(?:identified|required|specified|applicable)\s+(?:attachments?|exhibits?|schedules?|appendices)|(?:Attachment|Exhibit|Schedule|Appendix)\s+[A-Z0-9][A-Z0-9._-]{0,20}\b)/i,
+];
+
+function canonicalizeKnownRiskLabel(finding: Finding): Finding {
+  if (
+    finding.familyKey === "structure" &&
+    BINDING_FUTURE_FLOWDOWN_EVIDENCE_RE.test(finding.foundText) &&
+    finding.regulation !== CANONICAL_FUTURE_FLOWDOWN_LABEL
+  ) {
+    return { ...finding, regulation: CANONICAL_FUTURE_FLOWDOWN_LABEL };
+  }
+  if (
+    finding.familyKey === "structure" &&
+    MISSING_OR_DEFERRED_DOCUMENT_EVIDENCE_PATTERNS.some((pattern) => pattern.test(finding.foundText)) &&
+    finding.regulation !== CANONICAL_MISSING_DOCUMENTS_LABEL
+  ) {
+    return { ...finding, regulation: CANONICAL_MISSING_DOCUMENTS_LABEL };
+  }
+  return finding;
+}
+
 // Two findings describe the same underlying risk (not just the same family)
 // when their quoted evidence is near-identical or one is a substring of the
 // other, or when the model gave them the same regulation/risk label. This
@@ -136,7 +180,8 @@ function isSameRisk(a: Finding, b: Finding): boolean {
 // risks like indemnification or termination out of the top findings.
 export function dedupeFindings(findings: Finding[]): Finding[] {
   const kept: Finding[] = [];
-  for (const finding of findings) {
+  for (const rawFinding of findings) {
+    const finding = canonicalizeKnownRiskLabel(rawFinding);
     const dupIndex = kept.findIndex((existing) => isSameRisk(existing, finding));
     if (dupIndex === -1) {
       kept.push(finding);

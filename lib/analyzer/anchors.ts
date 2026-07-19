@@ -72,8 +72,13 @@ function isValidSubcontractNumberCandidate(candidate: string): boolean {
 const PRIME_CONTRACT_NUMBER = /prime\s*contract\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-\/\.]{3,30})/i;
 const GOVT_CONTRACT_NUMBER = /\b(?:government|govt\.?|GS-|contract)\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-\/\.]{5,30})/i;
 const DELIVERY_ORDER = /(?:delivery|task)\s*order\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-\/\.]{2,30})/i;
-const PRICE = /(?:total\s+(?:price|estimated\s+value|contract\s+value)|not[\s-]to[\s-]exceed(?:\s+amount)?|total\s+not[\s-]to[\s-]exceed)[^\n$]{0,60}\$[\d,]+(?:\.\d{2})?/i;
-const FUNDING_LIMIT = /(?:incrementally\s+funded|funding\s+limit(?:ation)?|limitation\s+of\s+funds)[^\n$]{0,80}(?:\$[\d,]+(?:\.\d{2})?)?/i;
+// Capture only the literal money substring. Ceiling/aggregate-value labels
+// are valid price evidence, while a funding label is not a funding amount
+// unless a dollar value appears in the same clause.
+const PRICE =
+  /(?:total\s+(?:price|estimated\s+value|contract\s+value)|estimated\s+value|ceiling\s+amount|maximum\s+aggregate\s+value|not[\s-]to[\s-]exceed(?:\s+amount)?|total\s+not[\s-]to[\s-]exceed)[^.\n$]{0,120}(\$[\d,]+(?:\.\d{2})?)/i;
+const FUNDING_LIMIT =
+  /(?:incrementally\s+funded|funding\s+limit(?:ation)?|limitation\s+of\s+funds)[^.\n$]{0,80}(\$[\d,]+(?:\.\d{2})?)/i;
 const RETAINAGE = /retain(?:age|ed)[^.\n]{0,120}(?:\d{1,2}\s?%|\bpercent\b)[^.\n]{0,80}/i;
 const PARTIES = /this\s+subcontract(?:\s+agreement)?\s+is\s+(?:made\s+)?(?:entered\s+into\s+)?between\s+([^.\n]{5,220})/i;
 
