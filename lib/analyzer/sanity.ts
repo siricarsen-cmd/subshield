@@ -2,12 +2,46 @@
 // and applies contradiction guards before a finding is allowed to surface.
 
 import { quoteExistsInDocument, scrubUngroundedArticleReferences } from "./text";
-import { SHORT_CURE_MAX_DAYS } from "./deterministic";
+import {
+  SHORT_CURE_MAX_DAYS,
+  extractTerminationNoticeDays,
+  hasAffirmativeImmediateTerminationForConvenienceEvidence,
+  hasComprehensiveTerminationRecoveryEvidence,
+  hasProtectiveTerminationForConvenienceRestrictionEvidence,
+  hasTerminationForConvenienceRiskEvidence,
+} from "./deterministic";
 import type { Finding } from "./types";
 
 export interface VerificationResult {
   verified: Finding[];
   dropped: Array<{ finding: Finding; reason: string }>;
+}
+
+const MIN_PROTECTIVE_TERMINATION_NOTICE_DAYS = 30;
+
+// Model quotes normally include a complete clause. If a quote stops after the
+// first sentence, allow only the immediately following sentence from the same
+// paragraph/numbered clause to complete the evidence. This intentionally does
+// not flatten or scan the whole document: a favorable recovery term in a later
+// clause must never cancel the finding being verified here.
+function appendImmediateSameClauseContinuation(foundText: string, documentText: string): string {
+  const quoteIndex = documentText.indexOf(foundText);
+  if (quoteIndex < 0) return foundText;
+  if (documentText.indexOf(foundText, quoteIndex + foundText.length) >= 0) return foundText;
+
+  const afterQuote = documentText.slice(quoteIndex + foundText.length, quoteIndex + foundText.length + 500);
+  const leadingWhitespace = /^\s*/.exec(afterQuote)?.[0] ?? "";
+  if (/\n\s*\n/.test(leadingWhitespace)) return foundText;
+
+  const continuationStart = leadingWhitespace.length;
+  const remaining = afterQuote.slice(continuationStart);
+  if (/^(?:(?:section|article)\s+)?\d+(?:\.\d+)+\b/i.test(remaining)) return foundText;
+
+  const sentenceEnd = /[.!?](?=\s|\n|$)/.exec(remaining);
+  if (!sentenceEnd) return foundText;
+
+  const continuation = remaining.slice(0, sentenceEnd.index + 1).trim();
+  return continuation ? `${foundText} ${continuation}` : foundText;
 }
 
 // Contradiction guards: rules that suppress a category of finding when the
@@ -232,6 +266,105 @@ function violatesContradictionGuard(finding: Finding, documentText: string): str
     !BROAD_REWORK_RISK_SIGNAL_RE.test(finding.foundText)
   ) {
     return "Finding's own verified quote limits correction to an ordinary verified/actual material defect, the agreed requirement, Subcontractor-responsible defects, or protects against changed-scope rejection, with no separate broad rework-cost signal in that quote; not an uncompensated-rework risk.";
+  }
+
+  // An ordinary mutual commercial liability cap is not evidence that only
+  // the Subcontractor's recovery is restricted. Suppression requires both a
+  // bilateral cap signal and an ordinary whole-contract value basis in this
+  // finding's own exact quote. Any same-quote asymmetry, Government-receipt
+  // dependency, paid-to-date basis, Subcontractor-only uncapped exception,
+  // Prime disclaimer, or one-sided damages waiver defeats the guard. A
+  // genuinely mutual damages waiver remains compatible with suppression.
+  const LIABILITY_CAP_REGULATION_RE =
+    /limitation\s+of\s+liability|liability\s+cap|indemnity[^.]{0,100}insurance[^.]{0,100}liability|damages?\s+limitation|liability[^.]{0,100}indemnity[^.]{0,160}termination/i;
+  const MUTUAL_LIABILITY_CAP_RE =
+    /(?:each\s+party(?:'s|\u2019s)\s+(?:(?:aggregate|total)\s+)?liability|(?:(?:aggregate|total)\s+)?liability\s+of\s+each\s+party)[^.]{0,180}(?:limited|capped|shall\s+not\s+exceed|not\s+exceed)|(?:limited|capped|shall\s+not\s+exceed|not\s+exceed)[^.]{0,180}(?:each\s+party(?:'s|\u2019s)\s+liability|liability\s+of\s+each\s+party)/i;
+  const ORDINARY_WHOLE_CONTRACT_CAP_BASIS_RE =
+    /(?:total\s+amount\s+)?paid\s+or\s+payable\s+under\s+(?:this|the)\s+(?:Subcontract|Contract|Agreement)|amounts?\s+paid\s+or\s+payable\s+under\s+(?:this|the)\s+(?:Subcontract|Contract|Agreement)|total\s+(?:Subcontract|Contract|Agreement)\s+price|(?:Subcontract|Contract|Agreement)\s+value/i;
+  const ASYMMETRIC_LIABILITY_SIGNAL_RE =
+    /Prime(?:\s+Contractor)?(?:'s|\u2019s)?\s+(?:total\s+|aggregate\s+)?liability[^.]{0,180}(?:amounts?\s+(?:actually\s+)?received|Government)|(?:amounts?\s+(?:actually\s+)?received|receipt\s+of\s+(?:payment|funds|amounts?))[^.]{0,100}(?:from\s+)?(?:the\s+)?Government|Subcontractor(?:'s|\u2019s)?[^.]{0,180}(?:liability|obligations?|claims?)[^.]{0,100}(?:unlimited|uncapped|not\s+subject\s+to\s+(?:the\s+)?cap|excluded\s+from\s+(?:the\s+)?cap)|(?:cap|limitation)[^.]{0,120}(?:does|shall)\s+not\s+apply[^.]{0,180}Subcontractor(?:'s|\u2019s)?|except\s+for\s+Subcontractor(?:'s|\u2019s)?[^.]{0,160}(?:liability|obligations?|claims?|indemnity|confidentiality|cyber|data|intellectual[\s-]property|warranty)|all\s+claims?\s+against\s+Subcontractor[^.]{0,100}(?:unlimited|uncapped)|no\s+similar\s+limitation\s+applies\s+to\s+Subcontractor|except\s+for\s+claims?\s+against\s+Prime|(?:exceptions?|carveouts?)[^.]{0,160}(?:apply|applicable)\s+only\s+to\s+Subcontractor|fees?\s+paid\s+(?:through|to)\s+date|Prime(?:\s+Contractor)?\s+(?:shall\s+not\s+be\s+liable|(?:shall\s+have|has)\s+no\s+liability)[^.]{0,160}(?:own\s+negligence|its\s+negligence|breach|non[\s-]?payment)/i;
+  const MUTUAL_DAMAGES_WAIVER_SIGNAL_RE =
+    /neither\s+party\s+(?:(?:shall|will)\s+be|is)\s+liable|neither\s+Prime(?:\s+Contractor)?\s+nor\s+Subcontractor\s+(?:(?:shall|will)\s+be|is)\s+liable|(?:each\s+party|the\s+parties)\s+mutually\s+waives?|each\s+party\s+waives?[^.]{0,100}against\s+(?:the\s+)?other\s+party/i;
+  const ONE_SIDED_DAMAGES_ALLOCATION_RE =
+    /Prime(?:\s+Contractor)?\s+(?:shall\s+not\s+be\s+liable|(?:shall\s+have|has)\s+no\s+liability)[^.]{0,180}(?:consequential|punitive|indirect|incidental|special|lost[\s-]profits?)|Subcontractor\s+remains?\s+liable[^.]{0,180}(?:consequential|punitive|indirect|incidental|special|lost[\s-]profits?|(?:those|such)\s+damages)|only\s+Prime(?:\s+Contractor)?\s+(?:is\s+protected\s+from[^.]{0,180}(?:consequential|punitive|indirect|incidental|special|lost[\s-]profits?)|(?:receives?|has|is\s+granted)[^.]{0,100}(?:damages?\s+)?waiver)|Subcontractor\s+waives?[^.]{0,180}(?:(?:consequential|punitive|indirect|incidental|special|lost[\s-]profit)[^.]{0,100}claims?|(?:those|such)\s+damages)\s+against\s+Prime(?:\s+Contractor)?|(?:damages?\s+)?waiver[^.]{0,120}(?:applies|is\s+available)\s+(?:solely|exclusively|only)\s+to\s+Prime(?:\s+Contractor)?/i;
+  const EXPLICIT_ASYMMETRIC_DAMAGES_EXCEPTION_RE =
+    /(?:except(?:\s+that)?|however|but)[^.]{0,220}(?:Subcontractor\s+remains?\s+liable|(?:damages?\s+)?waiver\s+does\s+not\s+apply\s+to\s+claims?\s+against\s+Subcontractor|only\s+Prime(?:\s+Contractor)?\s+retains?\s+(?:the\s+)?right\s+to\s+recover)|(?:damages?\s+)?waiver\s+does\s+not\s+apply\s+to\s+claims?\s+against\s+Subcontractor|only\s+Prime(?:\s+Contractor)?\s+retains?\s+(?:the\s+)?right\s+to\s+recover/i;
+  const DAMAGES_CATEGORY_PATTERNS = [
+    ["consequential", /\bconsequential\b/i],
+    ["punitive", /\bpunitive\b/i],
+    ["indirect", /\bindirect\b/i],
+    ["incidental", /\bincidental\b/i],
+    ["special", /\bspecial\b/i],
+    ["lost-profits", /\blost[\s-]?profits?\b/i],
+  ] as const;
+  const mutualDamagesCategories = new Set<string>();
+  const oneSidedDamagesCategories = new Set<string>();
+  let hasUncategorizedOneSidedDamagesAllocation = false;
+  const damagesAllocationClauses = finding.foundText.split(
+    /(?:[.;]\s*|\b(?:but|however|except(?:\s+that)?)\b)/i
+  );
+
+  for (const clause of damagesAllocationClauses) {
+    const categories = DAMAGES_CATEGORY_PATTERNS.filter(([, pattern]) => pattern.test(clause)).map(
+      ([category]) => category
+    );
+    if (MUTUAL_DAMAGES_WAIVER_SIGNAL_RE.test(clause)) {
+      categories.forEach((category) => mutualDamagesCategories.add(category));
+    }
+    if (ONE_SIDED_DAMAGES_ALLOCATION_RE.test(clause)) {
+      categories.forEach((category) => oneSidedDamagesCategories.add(category));
+      if (categories.length === 0) hasUncategorizedOneSidedDamagesAllocation = true;
+    }
+  }
+
+  const hasNonEquivalentOneSidedDamagesAllocation =
+    hasUncategorizedOneSidedDamagesAllocation ||
+    [...oneSidedDamagesCategories].some((category) => !mutualDamagesCategories.has(category));
+  const hasExplicitAsymmetricDamagesException = EXPLICIT_ASYMMETRIC_DAMAGES_EXCEPTION_RE.test(
+    finding.foundText
+  );
+  const hasDisqualifyingDamagesAsymmetry =
+    hasExplicitAsymmetricDamagesException || hasNonEquivalentOneSidedDamagesAllocation;
+  if (
+    finding.familyKey === "liability" &&
+    LIABILITY_CAP_REGULATION_RE.test(finding.regulation) &&
+    MUTUAL_LIABILITY_CAP_RE.test(finding.foundText) &&
+    ORDINARY_WHOLE_CONTRACT_CAP_BASIS_RE.test(finding.foundText) &&
+    !ASYMMETRIC_LIABILITY_SIGNAL_RE.test(finding.foundText) &&
+    !hasDisqualifyingDamagesAsymmetry
+  ) {
+    return "Finding's own verified quote states a mutual/bilateral liability cap based on the whole Subcontract, Contract, or Agreement value, with no same-quote one-sided damages waiver, Government-receipt dependency, paid-to-date basis, uncapped-Subcontractor term, or Prime-liability disclaimer; not an asymmetric liability-cap risk.";
+  }
+
+  // A model may quote only the first sentence of a two-sentence numbered
+  // convenience-termination clause. Use at most the immediately following
+  // same-clause sentence, then require every core recovery component and at
+  // least 30 days' notice. The shared deterministic risk helper prevents this
+  // guard from masking short notice, exclusions, accepted-work-only recovery,
+  // no compensation, broad deductions, or unilateral Prime determination.
+  const TERMINATION_REGULATION_RE = /\btermination\b|prime[\s-]favou?red\s+termination/i;
+  const TERMINATION_FOR_CONVENIENCE_EVIDENCE_RE =
+    /\bterminat(?:e|es|ed|ing|ion)\b[^.]{0,80}\bfor\s+(?:its\s+|the\s+)?convenience\b/i;
+  if (finding.familyKey === "liability" && TERMINATION_REGULATION_RE.test(finding.regulation)) {
+    const localTerminationEvidence = appendImmediateSameClauseContinuation(finding.foundText, documentText);
+    const noticeDays = extractTerminationNoticeDays(localTerminationEvidence);
+    if (
+      TERMINATION_FOR_CONVENIENCE_EVIDENCE_RE.test(localTerminationEvidence) &&
+      hasProtectiveTerminationForConvenienceRestrictionEvidence(localTerminationEvidence) &&
+      !hasAffirmativeImmediateTerminationForConvenienceEvidence(localTerminationEvidence) &&
+      !hasTerminationForConvenienceRiskEvidence(localTerminationEvidence)
+    ) {
+      return "Finding's verified quote is a protective prohibition or restriction requiring notice and/or delaying convenience termination, with no affirmative immediate/no-notice right or separate short-notice/adverse-recovery signal in that same local clause; not an active termination-for-convenience risk.";
+    }
+    if (
+      TERMINATION_FOR_CONVENIENCE_EVIDENCE_RE.test(localTerminationEvidence) &&
+      noticeDays !== null &&
+      noticeDays >= MIN_PROTECTIVE_TERMINATION_NOTICE_DAYS &&
+      hasComprehensiveTerminationRecoveryEvidence(localTerminationEvidence) &&
+      !hasTerminationForConvenienceRiskEvidence(localTerminationEvidence)
+    ) {
+      return "Finding's verified quote and, if needed, only its immediately following same-clause sentence provide at least 30 days' written notice plus accepted/completed work, work-in-process, noncancelable-commitment, demobilization, and settlement/closeout recovery, with no same-clause exclusion or broad unilateral deduction; not an active termination-for-convenience risk.";
+    }
   }
 
   // (D) LLM long-cure companion guard: mirrors the deterministic-source fix

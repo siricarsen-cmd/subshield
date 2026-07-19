@@ -27,11 +27,158 @@ import type { Finding, RiskLevel } from "./types";
 // number.
 export const SHORT_CURE_MAX_DAYS = 10;
 
+// A termination-for-convenience notice period is independently risky only
+// when it is 15 days or less. Longer stated periods require separate adverse
+// recovery, exclusion, deduction, or no-notice evidence before the
+// deterministic scanner may report them. Exported so sanity.ts applies the
+// identical threshold to model findings instead of duplicating the number.
+export const SHORT_TERMINATION_NOTICE_MAX_DAYS = 15;
+
+const TERMINATION_NOTICE_DAY_WORDS: Record<string, number> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  thirteen: 13,
+  fourteen: 14,
+  fifteen: 15,
+  sixteen: 16,
+  twenty: 20,
+  thirty: 30,
+  forty: 40,
+  fortyfive: 45,
+  "forty-five": 45,
+  sixty: 60,
+  ninety: 90,
+};
+
+const TERMINATION_NOTICE_DAYS_RE =
+  /\b(?:at\s+least\s+)?(\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|twenty|thirty|forty(?:[\s-]?five)?|sixty|ninety)\s*(?:calendar|business|working)?\s*-?\s*days?(?:'|\u2019)?\s+(?:(?:prior|advance)\s+)?(?:written\s+)?notice\b/i;
+
+export function extractTerminationNoticeDays(text: string): number | null {
+  const match = TERMINATION_NOTICE_DAYS_RE.exec(text);
+  if (!match) return null;
+
+  if (/^\d+$/.test(match[1])) return Number(match[1]);
+  const normalizedWord = match[1].toLowerCase().replace(/\s+/g, "");
+  return TERMINATION_NOTICE_DAY_WORDS[normalizedWord] ?? null;
+}
+
+export function hasComprehensiveTerminationRecoveryEvidence(text: string): boolean {
+  const hasAcceptedOrCompletedWork = /\b(?:accepted|completed)\s+work\b/i.test(text);
+  const hasWorkInProcess = /\b(?:reasonable\s+)?(?:work[\s-]+in[\s-]+process|WIP)\b/i.test(text);
+  const hasNoncancelableCommitments = /\bnon[\s-]?cancell?able\s+commitments?\b/i.test(text);
+  const hasDemobilization = /\b(?:reasonable\s+)?demobilization(?:\s+costs?)?\b/i.test(text);
+  const hasSettlementOrCloseout = /\b(?:reasonable\s+)?(?:settlement|closeout)(?:\s+costs?)?\b/i.test(text);
+
+  return (
+    hasAcceptedOrCompletedWork &&
+    hasWorkInProcess &&
+    hasNoncancelableCommitments &&
+    hasDemobilization &&
+    hasSettlementOrCloseout
+  );
+}
+
+const AFFIRMATIVE_IMMEDIATE_TERMINATION_FOR_CONVENIENCE_RE =
+  /Prime(?:\s+Contractor)?\s+(?:may(?!\s+not\b)|can|has\s+(?:the\s+)?right\s+to|retains?\s+(?:the\s+)?right\s+to)[^.]{0,80}\bterminate[^.]{0,80}\bfor\s+(?:its\s+|the\s+)?convenience\b[^.]{0,180}(?:(?<!not\s)immediately|(?<!not\s)at\s+any\s+time|(?<!not\s)without\s+(?:(?:further|written)\s+)?notice)/i;
+const PROTECTIVE_TERMINATION_FOR_CONVENIENCE_RESTRICTION_RE =
+  /Prime(?:\s+Contractor)?\s+(?:may\s+not|shall\s+not|must\s+not)[^.]{0,80}\bterminate[^.]{0,80}\bfor\s+(?:its\s+|the\s+)?convenience\b|Prime(?:\s+Contractor)?\s+is\s+prohibited\s+from[^.]{0,80}\bterminat(?:e|ing)[^.]{0,80}\bfor\s+(?:its\s+|the\s+)?convenience\b|Neither\s+party\s+(?:may|shall)[^.]{0,80}\bterminate[^.]{0,80}\bfor\s+(?:its\s+|the\s+)?convenience\b|\bterminate[^.]{0,80}\bfor\s+(?:its\s+|the\s+)?convenience\b[^.]{0,180}(?:but\s+not\s+immediately|only\s+after\s+(?:at\s+least\s+)?(?:\d{1,3}|[a-z-]+)\s*(?:calendar|business|working)?\s*-?\s*days?)/i;
+const NO_TERMINATION_COMPENSATION_RE =
+  /\b(?:without\s+(?:further\s+)?(?:liability|compensation|payment)|no\s+(?:further\s+)?(?:liability|compensation|payment)|not\s+entitled\s+to\s+(?:any\s+)?compensation)\b/i;
+const ACCEPTED_WORK_ONLY_RECOVERY_RE =
+  /(?:recovery|compensation|payment)[^.]{0,120}(?:limited|restricted)\s+(?:only\s+)?to[^.]{0,120}(?:accepted|completed|incorporated)\s+work|(?:shall|will)\s+pay\s+(?:only|solely)[^.]{0,100}(?:accepted|completed|incorporated)\s+work|(?:accepted|completed|incorporated)\s+work\s+only/i;
+const EXPRESS_TERMINATION_COST_EXCLUSION_RE =
+  /(?:not\s+liable\s+for|no\s+(?:compensation|payment)\s+for|shall\s+not\s+pay|exclude[sd]?|does\s+not\s+include)[^.]{0,220}(?:terminated\s+work|committed\s+costs?|work[\s-]+in[\s-]+process|WIP|non[\s-]?cancell?able\s+commitments?|demobilization|settlement|closeout|unabsorbed\s+overhead|start[\s-]?up|security\s+investments?|unused\s+licenses?|(?:reasonable\s+)?profit\s+on\s+completed\s+work)/i;
+const BROAD_TERMINATION_DEDUCTION_RE =
+  /(?:less|reduced\s+by|subject\s+to\s+deduction\s+for)[^.]{0,220}(?:retainage|back[\s-]?charges?|set[\s-]?offs?|offsets?|amounts?\s+(?:that\s+)?Prime\s+claims?\s+(?:are\s+)?owed)|Prime(?:\s+Contractor)?\s+may\s+(?:deduct|offset|set[\s-]?off|back[\s-]?charge)[^.]{0,180}(?:termination\s+(?:payment|settlement)|recovery|compensation)|(?:recovery|compensation|payment)[^.]{0,180}(?:Prime(?:'s|\u2019s)?\s+(?:sole|unilateral)\s+(?:discretion|determination)|as\s+Prime\s+(?:solely\s+)?determines?)/i;
+const GENERIC_LIMITED_RECOVERY_RE = /\b(?:recovery|compensation)\b[^.]{0,100}\b(?:is|shall\s+be)\s+limited\s+to\b/i;
+
+export function hasTerminationForConvenienceRiskEvidence(text: string): boolean {
+  const noticeDays = extractTerminationNoticeDays(text);
+  if (noticeDays !== null && noticeDays <= SHORT_TERMINATION_NOTICE_MAX_DAYS) return true;
+  if (hasAffirmativeImmediateTerminationForConvenienceEvidence(text)) return true;
+  if (NO_TERMINATION_COMPENSATION_RE.test(text)) return true;
+  if (ACCEPTED_WORK_ONLY_RECOVERY_RE.test(text)) return true;
+  if (EXPRESS_TERMINATION_COST_EXCLUSION_RE.test(text)) return true;
+  if (BROAD_TERMINATION_DEDUCTION_RE.test(text)) return true;
+
+  return GENERIC_LIMITED_RECOVERY_RE.test(text) && !hasComprehensiveTerminationRecoveryEvidence(text);
+}
+
+export function hasAffirmativeImmediateTerminationForConvenienceEvidence(text: string): boolean {
+  return AFFIRMATIVE_IMMEDIATE_TERMINATION_FOR_CONVENIENCE_RE.test(text);
+}
+
+export function hasProtectiveTerminationForConvenienceRestrictionEvidence(text: string): boolean {
+  return PROTECTIVE_TERMINATION_FOR_CONVENIENCE_RESTRICTION_RE.test(text);
+}
+
+function extractTerminationClauseContext(documentText: string, matchIndex: number, matchLength: number): string {
+  const matchEnd = matchIndex + matchLength;
+  const searchStart = Math.max(0, matchIndex - 350);
+  const before = documentText.slice(searchStart, matchIndex);
+  const sentenceStartRe = /[.!?]\s+(?=[A-Z0-9"'(])/g;
+  let begin = searchStart;
+  let sentenceStartMatch: RegExpExecArray | null;
+  while ((sentenceStartMatch = sentenceStartRe.exec(before)) !== null) {
+    begin = searchStart + sentenceStartMatch.index + sentenceStartMatch[0].length;
+  }
+
+  const paragraphStart = before.lastIndexOf("\n\n");
+  if (paragraphStart !== -1 && searchStart + paragraphStart + 2 > begin) {
+    begin = searchStart + paragraphStart + 2;
+  }
+
+  const searchEnd = Math.min(documentText.length, matchEnd + 700);
+  const after = documentText.slice(matchEnd, searchEnd);
+  const boundaryIndexes = [after.indexOf("\n\n")].filter((index) => index >= 0);
+  const nextNumberedClause = /\n\s*(?:(?:section|article)\s+)?\d+(?:\.\d+)+\b/i.exec(after);
+  if (nextNumberedClause) boundaryIndexes.push(nextNumberedClause.index);
+  const hardEnd = boundaryIndexes.length > 0 ? matchEnd + Math.min(...boundaryIndexes) : searchEnd;
+
+  const boundedAfter = documentText.slice(matchEnd, hardEnd);
+  const sentenceEndRe = /[.!?](?=\s|\n|$)/g;
+  let sentenceCount = 0;
+  let finish = hardEnd;
+  let sentenceEndMatch: RegExpExecArray | null;
+  while ((sentenceEndMatch = sentenceEndRe.exec(boundedAfter)) !== null) {
+    sentenceCount++;
+    if (sentenceCount === 2) {
+      finish = matchEnd + sentenceEndMatch.index + 1;
+      break;
+    }
+  }
+
+  return documentText.slice(begin, finish).trim().replace(/\s+/g, " ");
+}
+
+function findTerminationForConvenienceCandidate(documentText: string): string | null {
+  const locator = /\bterminat(?:e|es|ed|ing|ion)\b[^.]{0,80}\bfor\s+(?:its\s+|the\s+)?convenience\b/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = locator.exec(documentText)) !== null) {
+    const evidence = extractTerminationClauseContext(documentText, match.index, match[0].length);
+    if (hasTerminationForConvenienceRiskEvidence(evidence)) return evidence;
+  }
+
+  return null;
+}
+
 interface DeterministicCategory {
   familyKey: string;
   regulation: string;
   severity: RiskLevel;
   patterns: RegExp[];
+  findCandidate?: (documentText: string) => string | null;
   riskAnalysis: string;
   redlineFix: string;
 }
@@ -203,16 +350,8 @@ const CATEGORIES: DeterministicCategory[] = [
     familyKey: "liability",
     regulation: "Termination for Convenience",
     severity: "Medium",
-    patterns: [
-      // "terminate" and "for convenience" allow a bounded gap - real prose
-      // almost always inserts the object in between ("terminate THIS
-      // SUBCONTRACT for its convenience"), and the entity name allows an
-      // optional "Contractor" (some documents define the party as "Prime"
-      // alone, others as "Prime Contractor").
-      /terminat(?:e|ion)[^.]{0,50}for\s+(?:its\s+|the\s+)?convenience[^.]{0,150}(?:\d+\s*(?:calendar|business|working)?\s*days?|no\s+(?:further\s+)?(?:liability|compensation|obligation)|limited\s+to)/i,
-      /upon\s+\d+\s*(?:calendar|business|working)?\s*days?(?:'|’)?\s+(?:written\s+)?notice[^.]{0,100}terminat(?:e|ion)[^.]{0,60}convenience/i,
-      /Prime(?:\s+Contractor)?\s+may[^.]{0,60}terminate[^.]{0,100}(?:for\s+(?:its\s+|the\s+)?convenience)[^.]{0,60}(?:at\s+any\s+time|without\s+cause)/i,
-    ],
+    patterns: [],
+    findCandidate: findTerminationForConvenienceCandidate,
     riskAnalysis:
       "This termination-for-convenience clause allows the Prime to end the subcontract on short notice with limited recovery, leaving the Subcontractor unable to recoup committed costs, staffing investments, or anticipated profit on terminated work.",
     redlineFix:
@@ -533,6 +672,22 @@ export function runDeterministicDetectors(documentText: string): Finding[] {
   const findings: Finding[] = [];
 
   for (const category of CATEGORIES) {
+    if (category.findCandidate) {
+      const foundText = category.findCandidate(documentText);
+      if (!foundText || foundText.length < MIN_QUOTE_LENGTH) continue;
+
+      findings.push({
+        triggerType: "Contract Risk Trigger",
+        regulation: category.regulation,
+        severity: category.severity,
+        foundText,
+        riskAnalysis: category.riskAnalysis,
+        redlineFix: category.redlineFix,
+        familyKey: category.familyKey,
+      });
+      continue;
+    }
+
     let best: { index: number; length: number } | null = null;
 
     // Each category's patterns array is ordered strongest/most-specific
