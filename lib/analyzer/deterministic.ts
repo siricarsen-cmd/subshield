@@ -390,8 +390,27 @@ const CATEGORIES: DeterministicCategory[] = [
       // "shall" widened to "will/must/is required to" - real contracts phrase
       // this obligation multiple ways, and the no-additional-cost language
       // routinely lands in the same sentence as the correction/rework verb.
-      /Subcontractor\s+(?:shall|will|must|is\s+required\s+to)[^.]{0,100}(?:correct|replace|re-?perform|rework)[^.]{0,150}(?:at\s+no\s+(?:additional\s+)?(?:cost|charge|expense)|without\s+(?:additional\s+)?compensation)/i,
-      /(?:right\s+to\s+reject|may\s+reject)[^.]{0,150}(?:without\s+(?:additional\s+)?(?:cost|compensation|charge)|at\s+(?:no\s+cost|Subcontractor's\s+(?:own\s+)?expense))/i,
+      // Requiring "rejected work" prevents an ordinary verified/actual
+      // material-defect warranty from matching while preserving Fixture A's
+      // broad rejected-work allocation. Other genuine triggers (unilateral
+      // determination, changed requirements, and collateral construction
+      // costs) have their own evidence-specific patterns below.
+      /Subcontractor\s+(?:shall|will|must|is\s+required\s+to)[^.]{0,100}(?:correct|replace|re-?perform|rework)[^.]{0,100}(?:rejected\s+work|work\s+rejected)[^.]{0,150}(?:at\s+no\s+(?:additional\s+)?(?:cost|charge|expense)|without\s+(?:additional\s+)?compensation)/i,
+      /(?:right\s+to\s+reject|may\s+reject)[^.]{0,150}(?:without\s+(?:additional\s+)?(?:cost|compensation|charge)|at\s+(?:no\s+(?:additional\s+)?(?:cost|charge|expense)|Subcontractor's\s+(?:own\s+)?expense))/i,
+      // An expressly unilateral Prime determination paired with an
+      // uncompensated correction remedy is independently risky even without
+      // the word "rejected."
+      /Prime(?:\s+Contractor)?\s+(?:unilaterally\s+)?determines?[^.]{0,120}(?:defect|nonconformity)[^.]{0,180}(?:correct|replace|re-?perform|rework)[^.]{0,140}(?:at\s+no\s+(?:additional\s+)?(?:cost|charge|expense)|without\s+(?:additional\s+)?compensation)/i,
+      // A changed/later-added requirement is outside an ordinary defect
+      // warranty. Requiring uncompensated rework to meet it remains a real
+      // risk even when the clause does not use the word "reject."
+      /(?:require|direct)[^.]{0,100}(?:correct|replace|re-?perform|rework)[^.]{0,160}(?:later[\s-]added|new(?:ly)?[\s-]added|changed\s+(?:scope|requirements?)|Prime(?:\s+Contractor)?\s+(?:or\s+Government\s+)?change|Government\s+change)[^.]{0,140}(?:without\s+(?:a\s+)?(?:price|schedule)\s+adjustment|without\s+(?:additional\s+)?compensation|at\s+no\s+(?:additional\s+)?(?:cost|charge|expense))/i,
+      // Construction clauses sometimes allocate the collateral cost of
+      // removal/replacement (access, demolition, testing, restoration, and
+      // schedule recovery) without using generic "no additional charge"
+      // wording. Requiring one of those collateral-cost signals plus an
+      // express Subcontractor-cost allocation keeps this branch narrow.
+      /(?:remove|replace|correct|re-?perform|rework)[^.]{0,260}(?:access|demolition|testing|restoration|schedule[\s-]recovery)[^.]{0,220}(?:at\s+(?:the\s+)?Subcontractor(?:'s)?\s+(?:own\s+)?(?:cost|expense)|(?:costs?|expenses?)[^.]{0,80}(?:borne|paid|absorbed)\s+by\s+(?:the\s+)?Subcontractor)/i,
     ],
     riskAnalysis:
       "This acceptance/rejection clause lets the Prime or Government reject work and require correction, replacement, or re-performance without clear compensation to the Subcontractor, shifting the cost of rework - including materials, labor, and schedule impact - entirely onto the Subcontractor regardless of cause.",

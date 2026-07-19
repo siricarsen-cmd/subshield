@@ -185,6 +185,55 @@ function violatesContradictionGuard(finding: Finding, documentText: string): str
     return "Finding's own verified quote is a protective entire-agreement/integration clause requiring signed bilateral amendments and does not itself state that anything is missing, unattached, or pending; not a missing-document risk.";
   }
 
+  // A document/exhibit title, an affirmative attachment statement, a matrix
+  // description, or a bilateral-modification protection is not evidence that
+  // a required document or flowdown is missing. Keep this guard finding-local:
+  // a benign quote is dropped without allowing it to suppress a separate
+  // finding whose own quote states a real absence, deferral, incompleteness,
+  // omission, or unilateral Prime Contract control term.
+  const STRUCTURE_RISK_SIGNAL_RE =
+    /\bmissing\b|\b(?:omit|omits|omitted|omitting)\b|not\s+(?:currently\s+|yet\s+)?(?:been\s+)?(?:included|attached|provided|available|supplied)|absent\s+from|unattached|unavailable|incomplete|pending|to\s+be\s+(?:determined|provided|issued|incorporated|supplied)|(?:will|shall|may)\s+be\s+(?:provided|issued|attached|supplied)\s+(?:after\s+(?:execution|award|signing)|later)|(?:controls?|governs?)\s+(?:in\s+the\s+event\s+of\s+conflict|all\b|this\b|the\b|Prime\b|Government\b|Subcontract\b|Agreement\b|obligations?\b|requirements?\b|terms?\b)|takes?\s+precedence|prevails?\b|(?:may|shall|can|could|is|are)\s+(?:be\s+)?(?:modified|amended)\s+unilaterally|(?:modified|amended)\s+unilaterally|unilateral(?:ly)?[^.]{0,60}(?:modify|amend|modification|amendment)|binding[^.]{0,100}without[^.]{0,100}(?:bilateral|mutual|signed\s+(?:agreement|amendment|modification)|consent\s+of\s+both)|(?:additional|revised|new|modified)[^.]{0,100}flow[\s-]?down[^.]{0,180}(?:binding\s+(?:upon|on)\s+notice|automatically\s+bind)|incorporat(?:ed|ion)[^.]{0,180}(?:regardless\s+of\s+whether|whether\s+or\s+not|even\s+if\s+not)[^.]{0,100}(?:provided|supplied|attached|included)/i;
+  // A bare reference is deliberately a title grammar, not "Exhibit X"
+  // followed by arbitrary words. Title words must start with a capital or a
+  // digit (apart from a small connector list), so operative prose such as
+  // "is missing", "has been omitted", "controls", or "may be modified"
+  // cannot be consumed as part of the title. Common all-caps headings remain
+  // supported without making the trailing title phrase case-insensitive.
+  const BARE_DOCUMENT_REFERENCE_RE =
+    /^\s*(?:(?:(?:[Ee]xhibit|EXHIBIT|[Aa]ttachment|ATTACHMENT|[Aa]ppendix|APPENDIX|[Ss]chedule|SCHEDULE)\s+[A-Z0-9][A-Z0-9._-]{0,20}\b(?:\s+(?:[A-Z0-9][A-Za-z0-9&'(),/._-]*|of|and|for|to|the|in|on))*|(?:Statement\s+of\s+Work|STATEMENT\s+OF\s+WORK|SOW|Prime\s+Contract(?:\s+(?:Excerpts?|Documents?))?|PRIME\s+CONTRACT(?:\s+(?:EXCERPTS?|DOCUMENTS?))?)))\.?\s*$/;
+  const POSITIVE_ATTACHMENT_STATEMENT_RE =
+    /^\s*(?:Included\s+Attachments?\s*:\s*(?:(?:Exhibit|Attachment|Appendix|Schedule)\s+[A-Z0-9][^;.\n]*)(?:\s*;\s*(?:Exhibit|Attachment|Appendix|Schedule)\s+[A-Z0-9][^;.\n]*)*|All\s+referenced\s+(?:attachments?|exhibits?|documents?)\s+(?:are|were)\s+(?:included|attached|provided)(?:\s+at\s+(?:execution|award|signing))?|(?:Exhibit|Attachment|Appendix|Schedule)\s+[A-Z0-9][A-Z0-9._-]{0,20}\s+(?:identifies?|lists?|contains?)\s+each\s+(?:applicable|required|identified)\s+clause(?:,\s*the\s+reason\s+for\s+applicability,\s*and\s+any\s+tailoring)?)\.?\s*$/i;
+  const PROTECTIVE_BILATERAL_FLOWDOWN_RE =
+    /^\s*No\s+future\s+Prime\s+Contract\s+clause\s+becomes?\s+binding\s+unless[^.]{0,180}(?:bilateral\s+modification|signed\s+(?:written\s+)?(?:amendment|modification))\.?\s*$/i;
+  if (
+    finding.familyKey === "structure" &&
+    !STRUCTURE_RISK_SIGNAL_RE.test(finding.foundText) &&
+    (BARE_DOCUMENT_REFERENCE_RE.test(finding.foundText.trim()) ||
+      POSITIVE_ATTACHMENT_STATEMENT_RE.test(finding.foundText.trim()) ||
+      PROTECTIVE_BILATERAL_FLOWDOWN_RE.test(finding.foundText.trim()))
+  ) {
+    return "Finding's own verified quote is only a document/exhibit reference, a positive attachment or matrix statement, or a protective bilateral-modification term and contains no explicit missing, deferred, incomplete, omitted, or unilateral-control signal; not a structure risk.";
+  }
+
+  // Ordinary correction of a verified/actual material defect to the agreed
+  // requirement is a defect warranty, not an open-ended uncompensated-rework
+  // trap. Evidence and exceptions are both confined to this finding's own
+  // exact quote so a protective clause cannot cancel a different broad
+  // rework clause elsewhere in the document.
+  const REWORK_REGULATION_RE = /acceptance|rejection|rework|re-?perform|defect\s+correction/i;
+  const ORDINARY_DEFECT_CORRECTION_RE =
+    /\b(?:verified|actual|confirmed)\s+material\s+(?:defect|nonconformity)\b|(?:correct|repair|replace|re-?perform|rework)[^.]{0,160}(?:defect|nonconformity)[^.]{0,180}(?:attributable\s+to|caused\s+by|responsibility\s+of)\s+(?:the\s+)?Subcontractor|(?:correct|repair|replace|re-?perform|rework)[^.]{0,180}(?:limited\s+to|only\s+to)[^.]{0,180}(?:original|agreed|requirement\s+that\s+existed)|(?:correct|repair|replace|re-?perform|rework)[\s\S]{0,320}(?:correction|rework)\s+is\s+limited\s+to[^.]{0,180}(?:original|agreed|requirement\s+that\s+existed)|may\s+not\s+reject[^.]{0,180}(?:later[\s-]added\s+requirement|preference\s+not\s+stated|changes?\s+the\s+agreed\s+scope)/i;
+  const BROAD_REWORK_RISK_SIGNAL_RE =
+    /sole\s+discretion|regardless\s+of\s+cause|(?:rejected\s+work|work\s+rejected|may\s+reject\s+any\s+work)[^.]{0,180}(?:at\s+no\s+(?:additional\s+)?(?:cost|charge|expense)|without\s+(?:additional\s+)?compensation)|(?:later[\s-]added|new(?:ly)?[\s-]added|changed)\s+(?:scope|requirements?)[^.]{0,180}(?:without\s+(?:a\s+)?(?:price|schedule)\s+adjustment|without\s+(?:additional\s+)?compensation)|(?:Prime|Government)[^.]{0,80}(?:change|direction)[^.]{0,180}(?:rework|correct|replace|re-?perform)[^.]{0,140}(?:without\s+(?:additional\s+)?compensation|at\s+no\s+(?:additional\s+)?(?:cost|charge|expense))|(?:rework|correct|replace|re-?perform)[^.]{0,140}caused\s+by\s+(?:the\s+)?(?:Prime|Government)[^.]{0,140}(?:without\s+(?:additional\s+)?compensation|at\s+no\s+(?:additional\s+)?(?:cost|charge|expense))|Prime(?:\s+Contractor)?\s+(?:unilaterally\s+)?determines?[^.]{0,100}(?:defect|nonconformity)[^.]{0,180}(?:without\s+(?:additional\s+)?compensation|at\s+no\s+(?:additional\s+)?(?:cost|charge|expense))|(?:access|demolition|testing|restoration|schedule[\s-]recovery)[^.]{0,220}(?:at\s+(?:the\s+)?Subcontractor(?:'s)?\s+(?:own\s+)?(?:cost|expense)|(?:costs?|expenses?)[^.]{0,80}(?:borne|paid|absorbed)\s+by\s+(?:the\s+)?Subcontractor)/i;
+  if (
+    finding.familyKey === "liability" &&
+    REWORK_REGULATION_RE.test(finding.regulation) &&
+    ORDINARY_DEFECT_CORRECTION_RE.test(finding.foundText) &&
+    !BROAD_REWORK_RISK_SIGNAL_RE.test(finding.foundText)
+  ) {
+    return "Finding's own verified quote limits correction to an ordinary verified/actual material defect, the agreed requirement, Subcontractor-responsible defects, or protects against changed-scope rejection, with no separate broad rework-cost signal in that quote; not an uncompensated-rework risk.";
+  }
+
   // (D) LLM long-cure companion guard: mirrors the deterministic-source fix
   // in deterministic.ts (SHORT_CURE_MAX_DAYS) for the case where the LLM,
   // rather than the deterministic scanner, independently raises the same

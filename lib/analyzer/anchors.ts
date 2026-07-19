@@ -75,6 +75,11 @@ const DELIVERY_ORDER = /(?:delivery|task)\s*order\s*(?:no\.?|number|#)\s*[:\-]?\
 // Capture only the literal money substring. Ceiling/aggregate-value labels
 // are valid price evidence, while a funding label is not a funding amount
 // unless a dollar value appears in the same clause.
+// Firm-fixed-price labels use a narrower label-to-value bridge so a nearby
+// liability cap, insurance limit, invoice, or retainage amount cannot be
+// mistaken for the contract price merely because it follows the label.
+const TOTAL_FFP_PRICE =
+  /(?:the\s+)?total\s+(?:(?:firm(?:\s*[-\u2010-\u2015]\s*|\s+)fixed)|FFP)\s+price\s*(?::|[-\u2010-\u2015]|\bis\b)?\s*(\$[\d,]+(?:\.\d{2})?)/i;
 const PRICE =
   /(?:total\s+(?:price|estimated\s+value|contract\s+value)|estimated\s+value|ceiling\s+amount|maximum\s+aggregate\s+value|not[\s-]to[\s-]exceed(?:\s+amount)?|total\s+not[\s-]to[\s-]exceed)[^.\n$]{0,120}(\$[\d,]+(?:\.\d{2})?)/i;
 const FUNDING_LIMIT =
@@ -124,7 +129,7 @@ export function extractAnchorCandidates(documentText: string, fileName?: string)
     subcontractType: explicitTypeLabel || contractTypeMatch?.label,
     primeContractNumber: firstMatch(text, PRIME_CONTRACT_NUMBER) || firstMatch(text, GOVT_CONTRACT_NUMBER),
     deliveryOrderNumber: firstMatch(text, DELIVERY_ORDER),
-    priceOrEstimatedValue: firstMatch(text, PRICE),
+    priceOrEstimatedValue: firstMatch(text, TOTAL_FFP_PRICE) || firstMatch(text, PRICE),
     fundingLimit: firstMatch(text, FUNDING_LIMIT),
     retainage: firstMatch(text, RETAINAGE),
     keyDeadlines: allMatches(text, DEADLINE_PATTERN, 8),
