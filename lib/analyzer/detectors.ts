@@ -119,7 +119,14 @@ const BASELINE_FAMILIES = ["structure", "liability", "payment", "flowdowns"];
 // check plus the existing sanity.ts contradiction guards before it can surface.
 const CYBER_TRIGGER = /252\.204-7012|252\.204-7019|252\.204-7020|252\.204-7021|DFARS\s*252\.204|NIST\s*SP\s*800-171|CMMC|controlled\s+unclassified\s+information|\bCUI\b|\bCDI\b|\bDD\s*254\b|cyber\s+incident\s+report/i;
 const LABOR_STANDARDS_TRIGGER = /davis[\s-]bacon|construction\s+wage\s+rate|certified\s+payroll|wage\s+determination|service\s+contract\s+labor\s+standards|service\s+contract\s+act|52\.222-41|52\.222-6/i;
-const DATA_RIGHTS_TRIGGER = /data\s+rights|intellectual\s+property|pre[\s-]existing\s+(?:ip|intellectual\s+property|tool|materials)|unlimited\s+rights|government\s+purpose\s+rights|limited\s+rights|restricted\s+rights|technical\s+data|work\s+product|deliverables?[^.\n]{0,40}(?:owned|ownership)/i;
+// A bare "intellectual property" or "data" reference is not enough: those
+// nouns routinely appear only inside third-party indemnity claim lists and
+// say nothing about ownership, assignment, licensing, Government rights, or
+// marking. Require either a recognized data-rights term or a nearby
+// ownership/license/transfer/marking act. This gate only selects the family;
+// findings still need their own exact quote and sanity checks downstream.
+const DATA_RIGHTS_TRIGGER =
+  /data\s+rights|pre[\s-]existing\s+(?:ip|intellectual\s+property|tools?|materials|methods?|know[\s-]how)|unlimited\s+rights|government\s+purpose\s+rights|limited\s+rights|restricted\s+rights|technical\s+data|work\s+product|deliverables?[^.\n]{0,80}(?:owned|ownership|license[ds]?|licen[cs]e)|(?:assign(?:s|ed|ment)?|transfer(?:s|red)?|vest(?:s|ed)?|own(?:s|ed|ership)?|grant(?:s|ed)?[^.\n]{0,30}(?:a\s+)?license|licen[cs]e[ds]?)[^.\n]{0,100}(?:intellectual\s+property|proprietary\s+(?:information|data|materials)|software|technology|data)|(?:intellectual\s+property|proprietary\s+(?:information|data|materials)|software|technology|data)[^.\n]{0,100}(?:assign(?:s|ed|ment)?|transfer(?:s|red)?|vest(?:s|ed)?|own(?:s|ed|ership)?|grant(?:s|ed)?[^.\n]{0,30}(?:a\s+)?license|licen[cs]e[ds]?)|(?:mark(?:ing|ed)?|legend)[^.\n]{0,100}(?:technical\s+data|proprietary|restricted\s+rights|limited\s+rights)/i;
 
 // Prioritizes the risk families that matter for the classified contract type/sector
 // instead of blindly applying the entire taxonomy to every document.

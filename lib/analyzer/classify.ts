@@ -157,6 +157,46 @@ function findAffirmativeEvidenceSnippet(text: string, patterns: ScoredPattern[])
   return undefined;
 }
 
+// Extracts sector evidence around the actual trigger without using a raw
+// fixed-width context prefix, which can begin halfway through a word.
+// When the full sentence is too long, the window begins at the nearest word
+// boundary before the trigger and remains a literal source substring.
+function findGroundedEvidenceSnippet(text: string, pattern: RegExp): string | undefined {
+  const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+  const match = new RegExp(pattern.source, flags).exec(text);
+  if (!match) return undefined;
+
+  const before = text.slice(0, match.index);
+  const boundaryRe = /[.!?]\s+|\n+/g;
+  let sentenceStart = 0;
+  let boundary: RegExpExecArray | null;
+  while ((boundary = boundaryRe.exec(before)) !== null) {
+    sentenceStart = boundary.index + boundary[0].length;
+  }
+
+  const afterMatch = text.slice(match.index + match[0].length);
+  const sentenceEndMatch = /[.!?](?=\s|\n|$)|\n/.exec(afterMatch);
+  const sentenceEnd = sentenceEndMatch
+    ? match.index + match[0].length + sentenceEndMatch.index + (sentenceEndMatch[0] === "\n" ? 0 : 1)
+    : text.length;
+
+  let start = sentenceStart;
+  if (sentenceEnd - start > 200 && match.index - start > 80) {
+    const desiredStart = match.index - 80;
+    const precedingWhitespace = Math.max(text.lastIndexOf(" ", desiredStart), text.lastIndexOf("\n", desiredStart));
+    start = precedingWhitespace >= sentenceStart ? precedingWhitespace + 1 : sentenceStart;
+  }
+
+  let end = Math.min(sentenceEnd, start + 200);
+  if (end < sentenceEnd) {
+    const lastWhitespace = Math.max(text.lastIndexOf(" ", end), text.lastIndexOf("\n", end));
+    if (lastWhitespace > match.index + match[0].length) end = lastWhitespace;
+  }
+
+  const snippet = text.slice(start, end).trim();
+  return snippet || undefined;
+}
+
 export function classifyContract(documentText: string): ContractClassification {
   const text = documentText;
   const notes: string[] = [];
@@ -234,13 +274,12 @@ export function classifyContract(documentText: string): ContractClassification {
     sectorEvidence = findAffirmativeEvidenceSnippet(text, SUPPLY_SIGNALS);
   } else {
     const evidencePatternsBySector: Record<string, RegExp> = {
-      "Cybersecurity / IT / Professional Services": /[^.\n]{0,80}(?:252\.204-7012|NIST\s*SP\s*800-171|CMMC|CUI|CDI|DD\s*254)[^.\n]{0,80}/i,
-      "Professional Services / Administrative Support": /[^.\n]{0,80}(?:administrative\s+support|document\s+coordination|professional\s+services)[^.\n]{0,80}/i,
+      "Cybersecurity / IT / Professional Services": /252\.204-7012|NIST\s*SP\s*800-171|CMMC|CUI|CDI|DD\s*254/i,
+      "Professional Services / Administrative Support": /administrative\s+support|document\s+coordination|professional\s+services/i,
     };
     const evidencePattern = evidencePatternsBySector[sector];
     if (evidencePattern) {
-      const m = text.match(evidencePattern);
-      if (m) sectorEvidence = m[0].trim().replace(/\s+/g, " ").slice(0, 200);
+      sectorEvidence = findGroundedEvidenceSnippet(text, evidencePattern);
     }
   }
 

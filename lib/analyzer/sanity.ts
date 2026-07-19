@@ -127,6 +127,24 @@ function violatesContradictionGuard(finding: Finding, documentText: string): str
     return "Finding's own verified quote describes only an ordinary invoice-payment timing window (20 or 30 days after receipt) with no contingency, withholding, retainage, setoff, or audit-approval evidence in that same quote; suppressed as ordinary Net terms.";
   }
 
+  // An ordinary 30-day heads-up that funded value is expected to run out is
+  // funding administration, not the short notice-of-claim/change trap. Only
+  // suppress when this finding's own quote lacks a broad waiver/forfeiture of
+  // claims, REAs, delay relief, schedule extensions, or compensation.
+  const NOTICE_WAIVER_REGULATION_RE = /short[^.]{0,80}notice|notice[^.]{0,80}waiver|notice[\s-]of[\s-]claim|change\s+notice/i;
+  const ORDINARY_FUNDING_NOTICE_RE =
+    /(?:at\s+least\s+)?(?:30|thirty)\s*(?:calendar\s+)?days?[^.]{0,70}(?:advance\s+)?notice[^.]{0,130}funded\s+(?:value|amount)[^.]{0,80}exhaust/i;
+  const BROAD_CLAIMS_WAIVER_RE =
+    /(?:waiv(?:e|es|ed|er)|forfeit(?:s|ed|ure)?|bar(?:s|red)?|relinquish(?:es|ed)?)[^.]{0,180}(?:request\s+for\s+equitable\s+adjustment|\bclaim\b|delay\s+relief|schedule\s+extension|additional\s+compensation)/i;
+  if (
+    finding.familyKey === "payment" &&
+    NOTICE_WAIVER_REGULATION_RE.test(finding.regulation) &&
+    ORDINARY_FUNDING_NOTICE_RE.test(finding.foundText) &&
+    !BROAD_CLAIMS_WAIVER_RE.test(finding.foundText)
+  ) {
+    return "Finding's own verified quote is only an ordinary 30-day funding-exhaustion notification and contains no broad waiver or forfeiture of claims, equitable adjustments, delay relief, schedule extensions, or compensation; not a short notice-of-claim trap.";
+  }
+
   // (B) Bare prime-contract identifier: a quote that is nothing more than
   // "Prime Contract No. X" is an identifying reference (already captured
   // separately as documentAnchors.primeContractNumber in anchors.ts), not
@@ -214,6 +232,22 @@ function violatesContradictionGuard(finding: Finding, documentText: string): str
     return "Finding's own verified quote states that neither/no party has (or has no) duty to defend, with no separate affirmative indemnify/defend/hold-harmless obligation in the same quote; not an indemnification risk.";
   }
 
+  // Generic IP/data nouns inside an indemnity claim list do not support a
+  // data-rights ownership or license conclusion. Preserve any quote that also
+  // contains a substantive assignment, ownership, license, Government-rights,
+  // pre-existing-IP, technical-data, or marking term.
+  const INDEMNITY_CLAIM_CONTEXT_RE =
+    /indemnif|defend|hold\s+harmless|claims?\s+(?:arising|involving|relating\s+to|based\s+on)/i;
+  const SUBSTANTIVE_DATA_RIGHTS_SIGNAL_RE =
+    /data\s+rights|pre[\s-]existing\s+(?:ip|intellectual\s+property|tools?|materials|methods?|know[\s-]how)|unlimited\s+rights|government\s+purpose\s+rights|limited\s+rights|restricted\s+rights|technical\s+data|work\s+product|deliverables?[^.]{0,80}(?:owned|ownership|license[ds]?|licen[cs]e)|(?:assign(?:s|ed|ment)?|transfer(?:s|red)?|vest(?:s|ed)?|own(?:s|ed|ership)?|grant(?:s|ed)?[^.]{0,30}(?:a\s+)?license|licen[cs]e[ds]?)[^.]{0,100}(?:intellectual\s+property|proprietary\s+(?:information|data|materials)|software|technology|data)|(?:mark(?:ing|ed)?|legend)[^.]{0,100}(?:technical\s+data|proprietary|restricted\s+rights|limited\s+rights)/i;
+  if (
+    finding.familyKey === "data-rights" &&
+    INDEMNITY_CLAIM_CONTEXT_RE.test(finding.foundText) &&
+    !SUBSTANTIVE_DATA_RIGHTS_SIGNAL_RE.test(finding.foundText)
+  ) {
+    return "Finding's own verified quote mentions intellectual property/data only as subjects of indemnified claims and contains no assignment, ownership transfer, license, Government-rights, pre-existing-IP, technical-data, or marking term; not a data-rights ownership finding.";
+  }
+
   // (F) Protective termination/cure prohibition: "neither/no party may
   // terminate...without notice/cure" or "[a party] may/shall not
   // terminate...without notice/cure" is a prohibition REQUIRING notice and a
@@ -226,7 +260,7 @@ function violatesContradictionGuard(finding: Finding, documentText: string): str
   const CURE_TERMINATION_PROHIBITION_RE =
     /(?:neither\s+party|no\s+party)\s+(?:may|shall)\s+terminate[^.]{0,150}without[^.]{0,100}(?:notice|cure)|(?:may|shall)\s+not\s+terminate[^.]{0,150}without[^.]{0,100}(?:notice|cure)/i;
   const PRIME_IMMEDIATE_TERMINATION_EXCEPTION_RE =
-    /Prime(?:\s+Contractor)?\s+may\s+terminate[^.]{0,100}(?:immediately|without\s+(?:further\s+)?notice|sole\s+discretion|without\s+(?:any\s+)?(?:right|opportunity)\s+to\s+cure)/i;
+    /Prime(?:\s+Contractor)?\s+may\s+terminate[^.]{0,100}(?:immediately|without\s+(?:further\s+)?notice|sole\s+discretion|without\s+(?:(?:any|a|an)\s+)?(?:right|opportunity)\s+to\s+cure)/i;
   if (
     CURE_REGULATION_RE.test(finding.regulation) &&
     CURE_TERMINATION_PROHIBITION_RE.test(finding.foundText) &&

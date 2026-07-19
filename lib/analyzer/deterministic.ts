@@ -102,6 +102,14 @@ const CATEGORIES: DeterministicCategory[] = [
     regulation: "Short Notice-of-Claim / Change Notice Waiver",
     severity: "Medium-High",
     patterns: [
+      // Strongest form first: the operative verb can precede "within N
+      // days", and the waiver can sit two nearby sentences later after a
+      // second substantiation deadline. Small spelled-out day counts are
+      // included because the controlled Fixture A clause uses "three" and
+      // "five", while extracted contracts commonly preserve either words
+      // or digits. Requiring a broad claim/REA/time/compensation consequence
+      // keeps an ordinary funding-exhaustion heads-up outside this pattern.
+      /(?:Subcontractor\s+)?(?:must|shall|will|is\s+required\s+to)\s+(?:provide|give|submit)\s+(?:written\s+)?notice[^.]{0,140}within\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:calendar|business|working)?\s*days?[\s\S]{0,700}(?:fail(?:ure|ing)?\s+to|if\s+Subcontractor\s+fails?\s+to|miss(?:ed|ing)\s+(?:either\s+)?deadline)[^.]{0,240}(?:constitutes?|results?\s+in)\s+(?:a\s+)?(?:complete\s+)?waiver[^.]{0,220}(?:request\s+for\s+equitable\s+adjustment|claim|delay\s+relief|schedule\s+extension|additional\s+compensation)/i,
       // Cross-sentence pattern first, so it wins the earliest-match tiebreak
       // and the extracted quote captures BOTH the notice deadline (e.g. "3
       // business days") and its waiver consequence, even when the document
@@ -120,9 +128,35 @@ const CATEGORIES: DeterministicCategory[] = [
   },
   {
     familyKey: "structure",
+    regulation: "Missing / Deferred Contract Documents",
+    severity: "Medium",
+    patterns: [
+      // Explicit current absence followed by a nearby deferred-delivery
+      // sentence. This captures the complete grounded context when the
+      // second sentence refers back to the named documents as "those
+      // materials/documents/attachments".
+      /(?:statements?\s+of\s+work|\bSOWs?\b|flow[\s-]?down\s+(?:lists?|matrix|matrices)|Prime\s+Contract\s+excerpts?|required\s+(?:contract\s+)?attachments?|exhibits?|schedules?|appendices)[^.]{0,240}(?:is|are)\s+not\s+(?:currently\s+)?(?:attached|included|provided|available)(?:\s+at\s+(?:execution|award|signing))?[\s\S]{0,260}(?:Prime(?:\s+Contractor)?\s+)?(?:will|shall)\s+(?:provide|furnish|attach|include)\s+(?:those|the)\s+(?:materials|documents|attachments)[^.]{0,100}(?:after\s+(?:execution|award|signing)|later)/i,
+      // The named document must itself be expressly absent now. Silence is
+      // intentionally insufficient and cannot match any pattern here.
+      /(?:statements?\s+of\s+work|\bSOWs?\b|flow[\s-]?down\s+(?:lists?|matrix|matrices)|Prime\s+Contract\s+excerpts?|required\s+(?:contract\s+)?attachments?|exhibits?|schedules?|appendices)[^.]{0,240}(?:is|are)\s+not\s+(?:currently\s+)?(?:attached|included|provided|available)(?:\s+at\s+(?:execution|award|signing))?/i,
+      /(?:not\s+(?:currently\s+)?(?:attached|included|provided|available)|not\s+yet\s+(?:attached|included|provided|available))[^.]{0,180}(?:statements?\s+of\s+work|\bSOWs?\b|flow[\s-]?down\s+(?:lists?|matrix|matrices)|Prime\s+Contract\s+excerpts?|required\s+(?:contract\s+)?attachments?|exhibits?|schedules?|appendices)/i,
+      // Direct deferral without a separate "not attached" statement.
+      /(?:statements?\s+of\s+work|\bSOWs?\b|flow[\s-]?down\s+(?:lists?|matrix|matrices)|Prime\s+Contract\s+excerpts?|required\s+(?:contract\s+)?attachments?|exhibits?|schedules?|appendices)[^.]{0,180}(?:will|shall|may)\s+be\s+(?:provided|furnished|attached|included)\s+(?:after\s+(?:execution|award|signing)|later)/i,
+    ],
+    riskAnalysis:
+      "The subcontract expressly states that material scope or flowdown documents are not currently attached or will only be provided later, so the Subcontractor is being asked to execute before it can evaluate the complete performance and compliance package.",
+    redlineFix:
+      "Require the missing Statement of Work, flowdown matrix, Prime Contract excerpts, or other identified attachments to be provided and reviewed before execution, and state that no later document binds the Subcontractor without a signed bilateral amendment.",
+  },
+  {
+    familyKey: "structure",
     regulation: "Broad Future Flowdowns / Prime Contract Control",
     severity: "Medium",
     patterns: [
+      // Fixture A form: Prime may add additional/revised flowdowns by
+      // written channels and the next sentence makes them binding on notice.
+      /Prime(?:\s+Contractor)?\s+may\s+(?:incorporate|impose|issue|add)\s+(?:additional|revised|new|modified)(?:\s+or\s+(?:additional|revised|new|modified))?\s+flow[\s-]?down\s+requirements?[\s\S]{0,420}(?:such|those|the)\s+requirements?\s+(?:become|are|shall\s+be)\s+binding\s+(?:upon|on|after)\s+(?:written\s+)?notice/i,
+      /(?:additional|revised|new|modified)(?:\s+or\s+(?:additional|revised|new|modified))?\s+flow[\s-]?down\s+requirements?[^.]{0,220}(?:become|are|shall\s+be)\s+binding\s+(?:upon|on|after)\s+(?:written\s+)?notice/i,
       /flow[\s-]?down[^.]{0,120}(?:later[\s-]issued|future|subsequently\s+issued|hereafter\s+issued|issued\s+after\s+the\s+date)/i,
       /(?:terms|requirements)\s+of\s+the\s+prime\s+contract[^.]{0,80}(?:shall\s+)?(?:control|govern|take\s+precedence|prevail)/i,
       /Subcontractor\s+shall\s+be\s+bound\s+by[^.]{0,100}(?:later[\s-]issued|future|subsequent(?:ly)?\s+issued|modifications?\s+to\s+the\s+prime\s+contract)/i,
@@ -222,15 +256,20 @@ const CATEGORIES: DeterministicCategory[] = [
       // re.exec() naturally continues scanning past a blocked protective
       // occurrence to find a later real one instead of consuming the
       // category's one-finding slot.
-      /(?<!neither\s+party\s+may\s+)(?<!no\s+party\s+may\s+)(?<!may\s+not\s+)(?<!shall\s+not\s+)terminat(?:e|ion)[^.]{0,50}for\s+default[^.]{0,150}(?:immediately|without\s+(?:further\s+)?notice|in\s+its\s+sole\s+discretion|at\s+its\s+sole\s+discretion)/i,
-      /Prime(?:\s+Contractor)?\s+may[^.]{0,60}terminate[^.]{0,80}for\s+default[^.]{0,100}(?:immediately|sole\s+discretion|without\s+notice)/i,
+      /(?<!neither\s+party\s+may\s+)(?<!no\s+party\s+may\s+)(?<!may\s+not\s+)(?<!shall\s+not\s+)terminat(?:e|ion)[^.]{0,50}for\s+default(?![^.]{0,150}(?:may|shall)\s+not\s+terminate[^.]{0,60}immediately)[^.]{0,150}(?:immediately|without\s+(?:further\s+)?notice|in\s+its\s+sole\s+discretion|at\s+its\s+sole\s+discretion)/i,
+      /Prime(?:\s+Contractor)?\s+may[^.]{0,60}terminate[^.]{0,80}for\s+default(?![^.]{0,150}(?:may|shall)\s+not\s+terminate[^.]{0,60}immediately)[^.]{0,100}(?:immediately|sole\s+discretion|without\s+notice)/i,
       // Immediate-termination discretion without requiring the literal phrase
       // "for default" - real contracts often phrase this as broad
       // determination-based discretion instead ("may terminate immediately if
       // it determines the issue could affect..."). "terminate" and
       // "immediately" allow a bounded gap since an object often sits between
       // them ("terminate this Subcontract for default immediately").
-      /terminate[^.]{0,40}immediately[^.]{0,60}(?:if\s+it\s+determines|in\s+its\s+(?:sole\s+)?discretion|without\s+(?:further\s+)?notice)/i,
+      // Requiring an affirmative "Prime may" subject also preserves the
+      // protective "Prime may not terminate immediately..." guard. The
+      // determination subject can be "it", "Prime", or "the Prime", and a
+      // no-right/no-opportunity-to-cure phrase can intervene after
+      // "immediately".
+      /Prime(?:\s+Contractor)?\s+may\s+terminate[^.]{0,50}immediately[^.]{0,180}(?:if\s+(?:it|(?:the\s+)?Prime(?:\s+Contractor)?)\s+determines|in\s+its\s+(?:sole\s+)?discretion|without\s+(?:further\s+)?notice|without\s+(?:(?:any|a|an)\s+)?(?:right|opportunity)\s+to\s+cure)/i,
     ],
     riskAnalysis:
       "A short cure period combined with broad Prime discretion to terminate for default means routine performance issues can escalate into a default termination before the Subcontractor has a realistic opportunity to fix the issue, which can trigger consequences far beyond the value of the underlying issue.",
@@ -260,6 +299,11 @@ const CATEGORIES: DeterministicCategory[] = [
     regulation: "Continue-Performance Obligation During Payment Dispute",
     severity: "Medium-High",
     patterns: [
+      // Leading "Pending final resolution..." form, with the strongest
+      // self-financing version first so the grounded quote includes both the
+      // continue-performance duty and its own-cost consequence.
+      /Pending\s+(?:final\s+)?resolution\s+of[^.]{0,280}(?:dispute|claim|payment|interpretation|adjustment)[^.]{0,220}Subcontractor\s+(?:shall|must|will|is\s+required\s+to)\s+(?:diligently\s+)?continue\s+(?:performance|to\s+perform|(?:its\s+)?work)[\s\S]{0,360}Subcontractor\s+(?:shall|must|will|is\s+required\s+to)\s+(?:finance|fund)\s+continued\s+performance[^.]{0,140}(?:at\s+its\s+own\s+(?:cost|expense)|without\s+(?:additional\s+)?compensation)/i,
+      /Pending\s+(?:final\s+)?resolution\s+of[^.]{0,280}(?:dispute|claim|payment|interpretation|adjustment)[^.]{0,220}Subcontractor\s+(?:shall|must|will|is\s+required\s+to)\s+(?:diligently\s+)?continue\s+(?:performance|to\s+perform|(?:its\s+)?work)/i,
       // "must"/"will"/"is required to" as well as "shall" - real contracts
       // frequently use "Subcontractor must continue performance during any
       // payment delay/dispute unless Prime directs otherwise", not just the
