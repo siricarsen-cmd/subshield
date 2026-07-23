@@ -13,6 +13,12 @@
 // so this only raises recall - it can't lower the bar for what counts as
 // grounded evidence.
 
+import {
+  areAdjacentNumberedClauses,
+  extractClauseSegments,
+  hasUnilateralFutureCyberEvidence,
+  type ClauseSegment,
+} from "./clause-segments";
 import type { Finding, RiskLevel } from "./types";
 
 // Maximum day count for a standalone "N days to cure" mention (with no
@@ -122,55 +128,9 @@ export function hasProtectiveTerminationForConvenienceRestrictionEvidence(text: 
   return PROTECTIVE_TERMINATION_FOR_CONVENIENCE_RESTRICTION_RE.test(text);
 }
 
-function extractTerminationClauseContext(documentText: string, matchIndex: number, matchLength: number): string {
-  const matchEnd = matchIndex + matchLength;
-  const searchStart = Math.max(0, matchIndex - 350);
-  const before = documentText.slice(searchStart, matchIndex);
-  const sentenceStartRe = /[.!?]\s+(?=[A-Z0-9"'(])/g;
-  let begin = searchStart;
-  let sentenceStartMatch: RegExpExecArray | null;
-  while ((sentenceStartMatch = sentenceStartRe.exec(before)) !== null) {
-    begin = searchStart + sentenceStartMatch.index + sentenceStartMatch[0].length;
-  }
-
-  const paragraphStart = before.lastIndexOf("\n\n");
-  if (paragraphStart !== -1 && searchStart + paragraphStart + 2 > begin) {
-    begin = searchStart + paragraphStart + 2;
-  }
-
-  const searchEnd = Math.min(documentText.length, matchEnd + 700);
-  const after = documentText.slice(matchEnd, searchEnd);
-  const boundaryIndexes = [after.indexOf("\n\n")].filter((index) => index >= 0);
-  const nextNumberedClause = /\n\s*(?:(?:section|article)\s+)?\d+(?:\.\d+)+\b/i.exec(after);
-  if (nextNumberedClause) boundaryIndexes.push(nextNumberedClause.index);
-  const hardEnd = boundaryIndexes.length > 0 ? matchEnd + Math.min(...boundaryIndexes) : searchEnd;
-
-  const boundedAfter = documentText.slice(matchEnd, hardEnd);
-  const sentenceEndRe = /[.!?](?=\s|\n|$)/g;
-  let sentenceCount = 0;
-  let finish = hardEnd;
-  let sentenceEndMatch: RegExpExecArray | null;
-  while ((sentenceEndMatch = sentenceEndRe.exec(boundedAfter)) !== null) {
-    sentenceCount++;
-    if (sentenceCount === 2) {
-      finish = matchEnd + sentenceEndMatch.index + 1;
-      break;
-    }
-  }
-
-  return documentText.slice(begin, finish).trim().replace(/\s+/g, " ");
-}
-
 function findTerminationForConvenienceCandidate(documentText: string): string | null {
-  const locator = /\bterminat(?:e|es|ed|ing|ion)\b[^.]{0,80}\bfor\s+(?:its\s+|the\s+)?convenience\b/gi;
-  let match: RegExpExecArray | null;
-
-  while ((match = locator.exec(documentText)) !== null) {
-    const evidence = extractTerminationClauseContext(documentText, match.index, match[0].length);
-    if (hasTerminationForConvenienceRiskEvidence(evidence)) return evidence;
-  }
-
-  return null;
+  const locator = /\bterminat(?:e|es|ed|ing|ion)\b[^.]{0,80}\bfor\s+(?:its\s+|the\s+)?convenience\b/i;
+  return clauseCandidates(documentText).find((clause) => locator.test(clause.text) && hasTerminationForConvenienceRiskEvidence(clause.text))?.text ?? null;
 }
 
 interface DeterministicCategory {
@@ -181,6 +141,373 @@ interface DeterministicCategory {
   findCandidate?: (documentText: string) => string | null;
   riskAnalysis: string;
   redlineFix: string;
+  buildRiskAnalysis?: (foundText: string) => string;
+}
+
+function buildCyberBaselineAnalysis(foundText: string): string {
+  if (/\bdfars\b/i.test(foundText) && /\bnist\b/i.test(foundText)) {
+    return "This clause directly imposes DFARS 252.204-7012 and requires implementation of the security requirements of NIST SP 800-171 on covered contractor information systems, creating direct compliance and implementation exposure for the Subcontractor.";
+  }
+  if (/\bdfars\b/i.test(foundText)) {
+    return "This clause references DFARS 252.204-7012 and creates direct cybersecurity flowdown and compliance exposure for the Subcontractor.";
+  }
+  if (/\bnist\s+sp\s*800-171/i.test(foundText)) {
+    return "This clause references the NIST SP 800-171 security baseline and creates direct cybersecurity implementation exposure for the Subcontractor.";
+  }
+  if (/\bcmmc\b/i.test(foundText)) {
+    return "This clause references CMMC requirements and creates direct compliance exposure for the Subcontractor.";
+  }
+  if (/\bcui\b|\bcdi\b|controlled\s+unclassified\s+information/i.test(foundText)) {
+    return "This clause addresses CUI/CDI handling and creates direct safeguarding and handling exposure for the Subcontractor.";
+  }
+  if (/cyber\s+incident\s+report/i.test(foundText)) {
+    return "This clause requires cyber incident reporting and creates operational and reporting exposure for the Subcontractor.";
+  }
+
+  return "This clause imposes cybersecurity or data-protection obligations and creates direct compliance exposure for the Subcontractor.";
+}
+
+function clauseCandidates(documentText: string): ClauseSegment[] {
+  return extractClauseSegments(documentText);
+}
+
+function findClauseCandidate(documentText: string, predicate: (clause: string) => boolean): string | null {
+  return clauseCandidates(documentText).find((clause) => predicate(clause.text))?.text ?? null;
+}
+
+const NAMED_CONTRACT_DOCUMENT_RE =
+  /statements?\s+of\s+work|\bSOWs?\b|flow[\s-]?down\s+(?:lists?|matrix|matrices)|Prime\s+Contract\s+excerpts?|required\s+(?:contract\s+)?attachments?|exhibits?|schedules?|appendices|\bSystem\s+Security\s+Plans?\b|\bSSP\b|CUI\s+marking\s+guide|network\s+boundary\s+diagram|data[\s-]flow\s+map|(?:Prime\s+)?(?:cyber(?:\/security)?|cybersecurity|security)\s+procedures?|cyber\s+attachment|security\s+attachment/i;
+const DOCUMENT_ABSENCE_RE =
+  /(?:is|are|remain|has|have)\s+not\s+(?:currently\s+|yet\s+)?(?:been\s+)?(?:attached|included|provided|available)|not\s+(?:currently\s+|yet\s+)?(?:attached|included|provided|available)|absent\s+from|unattached|missing/i;
+const DOCUMENT_DEFERRAL_RE =
+  /(?:will|shall|may)\s+be\s+(?:provided|furnished|attached|included)\s+(?:after\s+(?:execution|award|signing)|later)|(?:will|shall)\s+(?:provide|furnish|attach|include)[^.]{0,100}(?:after\s+(?:execution|award|signing)|later)/i;
+
+function findMissingDocumentsCandidate(documentText: string): string | null {
+  return findClauseCandidate(
+    documentText,
+    (block) => NAMED_CONTRACT_DOCUMENT_RE.test(block) && (DOCUMENT_ABSENCE_RE.test(block) || DOCUMENT_DEFERRAL_RE.test(block))
+  );
+}
+
+function buildMissingDocumentsAnalysis(foundText: string): string {
+  const isAbsent = DOCUMENT_ABSENCE_RE.test(foundText);
+  const isDeferred = DOCUMENT_DEFERRAL_RE.test(foundText);
+  if (isAbsent && isDeferred) {
+    return "This clause states that the identified contract or cybersecurity documents are not attached and will be provided later, requiring the Subcontractor to execute before reviewing the complete stated package.";
+  }
+  if (isAbsent) {
+    return "This clause states that the identified contract or cybersecurity documents are not attached, preventing the Subcontractor from reviewing the complete stated package before execution.";
+  }
+  return "This clause defers delivery of the identified contract or cybersecurity documents until after execution or award, preventing advance review of the complete stated package.";
+}
+
+const NO_PRICE_OR_SCHEDULE_ADJUSTMENT_RE =
+  /without\s+(?:a\s+)?(?:price|schedule)(?:\s+or\s+(?:price|schedule))?\s+adjustment|no\s+(?:price|schedule)\s+adjustment/i;
+const MUTUAL_CHANGE_PROTECTION_RE =
+  /mutually\s+signed\s+(?:amendment|modification)|bilateral\s+(?:amendment|modification)|agreed\s+by\s+both\s+parties|(?:receive|provide|allow|entitle|right\s+to)[^.]{0,60}equitable\s+adjustment/i;
+
+function findFutureCyberRequirementsCandidate(documentText: string): string | null {
+  return findClauseCandidate(documentText, hasUnilateralFutureCyberEvidence);
+}
+
+function buildFutureCyberRequirementsAnalysis(foundText: string): string {
+  const binding = /binding\s+(?:upon|on|after)\s+(?:written\s+)?notice|becomes?\s+binding/i.test(foundText);
+  const noAdjustment = NO_PRICE_OR_SCHEDULE_ADJUSTMENT_RE.test(foundText);
+  const consequences = [
+    binding ? "makes them binding on notice" : null,
+    noAdjustment ? "provides no price or schedule adjustment" : null,
+  ].filter(Boolean);
+  return `This clause allows Prime to add later cybersecurity or security requirements through the unilateral method stated in the quote${consequences.length ? `, ${consequences.join(" and ")}` : ""}, creating open-ended compliance exposure for the Subcontractor.`;
+}
+
+function findGeneralFutureFlowdownCandidate(documentText: string): string | null {
+  return findClauseCandidate(documentText, (block) => {
+    const futureFlowdown =
+      /Prime(?:\s+Contractor)?\s+may\s+(?:incorporate|impose|issue|add)\s+(?:additional|revised|new|modified)(?:\s+or\s+(?:additional|revised|new|modified))?\s+flow[\s-]?down\s+requirements?/i.test(block) &&
+      /(?:such|those|the)\s+requirements?\s+(?:become|are|shall\s+be)\s+binding\s+(?:upon|on|after)\s+(?:written\s+)?notice/i.test(block);
+    const laterFlowdown =
+      /flow[\s-]?down[^.]{0,160}(?:later[\s-]issued|future|subsequently\s+issued|hereafter\s+issued|issued\s+after\s+the\s+date)/i.test(block);
+    const primeContractControl =
+      /(?:terms|requirements)\s+of\s+the\s+prime\s+contract[^.]{0,100}(?:shall\s+)?(?:control|govern|take\s+precedence|prevail)/i.test(block) ||
+      /Subcontractor\s+shall\s+be\s+bound\s+by[^.]{0,120}(?:later[\s-]issued|future|subsequent(?:ly)?\s+issued|modifications?\s+to\s+the\s+prime\s+contract)/i.test(block) ||
+      /prime\s+contract\s+is\s+incorporated\s+(?:herein\s+)?by\s+reference[^.]{0,180}(?:whether\s+or\s+not|regardless\s+of\s+whether|even\s+if\s+not\s+attached)/i.test(block) ||
+      /any\s+(?:changes?|modifications?|amendments?)\s+to\s+the\s+prime\s+contract[^.]{0,120}(?:automatically|shall)\s+(?:apply|flow\s+down|bind)/i.test(block);
+    return (futureFlowdown || laterFlowdown || primeContractControl) && !MUTUAL_CHANGE_PROTECTION_RE.test(block);
+  });
+}
+
+function buildGeneralFutureFlowdownAnalysis(foundText: string): string {
+  if (/\bPrime\s+Contract\b/i.test(foundText)) {
+    return "This clause makes referenced Prime Contract terms or later Prime Contract changes controlling or binding through the mechanism stated in the quote, creating open-ended compliance exposure for the Subcontractor.";
+  }
+  return "This clause makes additional or later-issued flowdown requirements binding on notice, creating open-ended compliance exposure for the Subcontractor.";
+}
+
+const CYBER_INCIDENT_CONTEXT_RE =
+  /cyber(?:security)?\s+incident|security\s+incident|compromis(?:e|ed)|unauthorized\s+disclosure|malware(?:\s+event)?|lost\s+device|anomalous\s+access/i;
+const INCIDENT_REPORTING_VERB_RE =
+  /\b(?:report(?:ed|ing)?|notify|submit(?:s|ted|ting)?|provide(?:s|d|ing)?\s+(?:written\s+)?notice)\b/i;
+const ACCELERATED_INCIDENT_DEADLINE_RE = /\bwithin\s+(?:8|eight|24|twenty[\s-]four)\s+hours?\b/i;
+
+function hasAcceleratedIncidentReportingEvidence(clause: string): boolean {
+  const incident = CYBER_INCIDENT_CONTEXT_RE.exec(clause);
+  const reporting = INCIDENT_REPORTING_VERB_RE.exec(clause);
+  const deadline = ACCELERATED_INCIDENT_DEADLINE_RE.exec(clause);
+  if (!incident || !reporting || !deadline) return false;
+
+  return Math.abs(reporting.index - incident.index) <= 220 && Math.abs(reporting.index - deadline.index) <= 180;
+}
+
+function findAcceleratedIncidentReportingCandidate(documentText: string): string | null {
+  return findClauseCandidate(documentText, hasAcceleratedIncidentReportingEvidence);
+}
+
+function buildAcceleratedIncidentReportingAnalysis(foundText: string): string {
+  const deadline = ACCELERATED_INCIDENT_DEADLINE_RE.exec(foundText)?.[0];
+  return `This clause requires reporting of the stated cyber or security event ${deadline ?? "within the short deadline stated in the quote"}, creating accelerated operational and compliance exposure for the Subcontractor.`;
+}
+
+const RESPONSE_ACTIONS = [
+  ["containment", /\bcontainment\b/i],
+  ["isolation", /\bisolation\b/i],
+  ["credential reset", /credential\s+reset/i],
+  ["system shutdown", /system\s+shutdown/i],
+  ["evidence collection", /evidence\s+collection/i],
+  ["employee interviews", /employee\s+interviews?/i],
+  ["forensic imaging", /forensic\s+imaging/i],
+  ["customer notification", /customer\s+notification/i],
+  ["restoration", /restoration(?:\s+actions?)?/i],
+] as const;
+
+const STRONG_CYBER_RESPONSE_ACTION_RE =
+  /credential\s+reset|forensic\s+imaging|(?:system|network|host)\s+isolation|customer\s+notification|incident\s+restoration|system\s+shutdown|cyber(?:security)?\s+containment/i;
+const SUBCONTRACTOR_RESPONSE_COST_RE =
+  /Subcontractor[^.]{0,140}\bbear[^.]{0,60}(?:costs?|expenses?)|at\s+(?:the\s+)?Subcontractor(?:'s|\u2019s)\s+(?:own\s+)?(?:cost|expense)/i;
+
+function findPrimeDirectedResponseCostCandidate(documentText: string): string | null {
+  return findClauseCandidate(documentText, (block) => {
+    const primeDirection = /Prime(?:\s+Contractor)?\s+may\s+direct|at\s+Prime(?:\s+Contractor)?(?:'s)?\s+direction/i.test(block);
+    const cyberContext = /cyber(?:security)?|security\s+incident|incident\s+response|compromise|malware/i.test(block);
+    const actionCount = RESPONSE_ACTIONS.filter(([, pattern]) => pattern.test(block)).length;
+    const specificResponse = STRONG_CYBER_RESPONSE_ACTION_RE.test(block) || actionCount >= 3;
+    return primeDirection && cyberContext && specificResponse && SUBCONTRACTOR_RESPONSE_COST_RE.test(block);
+  });
+}
+
+function buildPrimeDirectedResponseAnalysis(foundText: string): string {
+  const actions = RESPONSE_ACTIONS.filter(([, pattern]) => pattern.test(foundText)).map(([label]) => label);
+  const actionText = actions.length > 0 ? actions.join(", ") : "the response actions stated in the quote";
+  const immediate = /comply\s+immediately/i.test(foundText);
+  const costBearing = SUBCONTRACTOR_RESPONSE_COST_RE.test(foundText);
+  const consequences = [
+    immediate ? "requires immediate compliance" : null,
+    costBearing ? "places the associated cost on the Subcontractor" : null,
+  ].filter(Boolean);
+  return `This clause permits Prime to direct ${actionText} and ${consequences.join(" and ")}, creating operational${costBearing ? " and financial" : ""} exposure for the Subcontractor.`;
+}
+
+function findIntrusiveCyberAssessmentCandidate(documentText: string): string | null {
+  return findClauseCandidate(documentText, (block) => {
+    const assessment = /cybersecurity\s+assessments?|security\s+assessments?|cyber(?:security)?\s+audits?/i.test(block);
+    const intrusive = /unannounced|at\s+any\s+time|systems?,\s+facilities?,\s+personnel|lower[\s-]tier\s+suppliers?|administrative\s+access/i.test(block);
+    return assessment && intrusive;
+  });
+}
+
+function findBroadCyberAccessCandidate(documentText: string): string | null {
+  return findClauseCandidate(documentText, (block) => {
+    const evidenceTerms = [
+      /administrative\s+access/i,
+      /network\s+diagrams?/i,
+      /System\s+Security\s+Plans?/i,
+      /plans\s+of\s+action\s+and\s+milestones/i,
+      /vulnerability\s+scans?/i,
+      /penetration[\s-]test\s+results?/i,
+      /security\s+logs?/i,
+      /incident\s+records?/i,
+    ].filter((pattern) => pattern.test(block)).length;
+    const broadAccess = /administrative\s+access|system\s+access|without\s+additional\s+charge/i.test(block);
+    return broadAccess && evidenceTerms >= 2;
+  });
+}
+
+function findRemediationNoEquitableAdjustmentCandidate(documentText: string): string | null {
+  const candidates = clauseCandidates(documentText);
+  const scheduleAndAdjustment = (text: string) =>
+    /does\s+not\s+excuse\s+schedule\s+performance|shall\s+continue\s+schedule\s+performance/i.test(text) &&
+    /does\s+not\s+entitle[^.]{0,100}equitable\s+adjustment|no\s+equitable\s+adjustment/i.test(text);
+
+  for (const [index, current] of candidates.entries()) {
+    if (!scheduleAndAdjustment(current.text) || !/suspension|remediation\s+directive/i.test(current.text)) continue;
+    if (/cyber(?:security)?|security\s+posture/i.test(current.text)) return current.text;
+
+    const previous = candidates[index - 1];
+    if (
+      previous &&
+      areAdjacentNumberedClauses(previous, current) &&
+      /cyber(?:security)?|security\s+posture/i.test(previous.text) &&
+      /remediation|directive|suspension|deficien/i.test(previous.text)
+    ) {
+      return documentText.slice(previous.start, current.end).trim().replace(/\s+/g, " ");
+    }
+  }
+
+  return null;
+}
+
+const EXPRESSED_PERCENTAGE_RE =
+  /(?:up\s+to\s+)?(?:\d{1,3}(?:\.\d+)?|one\s+hundred|(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen)|(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)(?:[\s-](?:one|two|three|four|five|six|seven|eight|nine))?)\s*(?:percent|%)/i;
+
+function findPercentageInvoiceWithholdingCandidate(documentText: string): string | null {
+  return findClauseCandidate(
+    documentText,
+    (block) =>
+      /withhold/i.test(block) &&
+      EXPRESSED_PERCENTAGE_RE.test(block) &&
+      /invoice|payment/i.test(block) &&
+      /cyber|security/i.test(block) &&
+      /evidence|documentation|attestation|report/i.test(block)
+  );
+}
+
+function buildPercentageInvoiceWithholdingAnalysis(foundText: string): string {
+  const percentage = EXPRESSED_PERCENTAGE_RE.exec(foundText)?.[0] ?? "the stated percentage";
+  const condition = /cyber\s+evidence|security\s+evidence|evidence/i.exec(foundText)?.[0];
+  return `This clause permits Prime to withhold ${percentage} of an invoice${condition ? ` until the stated ${condition} is provided` : ""}, creating direct cash-flow exposure.`;
+}
+
+function findAllPaymentWithholdingCandidate(documentText: string): string | null {
+  return findClauseCandidate(
+    documentText,
+    (block) =>
+      /withhold\s+all\s+payments?/i.test(block) &&
+      /incident\s+investigation|assessment\s+dispute|score\s+deficien|suspected[^.]{0,60}flow[\s-]?down\s+(?:failure|requirements?)/i.test(block)
+  );
+}
+
+function buildAllPaymentWithholdingAnalysis(foundText: string): string {
+  const conditions = [
+    ["an incident investigation", /incident\s+investigation/i],
+    ["an assessment dispute", /assessment\s+dispute/i],
+    ["a score deficiency", /score\s+deficien/i],
+    ["a suspected flowdown failure", /suspected[^.]{0,60}flow[\s-]?down\s+(?:failure|requirements?)/i],
+  ] as const;
+  const present = conditions.filter(([, pattern]) => pattern.test(foundText)).map(([label]) => label);
+  return `This clause permits Prime to withhold all payment during ${present.join(", ")}, creating direct cash-flow exposure for the Subcontractor.`;
+}
+
+function findContinuedPerformanceDespiteWithholdingCandidate(documentText: string): string | null {
+  return findClauseCandidate(
+    documentText,
+    (block) =>
+      /withholding/i.test(block) &&
+      /does\s+not\s+relieve|shall\s+continue|continued\s+performance/i.test(block) &&
+      /continued\s+performance|performance\s+obligations?/i.test(block)
+  );
+}
+
+const PAYMENT_OR_WITHHOLDING_CONTEXT_RE = /payment|withhold|invoice|amounts?\s+due|non[\s-]payment/i;
+
+function findPaymentDisputeContinuedPerformanceCandidate(documentText: string): string | null {
+  return findClauseCandidate(documentText, (block) => {
+    const pendingMatter = /pending(?:\s+final\s+resolution\s+of)?\s+(?:any\s+)?(?:payment\s+)?(?:dispute|investigation)|during\s+(?:any\s+)?(?:payment\s+)?(?:dispute|investigation|delay)|despite[^.]{0,80}(?:payment|withhold)/i.test(block);
+    const continuedPerformance = /continue\s+(?:performance|to\s+perform|(?:its\s+)?work)/i.test(block);
+    return PAYMENT_OR_WITHHOLDING_CONTEXT_RE.test(block) && pendingMatter && continuedPerformance;
+  });
+}
+
+function findSelfFinancedRemediationDuringDisputeCandidate(documentText: string): string | null {
+  return findClauseCandidate(documentText, (block) => {
+    const pendingMatter = /pending(?:\s+final\s+resolution\s+of)?\s+(?:any\s+)?(?:dispute|investigation)|during\s+(?:any\s+)?(?:dispute|investigation)/i.test(block);
+    const continuedPerformance = /continue\s+(?:performance|to\s+perform|(?:its\s+)?work)/i.test(block);
+    const localSelfFundingDuty = /finance[^.]{0,80}(?:required\s+)?remediation/i.test(block);
+    return !PAYMENT_OR_WITHHOLDING_CONTEXT_RE.test(block) && pendingMatter && continuedPerformance && localSelfFundingDuty;
+  });
+}
+
+function buildContinuedPerformanceAnalysis(foundText: string): string {
+  const circumstances = [
+    /\bdispute\b/i.test(foundText) ? "a dispute" : null,
+    /\binvestigation\b/i.test(foundText) ? "an investigation" : null,
+    /payment\s+(?:delay|issue)|withhold|non[\s-]payment/i.test(foundText) ? "a payment or withholding issue" : null,
+  ].filter(Boolean);
+  const duties = [
+    /continue\s+(?:performance|to\s+perform|(?:its\s+)?work)/i.test(foundText) ? "continue performance" : null,
+    /finance\s+all\s+required\s+remediation/i.test(foundText) ? "finance required remediation" : null,
+    /finance\s+continued\s+performance/i.test(foundText) ? "finance continued performance" : null,
+    /follow\s+Prime\s+direction/i.test(foundText) ? "follow Prime direction" : null,
+  ].filter(Boolean);
+  return `This clause requires the Subcontractor to ${duties.join(", ")} while ${circumstances.join(" or ")} remains pending, creating operational${/finance/i.test(foundText) ? " and self-financing" : ""} exposure.`;
+}
+
+function buildSelfFinancedRemediationDuringDisputeAnalysis(foundText: string): string {
+  const circumstances = [
+    /\bdispute\b/i.test(foundText) ? "a dispute" : null,
+    /\binvestigation\b/i.test(foundText) ? "an investigation" : null,
+  ].filter(Boolean);
+  const duties = [
+    /continue\s+(?:performance|to\s+perform|(?:its\s+)?work)/i.test(foundText) ? "continue performance" : null,
+    /finance[^.]{0,80}(?:required\s+)?remediation/i.test(foundText) ? "finance required remediation" : null,
+    /follow\s+Prime\s+direction/i.test(foundText) ? "follow Prime direction" : null,
+    /no\s+(?:mission[\s-])?work\s+delay/i.test(foundText) ? "avoid mission-work delay" : null,
+  ].filter(Boolean);
+  return `This clause requires the Subcontractor to ${duties.join(", ")} while ${circumstances.join(" or ")} remains pending, creating operational and self-financing exposure.`;
+}
+
+function findUncappedCyberLiabilityCandidate(documentText: string): string | null {
+  const uncappedSignal = /no\s+limitation\s+of\s+liability\s+applies\s+to|(?:liability|obligations?|claims?)[^.]{0,100}(?:uncapped|unlimited)|(?:uncapped|unlimited)[^.]{0,100}(?:liability|obligations?|claims?)/i;
+  const coveredCategory = /cybersecurity|cyber\b|confidentiality|data\s+handling|incident\s+reporting|intellectual[\s-]property|\bIP\b|indemnity|indemnification/i;
+  return findClauseCandidate(documentText, (block) => uncappedSignal.test(block) && coveredCategory.test(block));
+}
+
+function buildUncappedCyberLiabilityAnalysis(foundText: string): string {
+  const categories = [
+    ["cybersecurity", /cybersecurity|cyber\b/i],
+    ["confidentiality", /confidentiality/i],
+    ["data handling", /data\s+handling/i],
+    ["incident reporting", /incident\s+reporting/i],
+    ["intellectual property", /intellectual[\s-]property|\bIP\b/i],
+    ["indemnity", /indemnity|indemnification/i],
+  ] as const;
+  const present = categories.filter(([, pattern]) => pattern.test(foundText)).map(([label]) => label);
+  return `This clause makes the identified ${present.join(", ")} obligations uncapped, creating liability exposure without a stated cap for those categories.`;
+}
+
+function buildTerminationForConvenienceAnalysis(foundText: string): string {
+  const noticePhrase = /(?:on|upon)\s+((?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty|sixty)(?:[\s-](?:one|two|three|four|five|six|seven|eight|nine))?\s+(?:calendar\s+|business\s+|working\s+)?days?)(?:'|\s)*(?:written\s+)?notice/i.exec(foundText)?.[1];
+  const shortNotice = noticePhrase
+    ? ` on ${noticePhrase} notice`
+    : hasAffirmativeImmediateTerminationForConvenienceEvidence(foundText)
+      ? " immediately or without notice"
+      : "";
+  const excludedRecovery = /not\s+liable|no\s+liability|excluded|recovery\s+is\s+limited|accepted\s+work/i.test(foundText);
+  return `This clause permits Prime to terminate for convenience${shortNotice}${excludedRecovery ? " while limiting the recovery categories stated in the quote" : ""}, creating termination and cost-recovery exposure for the Subcontractor.`;
+}
+
+function buildCureTerminationAnalysis(foundText: string): string {
+  const immediate = /terminate[^.]{0,60}immediately/i.test(foundText);
+  const noCure = /without[^.]{0,50}(?:right|opportunity)\s+to\s+cure|no\s+(?:right|opportunity)\s+to\s+cure/i.test(foundText);
+  const cureDays = /(?<!\d)([1-9]|10)(?!\d)\s*(?:calendar|business|working)?\s*days?\s+to\s+cure/i.exec(foundText)?.[0];
+  if (immediate && noCure) {
+    return "This clause permits immediate termination without a right to cure, allowing the stated triggering event to end the subcontract before the Subcontractor can remedy it.";
+  }
+  if (cureDays) {
+    return `This clause provides only ${cureDays} before default termination may follow, giving the Subcontractor a narrow opportunity to remedy the stated default.`;
+  }
+  return "This clause gives Prime immediate or broad termination discretion without a meaningful cure opportunity, creating default-termination exposure for the Subcontractor.";
+}
+
+function buildGeneralWithholdingAnalysis(foundText: string): string {
+  const action = /set[\s-]?off/i.test(foundText)
+    ? "set off"
+    : /back[\s-]?charge/i.test(foundText)
+      ? "backcharge"
+      : /deduct/i.test(foundText)
+        ? "deduct"
+        : /reduce/i.test(foundText)
+          ? "reduce"
+          : "withhold";
+  return `This clause permits Prime to ${action} amounts under the conditions stated in the quote, creating direct payment exposure for the Subcontractor.`;
 }
 
 const CATEGORIES: DeterministicCategory[] = [
@@ -277,43 +604,37 @@ const CATEGORIES: DeterministicCategory[] = [
     familyKey: "structure",
     regulation: "Missing / Deferred Contract Documents",
     severity: "Medium",
-    patterns: [
-      // Explicit current absence followed by a nearby deferred-delivery
-      // sentence. This captures the complete grounded context when the
-      // second sentence refers back to the named documents as "those
-      // materials/documents/attachments".
-      /(?:statements?\s+of\s+work|\bSOWs?\b|flow[\s-]?down\s+(?:lists?|matrix|matrices)|Prime\s+Contract\s+excerpts?|required\s+(?:contract\s+)?attachments?|exhibits?|schedules?|appendices)[^.]{0,240}(?:is|are)\s+not\s+(?:currently\s+)?(?:attached|included|provided|available)(?:\s+at\s+(?:execution|award|signing))?[\s\S]{0,260}(?:Prime(?:\s+Contractor)?\s+)?(?:will|shall)\s+(?:provide|furnish|attach|include)\s+(?:those|the)\s+(?:materials|documents|attachments)[^.]{0,100}(?:after\s+(?:execution|award|signing)|later)/i,
-      // The named document must itself be expressly absent now. Silence is
-      // intentionally insufficient and cannot match any pattern here.
-      /(?:statements?\s+of\s+work|\bSOWs?\b|flow[\s-]?down\s+(?:lists?|matrix|matrices)|Prime\s+Contract\s+excerpts?|required\s+(?:contract\s+)?attachments?|exhibits?|schedules?|appendices)[^.]{0,240}(?:is|are)\s+not\s+(?:currently\s+)?(?:attached|included|provided|available)(?:\s+at\s+(?:execution|award|signing))?/i,
-      /(?:not\s+(?:currently\s+)?(?:attached|included|provided|available)|not\s+yet\s+(?:attached|included|provided|available))[^.]{0,180}(?:statements?\s+of\s+work|\bSOWs?\b|flow[\s-]?down\s+(?:lists?|matrix|matrices)|Prime\s+Contract\s+excerpts?|required\s+(?:contract\s+)?attachments?|exhibits?|schedules?|appendices)/i,
-      // Direct deferral without a separate "not attached" statement.
-      /(?:statements?\s+of\s+work|\bSOWs?\b|flow[\s-]?down\s+(?:lists?|matrix|matrices)|Prime\s+Contract\s+excerpts?|required\s+(?:contract\s+)?attachments?|exhibits?|schedules?|appendices)[^.]{0,180}(?:will|shall|may)\s+be\s+(?:provided|furnished|attached|included)\s+(?:after\s+(?:execution|award|signing)|later)/i,
-    ],
+    patterns: [],
+    findCandidate: findMissingDocumentsCandidate,
     riskAnalysis:
-      "The subcontract expressly states that material scope or flowdown documents are not currently attached or will only be provided later, so the Subcontractor is being asked to execute before it can evaluate the complete performance and compliance package.",
+      "The clause states that identified contract documents are absent or deferred, preventing complete review before execution.",
     redlineFix:
       "Require the missing Statement of Work, flowdown matrix, Prime Contract excerpts, or other identified attachments to be provided and reviewed before execution, and state that no later document binds the Subcontractor without a signed bilateral amendment.",
+    buildRiskAnalysis: buildMissingDocumentsAnalysis,
   },
   {
     familyKey: "structure",
     regulation: "Broad Future Flowdowns / Prime Contract Control",
     severity: "Medium",
-    patterns: [
-      // Fixture A form: Prime may add additional/revised flowdowns by
-      // written channels and the next sentence makes them binding on notice.
-      /Prime(?:\s+Contractor)?\s+may\s+(?:incorporate|impose|issue|add)\s+(?:additional|revised|new|modified)(?:\s+or\s+(?:additional|revised|new|modified))?\s+flow[\s-]?down\s+requirements?[\s\S]{0,420}(?:such|those|the)\s+requirements?\s+(?:become|are|shall\s+be)\s+binding\s+(?:upon|on|after)\s+(?:written\s+)?notice/i,
-      /(?:additional|revised|new|modified)(?:\s+or\s+(?:additional|revised|new|modified))?\s+flow[\s-]?down\s+requirements?[^.]{0,220}(?:become|are|shall\s+be)\s+binding\s+(?:upon|on|after)\s+(?:written\s+)?notice/i,
-      /flow[\s-]?down[^.]{0,120}(?:later[\s-]issued|future|subsequently\s+issued|hereafter\s+issued|issued\s+after\s+the\s+date)/i,
-      /(?:terms|requirements)\s+of\s+the\s+prime\s+contract[^.]{0,80}(?:shall\s+)?(?:control|govern|take\s+precedence|prevail)/i,
-      /Subcontractor\s+shall\s+be\s+bound\s+by[^.]{0,100}(?:later[\s-]issued|future|subsequent(?:ly)?\s+issued|modifications?\s+to\s+the\s+prime\s+contract)/i,
-      /prime\s+contract\s+is\s+incorporated\s+(?:herein\s+)?by\s+reference[^.]{0,150}(?:whether\s+or\s+not|regardless\s+of\s+whether|even\s+if\s+not\s+attached)/i,
-      /any\s+(?:changes?|modifications?|amendments?)\s+to\s+the\s+prime\s+contract[^.]{0,100}(?:automatically|shall)\s+(?:apply|flow\s+down|bind)/i,
-    ],
+    patterns: [],
+    findCandidate: findGeneralFutureFlowdownCandidate,
     riskAnalysis:
-      "This clause binds the Subcontractor to prime contract terms - including requirements issued or modified after signing - without the Subcontractor having reviewed or agreed to those specific terms, creating open-ended, unbounded compliance risk.",
+      "This clause makes later flowdown or Prime Contract requirements binding through the mechanism stated in the quote, creating open-ended compliance exposure.",
     redlineFix:
       "Require that all flowdown terms and any later-issued or modified prime contract requirements be provided to the Subcontractor in writing and apply only prospectively after the Subcontractor's written acknowledgment, with a right to price or schedule relief for materially burdensome new requirements.",
+    buildRiskAnalysis: buildGeneralFutureFlowdownAnalysis,
+  },
+  {
+    familyKey: "cyber",
+    regulation: "Unilateral Future Cybersecurity Requirements",
+    severity: "Medium-High",
+    patterns: [],
+    findCandidate: findFutureCyberRequirementsCandidate,
+    riskAnalysis:
+      "This clause permits later cybersecurity requirements to become binding through a unilateral mechanism, creating open-ended compliance exposure.",
+    redlineFix:
+      "Require a mutually signed bilateral amendment and an agreed price or schedule adjustment before any new cybersecurity, CMMC, cloud-security, or customer-security requirement becomes binding.",
+    buildRiskAnalysis: buildFutureCyberRequirementsAnalysis,
   },
   {
     familyKey: "liability",
@@ -342,7 +663,7 @@ const CATEGORIES: DeterministicCategory[] = [
       /regardless\s+of\s+(?:whether\s+)?(?:such\s+)?(?:claim|allegation)[^.]{0,80}(?:fault|negligence)\s+of\s+(?:the\s+)?Prime/i,
     ],
     riskAnalysis:
-      "This indemnification / duty-to-defend obligation can require the Subcontractor to defend and cover the Prime's costs even for claims based on mere allegations of noncompliance, without regard to whether the Prime itself was at fault, exposing the Subcontractor to open-ended defense costs and liability.",
+      "This clause requires the Subcontractor to indemnify, defend, or hold harmless the beneficiaries against the claims and losses described in the quote, creating broad defense and liability exposure.",
     redlineFix:
       "Narrow indemnification to claims arising from the Subcontractor's own negligence, willful misconduct, or breach, exclude indemnification for the Prime's own negligence or fault, and cap defense-cost exposure.",
   },
@@ -356,6 +677,7 @@ const CATEGORIES: DeterministicCategory[] = [
       "This termination-for-convenience clause allows the Prime to end the subcontract on short notice with limited recovery, leaving the Subcontractor unable to recoup committed costs, staffing investments, or anticipated profit on terminated work.",
     redlineFix:
       "Extend the notice period and ensure the termination-for-convenience settlement includes recovery of all reasonable costs incurred, committed subcontractor/vendor obligations, and a reasonable profit component on completed work.",
+    buildRiskAnalysis: buildTerminationForConvenienceAnalysis,
   },
   {
     familyKey: "liability",
@@ -414,6 +736,7 @@ const CATEGORIES: DeterministicCategory[] = [
       "A short cure period combined with broad Prime discretion to terminate for default means routine performance issues can escalate into a default termination before the Subcontractor has a realistic opportunity to fix the issue, which can trigger consequences far beyond the value of the underlying issue.",
     redlineFix:
       "Extend the cure period to a commercially reasonable timeframe, require written notice specifying the exact default before any termination, and add a right to dispute the default determination before termination takes effect.",
+    buildRiskAnalysis: buildCureTerminationAnalysis,
   },
   {
     familyKey: "liability",
@@ -437,25 +760,25 @@ const CATEGORIES: DeterministicCategory[] = [
     familyKey: "liability",
     regulation: "Continue-Performance Obligation During Payment Dispute",
     severity: "Medium-High",
-    patterns: [
-      // Leading "Pending final resolution..." form, with the strongest
-      // self-financing version first so the grounded quote includes both the
-      // continue-performance duty and its own-cost consequence.
-      /Pending\s+(?:final\s+)?resolution\s+of[^.]{0,280}(?:dispute|claim|payment|interpretation|adjustment)[^.]{0,220}Subcontractor\s+(?:shall|must|will|is\s+required\s+to)\s+(?:diligently\s+)?continue\s+(?:performance|to\s+perform|(?:its\s+)?work)[\s\S]{0,360}Subcontractor\s+(?:shall|must|will|is\s+required\s+to)\s+(?:finance|fund)\s+continued\s+performance[^.]{0,140}(?:at\s+its\s+own\s+(?:cost|expense)|without\s+(?:additional\s+)?compensation)/i,
-      /Pending\s+(?:final\s+)?resolution\s+of[^.]{0,280}(?:dispute|claim|payment|interpretation|adjustment)[^.]{0,220}Subcontractor\s+(?:shall|must|will|is\s+required\s+to)\s+(?:diligently\s+)?continue\s+(?:performance|to\s+perform|(?:its\s+)?work)/i,
-      // "must"/"will"/"is required to" as well as "shall" - real contracts
-      // frequently use "Subcontractor must continue performance during any
-      // payment delay/dispute unless Prime directs otherwise", not just the
-      // "notwithstanding"/"shall not suspend" phrasing assumed below.
-      /Subcontractor\s+(?:shall|must|will|is\s+required\s+to)\s+continue\s+(?:performance|to\s+perform|(?:its\s+)?work)[^.]{0,100}(?:during|notwithstanding|despite|pending)[^.]{0,80}(?:dispute|payment|withhold)/i,
-      /continue\s+(?:to\s+)?perform(?:ance)?[^.]{0,120}(?:notwithstanding|despite|regardless\s+of|during\s+any)[^.]{0,120}(?:payment|dispute|withhold)/i,
-      /shall\s+not\s+(?:suspend|stop|delay|cease)\s+(?:performance|work)[^.]{0,120}(?:dispute|payment|withholding|non[\s-]payment)/i,
-      /no\s+(?:delay\s+in\s+|withholding\s+of\s+)?payment[^.]{0,100}(?:shall\s+)?(?:excuse|relieve|suspend)[^.]{0,100}Subcontractor(?:'s)?\s+(?:obligation\s+to\s+perform|performance)/i,
-    ],
+    patterns: [],
+    findCandidate: findPaymentDisputeContinuedPerformanceCandidate,
     riskAnalysis:
       "This clause requires the Subcontractor to keep performing and funding the work even while payment is delayed, withheld, or disputed, forcing the Subcontractor to carry the Prime's or Government's cash-flow risk with its own working capital.",
     redlineFix:
       "Add a right to suspend performance without penalty if payment is withheld or delayed beyond a defined period, or at minimum a right to interest or added costs for continued performance during an unresolved payment dispute.",
+    buildRiskAnalysis: buildContinuedPerformanceAnalysis,
+  },
+  {
+    familyKey: "liability",
+    regulation: "Continued Performance / Self-Financed Remediation During Dispute",
+    severity: "Medium-High",
+    patterns: [],
+    findCandidate: findSelfFinancedRemediationDuringDisputeCandidate,
+    riskAnalysis:
+      "This clause requires continued performance and self-financed remediation while a dispute or investigation remains pending, creating operational and financing exposure.",
+    redlineFix:
+      "Permit suspension of disputed remediation work without default, require documented Prime direction, and provide schedule and cost relief for continued performance while the matter is unresolved.",
+    buildRiskAnalysis: buildSelfFinancedRemediationDuringDisputeAnalysis,
   },
   {
     familyKey: "cyber",
@@ -469,9 +792,114 @@ const CATEGORIES: DeterministicCategory[] = [
       /cyber\s+incident\s+report(?:ing)?/i,
     ],
     riskAnalysis:
-      "This document imposes DFARS 252.204-7012/CUI/NIST SP 800-171/CMMC cybersecurity obligations, which require the Subcontractor to safeguard covered defense information, meet specific incident-reporting deadlines, and flow the same requirements down to lower-tier subcontractors - obligations the Subcontractor cannot fully evaluate or price if the actual cyber attachment, control baseline, or CMMC level requirement is not included in the current package.",
+      "This clause directly imposes DFARS 252.204-7012 and requires implementation of the security requirements of NIST SP 800-171 on covered contractor information systems, creating direct compliance and implementation exposure for the Subcontractor.",
     redlineFix:
-      "Request the actual DFARS 252.204-7012/CUI/NIST SP 800-171 attachment, incident-reporting timeline, and applicable CMMC level in writing before execution, and confirm the flow-down scope to any lower-tier subcontractors.",
+      "Request the actual DFARS 252.204-7012 / CUI / NIST SP 800-171 baseline and confirm any required implementation details before execution.",
+    buildRiskAnalysis: buildCyberBaselineAnalysis,
+  },
+  {
+    familyKey: "liability",
+    regulation: "Uncapped Cyber Liability",
+    severity: "High",
+    patterns: [],
+    findCandidate: findUncappedCyberLiabilityCandidate,
+    riskAnalysis:
+      "This clause states that no limitation of liability applies to the identified cyber or data-protection obligations, leaving the Subcontractor exposed to uncapped liability for those categories.",
+    redlineFix:
+      "Add a reasonable liability cap or carve-out for the identified cyber/confidentiality/data-handling obligations, or at minimum limit the uncapped exposure to the specific categories actually priced and accepted under the subcontract.",
+    buildRiskAnalysis: buildUncappedCyberLiabilityAnalysis,
+  },
+  {
+    familyKey: "cyber",
+    regulation: "Accelerated Cyber Incident Reporting",
+    severity: "High",
+    patterns: [],
+    findCandidate: findAcceleratedIncidentReportingCandidate,
+    riskAnalysis:
+      "This clause requires the Subcontractor to report a suspected cyber or security incident within a short stated deadline, creating operational and compliance exposure if the incident is not reported promptly.",
+    redlineFix:
+      "Replace the short incident-reporting deadline with a commercially reasonable notice period and require the incident trigger and reporting obligations to be defined clearly.",
+    buildRiskAnalysis: buildAcceleratedIncidentReportingAnalysis,
+  },
+  {
+    familyKey: "cyber",
+    regulation: "Prime-Directed Cyber Response Costs",
+    severity: "High",
+    patterns: [],
+    findCandidate: findPrimeDirectedResponseCostCandidate,
+    riskAnalysis:
+      "This clause allows Prime to direct response actions and requires the Subcontractor to comply immediately and bear the associated cost, creating direct operational and financial exposure.",
+    redlineFix:
+      "Require Prime direction to be reasonable and documented, and allocate response costs through a defined process rather than automatic Subcontractor cost-bearing.",
+    buildRiskAnalysis: buildPrimeDirectedResponseAnalysis,
+  },
+  {
+    familyKey: "audit",
+    regulation: "Intrusive Cybersecurity Assessments",
+    severity: "Medium-High",
+    patterns: [],
+    findCandidate: findIntrusiveCyberAssessmentCandidate,
+    riskAnalysis:
+      "This clause permits the intrusive cybersecurity assessments and access scope stated in the quote, creating operational and confidentiality exposure.",
+    redlineFix:
+      "Require reasonable advance notice, business-hours access, defined assessment scope, confidentiality protections, and limits on access to systems, facilities, personnel, and lower-tier suppliers.",
+  },
+  {
+    familyKey: "audit",
+    regulation: "Broad Cybersecurity System Access / Evidence Production",
+    severity: "Medium-High",
+    patterns: [],
+    findCandidate: findBroadCyberAccessCandidate,
+    riskAnalysis:
+      "This clause requires the administrative or system access and broad cybersecurity evidence production stated in the quote, creating security, confidentiality, and operational exposure.",
+    redlineFix:
+      "Limit access and evidence production to defined, relevant records through a secure process, with reasonable notice, least-privilege controls, confidentiality protections, and compensation for material out-of-scope support.",
+  },
+  {
+    familyKey: "cyber",
+    regulation: "Uncompensated Cyber Remediation / No Equitable Adjustment",
+    severity: "Medium-High",
+    patterns: [],
+    findCandidate: findRemediationNoEquitableAdjustmentCandidate,
+    riskAnalysis:
+      "This clause requires schedule performance to continue during a suspension or remediation directive and denies an equitable adjustment, creating uncompensated schedule and remediation exposure.",
+    redlineFix:
+      "Provide schedule relief and an equitable adjustment for Prime-directed suspension or remediation unless the directive results solely from the Subcontractor's proven material breach.",
+  },
+  {
+    familyKey: "payment",
+    regulation: "Percentage Invoice Withholding",
+    severity: "Medium-High",
+    patterns: [],
+    findCandidate: findPercentageInvoiceWithholdingCandidate,
+    riskAnalysis:
+      "This clause permits Prime to withhold the stated percentage of an invoice until the stated cyber evidence is provided, creating direct cash-flow exposure.",
+    redlineFix:
+      "Limit withholding to a documented, proportionate amount tied to a material deficiency, with notice, a cure period, and prompt release of undisputed invoice amounts.",
+    buildRiskAnalysis: buildPercentageInvoiceWithholdingAnalysis,
+  },
+  {
+    familyKey: "payment",
+    regulation: "All-Payment Withholding",
+    severity: "High",
+    patterns: [],
+    findCandidate: findAllPaymentWithholdingCandidate,
+    riskAnalysis:
+      "This clause permits Prime to withhold all payment during the conditions stated in the quote, creating direct cash-flow exposure.",
+    redlineFix:
+      "Limit withholding to documented disputed amounts, require notice and a cure or dispute process, and require timely payment of all undisputed amounts.",
+    buildRiskAnalysis: buildAllPaymentWithholdingAnalysis,
+  },
+  {
+    familyKey: "liability",
+    regulation: "Continued Performance Despite Payment Withholding",
+    severity: "Medium-High",
+    patterns: [],
+    findCandidate: findContinuedPerformanceDespiteWithholdingCandidate,
+    riskAnalysis:
+      "This clause states that withholding does not relieve the Subcontractor from continued performance, creating operational and cash-flow exposure while payment remains withheld.",
+    redlineFix:
+      "Add a right to suspend affected performance if withheld amounts remain unresolved beyond a defined period, without default or schedule penalty.",
   },
   {
     familyKey: "payment",
@@ -484,9 +912,10 @@ const CATEGORIES: DeterministicCategory[] = [
       /Prime(?:\s+Contractor)?\s+(?:shall|may)\s+(?:reduce|withhold)\s+(?:any\s+)?payment[^.]{0,150}(?:cost|damages?|expense|claim)/i,
     ],
     riskAnalysis:
-      "This clause gives the Prime broad, largely unilateral rights to offset, backcharge, deduct, or withhold amounts from what it owes the Subcontractor, which can be used to reduce or delay payment based on the Prime's own determination of costs or damages without a neutral process to contest the deduction.",
+      "This clause permits Prime to set off, backcharge, deduct, reduce, or withhold amounts under the conditions stated in the quote, creating direct payment exposure.",
     redlineFix:
       "Narrow the setoff/backcharge right to amounts that are undisputed, documented, and subject to advance written notice and a right to contest before any deduction is taken from payment otherwise due.",
+    buildRiskAnalysis: buildGeneralWithholdingAnalysis,
   },
   {
     familyKey: "liability",
@@ -681,7 +1110,7 @@ export function runDeterministicDetectors(documentText: string): Finding[] {
         regulation: category.regulation,
         severity: category.severity,
         foundText,
-        riskAnalysis: category.riskAnalysis,
+        riskAnalysis: category.buildRiskAnalysis?.(foundText) ?? category.riskAnalysis,
         redlineFix: category.redlineFix,
         familyKey: category.familyKey,
       });
@@ -718,7 +1147,7 @@ export function runDeterministicDetectors(documentText: string): Finding[] {
       regulation: category.regulation,
       severity: category.severity,
       foundText,
-      riskAnalysis: category.riskAnalysis,
+      riskAnalysis: category.buildRiskAnalysis?.(foundText) ?? category.riskAnalysis,
       redlineFix: category.redlineFix,
       familyKey: category.familyKey,
     });
