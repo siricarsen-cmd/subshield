@@ -138,6 +138,7 @@ interface DeterministicCategory {
   regulation: string;
   severity: RiskLevel;
   patterns: RegExp[];
+  preferClauseLocalQuote?: boolean;
   findCandidate?: (documentText: string) => string | null;
   riskAnalysis: string;
   redlineFix: string;
@@ -657,6 +658,7 @@ const CATEGORIES: DeterministicCategory[] = [
     familyKey: "liability",
     regulation: "Broad Indemnification / Duty to Defend",
     severity: "High",
+    preferClauseLocalQuote: true,
     patterns: [
       /indemnify[^.]{0,60}(?:and\s+)?hold\s+harmless/i,
       // Bare "duty to defend" is negation-blind on its own - "Neither party
@@ -700,6 +702,7 @@ const CATEGORIES: DeterministicCategory[] = [
     familyKey: "liability",
     regulation: "Short Default Cure Period / Termination Discretion",
     severity: "Medium-High",
+    preferClauseLocalQuote: true,
     patterns: [
       // Cross-sentence pattern first (see notice-waiver category above for
       // why): catches "will provide Subcontractor 5 calendar days to cure the
@@ -801,6 +804,7 @@ const CATEGORIES: DeterministicCategory[] = [
     familyKey: "cyber",
     regulation: "DFARS 252.204-7012 / CUI / NIST SP 800-171 Cybersecurity Flowdown",
     severity: "High",
+    preferClauseLocalQuote: true,
     patterns: [
       /DFARS\s*252\.204-7012|252\.204-7012/i,
       /NIST\s*SP\s*800-171/i,
@@ -1156,7 +1160,18 @@ export function runDeterministicDetectors(documentText: string): Finding[] {
 
     if (!best) continue;
 
-    const foundText = extractQuoteAroundMatch(documentText, best.index, best.length);
+    const matchEnd = best.index + best.length;
+    const containingClause = category.preferClauseLocalQuote
+      ? clauseCandidates(documentText).find(
+          (clause) =>
+            Boolean(clause.number) &&
+            clause.start <= best.index &&
+            matchEnd <= clause.end
+        )
+      : undefined;
+    const foundText =
+      containingClause?.text ??
+      extractQuoteAroundMatch(documentText, best.index, best.length);
     if (!foundText || foundText.length < MIN_QUOTE_LENGTH) continue;
 
     findings.push({
