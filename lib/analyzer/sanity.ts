@@ -44,16 +44,107 @@ function appendImmediateSameClauseContinuation(foundText: string, documentText: 
   return continuation ? `${foundText} ${continuation}` : foundText;
 }
 
+// riskAnalysis and redlineFix can reveal a claim that needs checking, but only
+// foundText can prove that the contract contains it. These pairs are scoped to
+// the affected finding identity so an unrelated clause elsewhere in the
+// document can never supply missing evidence.
+function unsupportedFindingLocalClaim(finding: Finding): string | null {
+  const claim = finding.riskAnalysis;
+  const quote = finding.foundText;
+  const reg = finding.regulation.toLowerCase();
+
+  const missingDocumentClaim =
+    /(?:documents?|attachments?|plans?|guides?|diagrams?|maps?|procedures?)[^.]{0,100}(?:missing|not\s+(?:currently\s+)?attached|absent|deferred|provided\s+later)|(?:missing|not\s+(?:currently\s+)?attached|absent|deferred)[^.]{0,100}(?:documents?|attachments?|plans?|guides?|diagrams?|maps?|procedures?)/i.test(claim);
+  const missingDocumentEvidence =
+    /not\s+(?:currently\s+|yet\s+)?(?:been\s+)?(?:attached|included|provided|available)|absent\s+from|unattached|missing|(?:will|shall|may)\s+be\s+(?:provided|furnished|attached|included)\s+(?:after\s+(?:execution|award|signing)|later)|(?:will|shall)\s+(?:provide|furnish|attach|include)[^.]{0,100}(?:after\s+(?:execution|award|signing)|later)/i.test(quote);
+  if (missingDocumentClaim && !missingDocumentEvidence) {
+    return "Finding's analysis claims that documents are missing or deferred, but the finding's own verified quote contains no absence or deferral language.";
+  }
+
+  const cmmcLevelClaim = /\bCMMC\b[^.]{0,60}(?:level\s*(?:[1-3]|one|two|three)|applicable\s+level|required\s+level|level\s+requirement)/i.test(claim);
+  const cmmcLevelEvidence = /\bCMMC\b[^.]{0,60}(?:level\s*(?:[1-3]|one|two|three)|required\s+level|level\s+requirement)/i.test(quote);
+  if (cmmcLevelClaim && !cmmcLevelEvidence) {
+    return "Finding's analysis claims a CMMC level or level requirement that is not stated in the finding's own verified quote.";
+  }
+
+  if (/\bDFARS(?:\s*252\.204-7012)?\b/i.test(claim) && !/\bDFARS\b|252\.204-7012/i.test(quote)) {
+    return "Finding's analysis claims a DFARS requirement that is not stated in the finding's own verified quote.";
+  }
+  if (/\bNIST\s+SP\s*800-171\b/i.test(claim) && !/\bNIST\s+SP\s*800-171\b/i.test(quote)) {
+    return "Finding's analysis claims a NIST SP 800-171 requirement that is not stated in the finding's own verified quote.";
+  }
+
+  const incidentDeadlineClaim =
+    /(?:incident|compromise|unauthorized\s+disclosure|malware|lost\s+device|anomalous\s+access)[^.]{0,120}(?:deadline|within\s+(?:\d+|[a-z-]+)\s+hours?)|(?:within\s+(?:\d+|[a-z-]+)\s+hours?)[^.]{0,120}(?:incident|compromise|unauthorized\s+disclosure|malware|lost\s+device|anomalous\s+access)/i.test(claim);
+  const incidentDeadlineEvidence =
+    /(?:incident|compromise|unauthorized\s+disclosure|malware|lost\s+device|anomalous\s+access)[^.]{0,220}within\s+(?:\d+|[a-z-]+)\s+hours?|within\s+(?:\d+|[a-z-]+)\s+hours?[^.]{0,220}(?:incident|compromise|unauthorized\s+disclosure|malware|lost\s+device|anomalous\s+access)/i.test(quote);
+  if (incidentDeadlineClaim && !incidentDeadlineEvidence) {
+    return "Finding's analysis claims a fixed cyber-incident deadline that is not stated in the finding's own verified quote.";
+  }
+
+  const lowerTierFlowdownClaim = /lower[\s-]tier[^.]{0,80}flow[\s-]?down|flow[\s-]?down[^.]{0,80}lower[\s-]tier/i.test(claim);
+  const lowerTierFlowdownEvidence = /lower[\s-]tier[^.]{0,100}flow[\s-]?down|flow[\s-]?down[^.]{0,100}lower[\s-]tier/i.test(quote);
+  if (lowerTierFlowdownClaim && !lowerTierFlowdownEvidence) {
+    return "Finding's analysis claims a lower-tier flowdown obligation that is not stated in the finding's own verified quote.";
+  }
+
+  const primeContributionClaim =
+    /Prime(?:'s|\u2019s)?\s+(?:fault|negligence|contribut(?:ed|ion)|causation)|regardless\s+of\s+(?:whether\s+)?Prime/i.test(claim);
+  const primeContributionEvidence =
+    /\bPrime\b[^.]{0,100}(?:fault|negligence|contribut(?:ed|ion)|caused|responsible)|regardless\s+of\s+(?:whether\s+)?Prime/i.test(quote);
+  if (primeContributionClaim && !primeContributionEvidence) {
+    return "Finding's analysis claims Prime fault, negligence, or contribution that is not stated in the finding's own verified quote.";
+  }
+
+  if (/response\s+costs?/i.test(claim) && !/response\s+costs?/i.test(quote)) {
+    return "Finding's analysis claims cyber response costs that are not stated in the finding's own verified quote.";
+  }
+  if (/notification\s+costs?/i.test(claim) && !/notification\s+costs?/i.test(quote)) {
+    return "Finding's analysis claims notification costs that are not stated in the finding's own verified quote.";
+  }
+  if (/forensic\s+costs?/i.test(claim) && !/forensic\s+costs?/i.test(quote)) {
+    return "Finding's analysis claims forensic costs that are not stated in the finding's own verified quote.";
+  }
+  if (/alleg(?:ed|ations?)[^.]{0,60}noncompliance|noncompliance[^.]{0,60}alleg/i.test(claim) && !/alleg(?:ed|ations?)[^.]{0,60}noncompliance|noncompliance[^.]{0,60}alleg/i.test(quote)) {
+    return "Finding's analysis claims allegations of noncompliance that are not stated in the finding's own verified quote.";
+  }
+
+  if (/withhold|set[\s-]?off|backcharge|back[\s-]?charge/i.test(reg)) {
+    const unsupportedPaymentClaims = [
+      [/\bcosts?\b/i, /\bcosts?\b/i, "costs"],
+      [/\bdamages?\b/i, /\bdamages?\b/i, "damages"],
+      [/unilateral(?:ly)?\s+(?:determin|adjudicat)/i, /unilateral(?:ly)?\s+(?:determin|adjudicat)/i, "unilateral determination"],
+      [/no\s+(?:neutral|independent)\s+(?:process|procedure)|without\s+(?:a\s+)?(?:neutral|independent)\s+(?:process|procedure)/i, /no\s+(?:neutral|independent)\s+(?:process|procedure)|without\s+(?:a\s+)?(?:neutral|independent)\s+(?:process|procedure)/i, "lack of a neutral procedure"],
+    ] as const;
+    for (const [claimPattern, evidencePattern, description] of unsupportedPaymentClaims) {
+      if (claimPattern.test(claim) && !evidencePattern.test(quote)) {
+        return `Finding's analysis claims ${description} that is not stated in the finding's own verified quote.`;
+      }
+    }
+  }
+
+  if (/continue[\s-]?performance|continued\s+performance/i.test(reg)) {
+    const paymentClaim = /payment\s+(?:delay|withhold|issue)|withheld|non[\s-]payment/i.test(claim);
+    const paymentEvidence = /payment|withhold|non[\s-]payment/i.test(quote);
+    if (paymentClaim && !paymentEvidence) {
+      return "Finding's analysis imports payment or withholding facts that are not stated in the finding's own verified quote.";
+    }
+  }
+
+  return null;
+}
+
 // Contradiction guards: rules that suppress a category of finding when the
 // document contains language that directly contradicts the trap being flagged.
 function violatesContradictionGuard(finding: Finding, documentText: string): string | null {
   const reg = finding.regulation.toLowerCase();
-  const analysis = `${finding.riskAnalysis} ${finding.foundText}`.toLowerCase();
+  const localClaimReason = unsupportedFindingLocalClaim(finding);
+  if (localClaimReason) return localClaimReason;
+
   // PDF-extracted text line-wraps mid-sentence, so guard regexes match against a
   // whitespace-flattened copy — otherwise a "not conditioned on Government payment"
   // sentence that happens to wrap across a line break would silently fail to match.
   const flatDocText = documentText.replace(/\s+/g, " ");
-  const doc = flatDocText.toLowerCase();
 
   const isContingentPaymentFinding =
     reg.includes("pay-if-paid") || reg.includes("contingent payment") || reg.includes("pay if paid");
@@ -113,12 +204,15 @@ function violatesContradictionGuard(finding: Finding, documentText: string): str
     }
   }
 
-  // Exact-phrase guards: a finding's own text should not cite a fixed timeframe
-  // that never actually occurs in the document.
-  const fixedPhrases = ["3 business days", "5 calendar days"];
-  for (const phrase of fixedPhrases) {
-    if (analysis.includes(phrase) && !doc.includes(phrase)) {
-      return `Finding text references the fixed phrase "${phrase}", which does not appear in the current document.`;
+  // Fixed timeframes used in an analysis must appear in this finding's quote,
+  // not merely somewhere else in the document.
+  const timeframeClaims = finding.riskAnalysis.match(
+    /\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty|sixty)(?:[\s-](?:one|two|three|four|five|six|seven|eight|nine))?\s+(?:calendar\s+|business\s+|working\s+)?(?:hours?|days?)\b/gi
+  ) ?? [];
+  const localQuote = finding.foundText.toLowerCase().replace(/\s+/g, " ");
+  for (const timeframe of timeframeClaims) {
+    if (!localQuote.includes(timeframe.toLowerCase().replace(/\s+/g, " "))) {
+      return `Finding analysis references the fixed timeframe "${timeframe}", which does not appear in the finding's own verified quote.`;
     }
   }
 
