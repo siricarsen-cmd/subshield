@@ -144,6 +144,9 @@ interface DeterministicCategory {
   buildRiskAnalysis?: (foundText: string) => string;
 }
 
+export const SAFE_MISSING_DOCUMENTS_REDLINE =
+  "Require each document identified in the quoted clause to be provided and reviewed before execution, and state that no later or revised document binds the Subcontractor without a signed bilateral amendment.";
+
 function buildCyberBaselineAnalysis(foundText: string): string {
   if (/\bdfars\b/i.test(foundText) && /\bnist\b/i.test(foundText)) {
     return "This clause directly imposes DFARS 252.204-7012 and requires implementation of the security requirements of NIST SP 800-171 on covered contractor information systems, creating direct compliance and implementation exposure for the Subcontractor.";
@@ -287,10 +290,25 @@ const SUBCONTRACTOR_RESPONSE_COST_RE =
 function findPrimeDirectedResponseCostCandidate(documentText: string): string | null {
   return findClauseCandidate(documentText, (block) => {
     const primeDirection = /Prime(?:\s+Contractor)?\s+may\s+direct|at\s+Prime(?:\s+Contractor)?(?:'s)?\s+direction/i.test(block);
-    const cyberContext = /cyber(?:security)?|security\s+incident|incident\s+response|compromise|malware/i.test(block);
+    const explicitCyberContext = /cyber(?:security)?|security\s+incident|incident\s+response|compromise|malware/i.test(block);
     const actionCount = RESPONSE_ACTIONS.filter(([, pattern]) => pattern.test(block)).length;
-    const specificResponse = STRONG_CYBER_RESPONSE_ACTION_RE.test(block) || actionCount >= 3;
-    return primeDirection && cyberContext && specificResponse && SUBCONTRACTOR_RESPONSE_COST_RE.test(block);
+    const hasCyberSpecificAction = STRONG_CYBER_RESPONSE_ACTION_RE.test(block);
+    const hasMultipleResponseActions = actionCount >= 3;
+    // Some real response clauses are self-identifying through a dense list of
+    // cyber-specific actions even though they omit the words "cyber" or
+    // "incident response." Preserve the explicit-context path, and add only a
+    // same-clause alternative that requires multiple actions plus at least one
+    // unmistakably cyber-specific action. Prime direction and local
+    // Subcontractor cost-bearing remain independently mandatory below.
+    const hasSupportedCyberContext =
+      explicitCyberContext || (hasMultipleResponseActions && hasCyberSpecificAction);
+    const specificResponse = hasCyberSpecificAction || hasMultipleResponseActions;
+    return (
+      primeDirection &&
+      hasSupportedCyberContext &&
+      specificResponse &&
+      SUBCONTRACTOR_RESPONSE_COST_RE.test(block)
+    );
   });
 }
 
@@ -608,8 +626,7 @@ const CATEGORIES: DeterministicCategory[] = [
     findCandidate: findMissingDocumentsCandidate,
     riskAnalysis:
       "The clause states that identified contract documents are absent or deferred, preventing complete review before execution.",
-    redlineFix:
-      "Require the missing Statement of Work, flowdown matrix, Prime Contract excerpts, or other identified attachments to be provided and reviewed before execution, and state that no later document binds the Subcontractor without a signed bilateral amendment.",
+    redlineFix: SAFE_MISSING_DOCUMENTS_REDLINE,
     buildRiskAnalysis: buildMissingDocumentsAnalysis,
   },
   {
