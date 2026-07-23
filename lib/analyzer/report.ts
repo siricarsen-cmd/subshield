@@ -10,7 +10,7 @@ import { normalizeWhitespace, assessExtractionConfidence, type ExtractionConfide
 import { extractAnchorCandidates } from "./anchors";
 import { classifyContract } from "./classify";
 import { selectDetectorFamilies, runGroundedDetectors } from "./detectors";
-import { runDeterministicDetectors } from "./deterministic";
+import { runDeterministicDetectors, SAFE_MISSING_DOCUMENTS_REDLINE } from "./deterministic";
 import { hasUnilateralFutureCyberEvidence } from "./clause-segments";
 import { verifyFindings, guardIndustryLabel } from "./sanity";
 import type { AnalyzerResult, Finding, RiskLevel } from "./types";
@@ -146,10 +146,13 @@ function canonicalizeKnownRiskLabel(finding: Finding): Finding {
   }
   if (
     finding.familyKey === "structure" &&
-    MISSING_OR_DEFERRED_DOCUMENT_EVIDENCE_PATTERNS.some((pattern) => pattern.test(finding.foundText)) &&
-    finding.regulation !== CANONICAL_MISSING_DOCUMENTS_LABEL
+    MISSING_OR_DEFERRED_DOCUMENT_EVIDENCE_PATTERNS.some((pattern) => pattern.test(finding.foundText))
   ) {
-    return { ...finding, regulation: CANONICAL_MISSING_DOCUMENTS_LABEL };
+    return {
+      ...finding,
+      regulation: CANONICAL_MISSING_DOCUMENTS_LABEL,
+      redlineFix: SAFE_MISSING_DOCUMENTS_REDLINE,
+    };
   }
   return finding;
 }

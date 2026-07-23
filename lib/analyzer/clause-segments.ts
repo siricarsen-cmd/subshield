@@ -21,12 +21,55 @@ const NUMBERED_CLAUSE_MARKER_RE =
 const NON_CLAUSE_PREFIX_RE = /\b(?:FAR|DFARS|NIST|version|revision|rev|release|build|page)\s*$/i;
 const NON_CLAUSE_LEAD_RE =
   /^(?:percent|percentage|million|billion|dollars?|USD|EUR|GBP|GHz|MHz|release|version|build|January|February|March|April|May|June|July|August|September|October|November|December)\b/i;
+// High-confidence top-level heading immediately before a subsection marker.
+// The leading group permits either a source line boundary or a flattened
+// sentence-ending position. The heading is accepted only when its integer
+// matches the following subsection's major number (checked below), so an
+// arbitrary "N." token can never become a boundary on its own.
+const TOP_LEVEL_HEADING_SUFFIX_RE =
+  /(^|[\r\n\f]|[.!?]["')\]]?[ \t]+)([ \t]*)(\d{1,2})\.[ \t]+([A-Z][A-Z0-9 '&/(),_-]{4,})[ \t\r\n]*$/;
+// Production PDF adornment shape: delimiter-heavy "N of M" pagination plus
+// an explicit "Page N" suffix. This intentionally does not match a generic
+// contractual sentence that merely contains the word "page."
+const PLAIN_TEXT_PAGE_FOOTER_SUFFIX_RE =
+  /(^|[\r\n\f]|[.!?]["')\]]?[ \t]+)([ \t]*)(--+\s*\d+\s+of\s+\d+\s*--+[^\r\n]{0,180}\|\s*Page\s+\d+)[ \t\r\n]*$/i;
 
 function collapseSourceSlice(text: string): string {
   return text.trim().replace(/\s+/g, " ");
 }
 
-function hasClauseBoundaryPrefix(source: string, markerStart: number): boolean {
+function findTopLevelHeadingBoundaryBeforePosition(
+  source: string,
+  markerStart: number,
+  followingClauseMajor: number
+): number | null {
+  const prefixStart = Math.max(0, markerStart - 500);
+  const prefix = source.slice(prefixStart, markerStart);
+  const match = TOP_LEVEL_HEADING_SUFFIX_RE.exec(prefix);
+  if (!match || Number(match[3]) !== followingClauseMajor) return null;
+
+  const headingTitle = match[4];
+  const uppercaseLetters = (headingTitle.match(/[A-Z]/g) || []).length;
+  if (uppercaseLetters < 3) return null;
+
+  return prefixStart + match.index + match[1].length + match[2].length;
+}
+
+function findPlainTextPageFooterBoundaryBeforePosition(source: string, markerStart: number): number | null {
+  const prefixStart = Math.max(0, markerStart - 500);
+  const prefix = source.slice(prefixStart, markerStart);
+  const match = PLAIN_TEXT_PAGE_FOOTER_SUFFIX_RE.exec(prefix);
+  if (!match) return null;
+
+  const footerStart = match.index + match[1].length + match[2].length;
+  if (footerStart <= 0 || !/[.!?]["')\]]?[ \t\r\n]*$/.test(prefix.slice(0, footerStart))) {
+    return null;
+  }
+
+  return prefixStart + footerStart;
+}
+
+function hasClauseBoundaryPrefix(source: string, markerStart: number, followingClauseMajor: number): boolean {
   if (markerStart === 0) return true;
 
   const prefix = source.slice(Math.max(0, markerStart - 160), markerStart);
@@ -37,7 +80,14 @@ function hasClauseBoundaryPrefix(source: string, markerStart: number): boolean {
 
   // Some extracted headings and the first controlled cyber heading place the
   // clause marker on the same line: "REQUIRED CYBER FRAMEWORKS 2.1 ...".
-  return /(?:^|[\r\n\f])[ \t]*[A-Z][A-Z0-9 /&_-]{4,}[ \t]+$/.test(prefix);
+  if (/(?:^|[\r\n\f])[ \t]*[A-Z][A-Z0-9 /&_-]{4,}[ \t]+$/.test(prefix)) return true;
+
+  // Flattened extraction can place either a numbered top-level heading or a
+  // recognized page footer directly before the next subsection marker.
+  return (
+    findTopLevelHeadingBoundaryBeforePosition(source, markerStart, followingClauseMajor) !== null ||
+    findPlainTextPageFooterBoundaryBeforePosition(source, markerStart) !== null
+  );
 }
 
 function findClauseMarkers(source: string): ClauseMarker[] {
@@ -56,7 +106,7 @@ function findClauseMarkers(source: string): ClauseMarker[] {
     if (major > 99 || minor > 99) continue;
     if (/^[.-]\d/.test(source.slice(re.lastIndex))) continue;
     if (NON_CLAUSE_LEAD_RE.test(followingText)) continue;
-    if (!hasClauseBoundaryPrefix(source, markerStart)) continue;
+    if (!hasClauseBoundaryPrefix(source, markerStart, major)) continue;
 
     markers.push({
       number: [match[1], match[2], match[3]].filter(Boolean).join("."),
@@ -100,6 +150,10 @@ function trimTrailingPageAdornment(source: string, start: number, end: number): 
   if (formFeedIndex > 0 && /[.!?][ \t\r\n]*$/.test(raw.slice(0, formFeedIndex))) {
     return start + formFeedIndex;
   }
+
+  const footerStart = findPlainTextPageFooterBoundaryBeforePosition(source, end);
+  if (footerStart !== null && footerStart > start) return footerStart;
+
   return end;
 }
 
@@ -107,13 +161,17 @@ export function extractClauseSegments(source: string): ClauseSegment[] {
   const markers = findClauseMarkers(source);
   if (markers.length === 0) return unnumberedSegments(source, 0, source.length);
 
+  const headingBoundaries = markers.map((marker) =>
+    findTopLevelHeadingBoundaryBeforePosition(source, marker.start, Number(marker.number.split(".")[0]))
+  );
   const segments: ClauseSegment[] = [];
-  if (markers[0].start > 0) {
-    segments.push(...unnumberedSegments(source, 0, markers[0].start));
+  const firstPrefixEnd = headingBoundaries[0] ?? markers[0].start;
+  if (firstPrefixEnd > 0) {
+    segments.push(...unnumberedSegments(source, 0, firstPrefixEnd));
   }
 
   for (const [index, marker] of markers.entries()) {
-    const boundaryEnd = markers[index + 1]?.start ?? source.length;
+    const boundaryEnd = headingBoundaries[index + 1] ?? markers[index + 1]?.start ?? source.length;
     const end = trimTrailingPageAdornment(source, marker.start, boundaryEnd);
     const text = collapseSourceSlice(source.slice(marker.start, end));
     if (text) segments.push({ number: marker.number, text, start: marker.start, end });
