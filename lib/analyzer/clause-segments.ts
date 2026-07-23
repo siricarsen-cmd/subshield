@@ -33,9 +33,64 @@ const TOP_LEVEL_HEADING_SUFFIX_RE =
 // contractual sentence that merely contains the word "page."
 const PLAIN_TEXT_PAGE_FOOTER_SUFFIX_RE =
   /(^|[\r\n\f]|[.!?]["')\]]?[ \t]+)([ \t]*)(--+\s*\d+\s+of\s+\d+\s*--+[^\r\n]{0,180}\|\s*Page\s+\d+)[ \t\r\n]*$/i;
+const OUTER_ADORNMENT_HEADING_RE =
+  /^(?:(\d{1,2})\.\s+)?([A-Z][A-Z0-9 '&/(),_-]{4,})$/;
+const NUMBERED_SUBSECTION_START_RE =
+  /^(?:\u00a7{1,2}\s*)?(\d{1,2})\.(\d{1,2})(?:\.(\d{1,2}))?\s+(?=[A-Z"'(])/;
+const OPERATIVE_UPPERCASE_PROSE_RE =
+  /\b(?:SHALL|MUST|MAY|WILL|AGREES?|REQUIRES?|PROVIDES?|PROVIDED|IS|ARE)\b/;
+const OUTER_ADORNMENT_PAGE_FOOTER_RE =
+  /^--+\s*\d+\s+of\s+\d+\s*--+[^\r\n]{0,180}\|\s*Page\s+\d+$/i;
 
 function collapseSourceSlice(text: string): string {
   return text.trim().replace(/\s+/g, " ");
+}
+
+function isRecognizedLeadingHeading(prefix: string, followingClauseMajor: number): boolean {
+  const match = OUTER_ADORNMENT_HEADING_RE.exec(prefix);
+  if (!match) return false;
+
+  const topLevelMajor = match[1] ? Number(match[1]) : null;
+  if (topLevelMajor !== null && topLevelMajor !== followingClauseMajor) return false;
+
+  const headingTitle = match[2];
+  const uppercaseLetters = (headingTitle.match(/[A-Z]/g) || []).length;
+  const words = headingTitle.trim().split(/\s+/);
+  return (
+    uppercaseLetters >= 3 &&
+    words.length >= 2 &&
+    words.length <= 14 &&
+    !OPERATIVE_UPPERCASE_PROSE_RE.test(headingTitle)
+  );
+}
+
+// Returns true only when cleanQuote is an already-existing contiguous portion
+// of adornedQuote and every removed outer character is one of two narrowly
+// recognized extraction artifacts: a materially-uppercase section title
+// immediately before the clean quote's numbered subsection marker, and/or the
+// delimiter-heavy production PDF footer shape. It never creates or rewrites
+// evidence; callers may only select the independently verified cleanQuote.
+export function hasStrictOuterAdornmentRelationship(cleanQuote: string, adornedQuote: string): boolean {
+  const clean = collapseSourceSlice(cleanQuote);
+  const adorned = collapseSourceSlice(adornedQuote);
+  if (!clean || clean.length >= adorned.length) return false;
+
+  const cleanClauseMatch = NUMBERED_SUBSECTION_START_RE.exec(clean);
+  if (!cleanClauseMatch) return false;
+
+  const cleanIndex = adorned.toLowerCase().indexOf(clean.toLowerCase());
+  if (cleanIndex < 0) return false;
+
+  const prefix = adorned.slice(0, cleanIndex).trim();
+  const suffix = adorned.slice(cleanIndex + clean.length).trim();
+  if (!prefix && !suffix) return false;
+
+  const prefixIsAdornment =
+    !prefix || isRecognizedLeadingHeading(prefix, Number(cleanClauseMatch[1]));
+  const suffixIsAdornment =
+    !suffix || OUTER_ADORNMENT_PAGE_FOOTER_RE.test(suffix);
+
+  return prefixIsAdornment && suffixIsAdornment;
 }
 
 function findTopLevelHeadingBoundaryBeforePosition(

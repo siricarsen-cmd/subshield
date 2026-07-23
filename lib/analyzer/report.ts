@@ -11,7 +11,10 @@ import { extractAnchorCandidates } from "./anchors";
 import { classifyContract } from "./classify";
 import { selectDetectorFamilies, runGroundedDetectors } from "./detectors";
 import { runDeterministicDetectors, SAFE_MISSING_DOCUMENTS_REDLINE } from "./deterministic";
-import { hasUnilateralFutureCyberEvidence } from "./clause-segments";
+import {
+  hasStrictOuterAdornmentRelationship,
+  hasUnilateralFutureCyberEvidence,
+} from "./clause-segments";
 import { verifyFindings, guardIndustryLabel } from "./sanity";
 import type { AnalyzerResult, Finding, RiskLevel } from "./types";
 
@@ -105,6 +108,12 @@ const INDEMNITY_LABEL_RE = /indemnif|duty\s+to\s+defend|hold\s+harmless/i;
 const CANONICAL_FUTURE_FLOWDOWN_LABEL = "Broad Future Flowdowns / Prime Contract Control";
 const CANONICAL_FUTURE_CYBER_LABEL = "Unilateral Future Cybersecurity Requirements";
 const CANONICAL_MISSING_DOCUMENTS_LABEL = "Missing / Deferred Contract Documents";
+const OUTER_ADORNMENT_CROSS_FAMILY_LABELS = new Set([
+  normalizeForDedupe("Broad Indemnification / Duty to Defend"),
+  normalizeForDedupe("DFARS 252.204-7012 / CUI / NIST SP 800-171 Cybersecurity Flowdown"),
+  normalizeForDedupe("Short Default Cure Period / Termination Discretion"),
+  normalizeForDedupe("Broad Cybersecurity System Access / Evidence Production"),
+]);
 
 // A model can quote the exact future-flowdown trap but label it with the
 // broader structure-family title. Canonicalize only when the finding's own
@@ -163,8 +172,28 @@ function canonicalizeKnownRiskLabel(finding: Finding): Finding {
 // only collapses restatements of one clause - genuinely different clauses in
 // the same family (e.g. indemnification vs. termination, both "liability")
 // are untouched and can both surface.
-function isSameRisk(a: Finding, b: Finding): boolean {
-  if (a.familyKey && b.familyKey && a.familyKey !== b.familyKey) return false;
+function hasNarrowCrossFamilyAdornmentEquivalence(a: Finding, b: Finding): boolean {
+  const ra = normalizeForDedupe(a.regulation);
+  const rb = normalizeForDedupe(b.regulation);
+  return (
+    ra === rb &&
+    OUTER_ADORNMENT_CROSS_FAMILY_LABELS.has(ra) &&
+    (
+      hasStrictOuterAdornmentRelationship(a.foundText, b.foundText) ||
+      hasStrictOuterAdornmentRelationship(b.foundText, a.foundText)
+    )
+  );
+}
+
+function isSameRisk(a: Finding, b: Finding, allowNarrowCrossFamilyEquivalence = false): boolean {
+  if (
+    a.familyKey &&
+    b.familyKey &&
+    a.familyKey !== b.familyKey &&
+    !(allowNarrowCrossFamilyEquivalence && hasNarrowCrossFamilyAdornmentEquivalence(a, b))
+  ) {
+    return false;
+  }
 
   const qa = normalizeForDedupe(a.foundText);
   const qb = normalizeForDedupe(b.foundText);
@@ -186,15 +215,23 @@ function isSameRisk(a: Finding, b: Finding): boolean {
   return false;
 }
 
+function cleanerOuterAdornmentFinding(a: Finding, b: Finding): Finding | null {
+  if (hasStrictOuterAdornmentRelationship(a.foundText, b.foundText)) return a;
+  if (hasStrictOuterAdornmentRelationship(b.foundText, a.foundText)) return b;
+  return null;
+}
+
 // Collapses restatements of the same risk into a single finding (keeping the
 // higher-severity / more complete one) so one repeated risk - e.g. a
 // pay-if-paid clause quoted three different ways - can't crowd out distinct
 // risks like indemnification or termination out of the top findings.
-export function dedupeFindings(findings: Finding[]): Finding[] {
+export function dedupeFindings(findings: Finding[], documentText?: string): Finding[] {
   const kept: Finding[] = [];
   for (const rawFinding of findings) {
     const finding = canonicalizeKnownRiskLabel(rawFinding);
-    const dupIndex = kept.findIndex((existing) => isSameRisk(existing, finding));
+    const dupIndex = kept.findIndex((existing) =>
+      isSameRisk(existing, finding, Boolean(documentText))
+    );
     if (dupIndex === -1) {
       kept.push(finding);
       continue;
@@ -202,9 +239,30 @@ export function dedupeFindings(findings: Finding[]): Finding[] {
     const existing = kept[dupIndex];
     const findingRank = SEVERITY_RANK[finding.severity];
     const existingRank = SEVERITY_RANK[existing.severity];
-    if (findingRank > existingRank || (findingRank === existingRank && finding.foundText.length > existing.foundText.length)) {
-      kept[dupIndex] = finding;
+    const metadataWinner =
+      findingRank > existingRank ||
+      (findingRank === existingRank && finding.foundText.length > existing.foundText.length)
+        ? finding
+        : existing;
+
+    let selectedFinding = metadataWinner;
+    const cleanerFinding = cleanerOuterAdornmentFinding(existing, finding);
+    if (documentText && cleanerFinding) {
+      const independentlyVerifiedCleaner = verifyFindings(
+        [cleanerFinding],
+        documentText
+      ).verified[0];
+      if (independentlyVerifiedCleaner) {
+        const mergedFinding = {
+          ...metadataWinner,
+          foundText: independentlyVerifiedCleaner.foundText,
+        };
+        selectedFinding =
+          verifyFindings([mergedFinding], documentText).verified[0] ??
+          metadataWinner;
+      }
     }
+    kept[dupIndex] = selectedFinding;
   }
   return kept;
 }
@@ -295,7 +353,7 @@ export async function runAnalyzer(
   // of duplicating it.
   const deterministicFindings = runDeterministicDetectors(documentText);
   const { verified } = verifyFindings([...rawFindings, ...deterministicFindings], documentText);
-  const deduped = dedupeFindings(verified);
+  const deduped = dedupeFindings(verified, documentText);
 
   const { primaryTraps, secondaryConcerns } = rankFindings(deduped);
   const riskLevel = computeRiskLevel(deduped);
