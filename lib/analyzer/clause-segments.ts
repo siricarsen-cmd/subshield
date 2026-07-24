@@ -28,22 +28,52 @@ const NON_CLAUSE_LEAD_RE =
 // arbitrary "N." token can never become a boundary on its own.
 const TOP_LEVEL_HEADING_SUFFIX_RE =
   /(^|[\r\n\f]|[.!?]["')\]]?[ \t]+)([ \t]*)(\d{1,2})\.[ \t]+([A-Z][A-Z0-9 '&/(),_-]{4,})[ \t\r\n]*$/;
-// Production PDF adornment shape: delimiter-heavy "N of M" pagination plus
-// an explicit "Page N" suffix. This intentionally does not match a generic
-// contractual sentence that merely contains the word "page."
-const PLAIN_TEXT_PAGE_FOOTER_SUFFIX_RE =
-  /(^|[\r\n\f]|[.!?]["')\]]?[ \t]+)([ \t]*)(--+\s*\d+\s+of\s+\d+\s*--+[^\r\n]{0,180}\|\s*Page\s+\d+)[ \t\r\n]*$/i;
 const OUTER_ADORNMENT_HEADING_RE =
   /^(?:(\d{1,2})\.\s+)?([A-Z][A-Z0-9 '&/(),_-]{4,})$/;
 const NUMBERED_SUBSECTION_START_RE =
   /^(?:\u00a7{1,2}\s*)?(\d{1,2})\.(\d{1,2})(?:\.(\d{1,2}))?\s+(?=[A-Z"'(])/;
 const OPERATIVE_UPPERCASE_PROSE_RE =
   /\b(?:SHALL|MUST|MAY|WILL|AGREES?|REQUIRES?|PROVIDES?|PROVIDED|IS|ARE)\b/;
-const OUTER_ADORNMENT_PAGE_FOOTER_RE =
-  /^--+\s*\d+\s+of\s+\d+\s*--+[^\r\n]{0,180}\|\s*Page\s+\d+$/i;
+const STRICT_PAGE_FOOTER_BODY_MAX_LENGTH = 180;
+const STRICT_PAGE_COUNTER_RE = /--+\s*\d+\s+of\s+\d+\s*--+/gi;
+const STRICT_PAGE_FOOTER_RE = new RegExp(
+  String.raw`^--+\s*\d+\s+of\s+\d+\s*--+[\s\S]{0,${STRICT_PAGE_FOOTER_BODY_MAX_LENGTH}}\|\s*Page\s+\d+[ \t\r\n\f]*$`,
+  "i"
+);
+const STRICT_PAGE_FOOTER_LEADING_BOUNDARY_RE =
+  /(?:^|[\r\n\f]|[.!?]["')\]]?[ \t]+)[ \t]*$/;
 
 function collapseSourceSlice(text: string): string {
   return text.trim().replace(/\s+/g, " ");
+}
+
+// Production PDF adornment shape: delimiter-heavy "N of M" pagination plus
+// an explicit terminal "Page N" suffix. The bounded middle may span extracted
+// lines or a form-feed boundary, but the complete candidate must end here.
+// This intentionally rejects generic contractual "Page N" prose, a bare page
+// counter, and footer-like text followed by additional operative language.
+function isStrictPlainTextPageFooter(text: string): boolean {
+  return STRICT_PAGE_FOOTER_RE.test(text);
+}
+
+// Finds a strict footer suffix without normalizing or reconstructing source
+// text, returning the original index of its opening page-counter delimiter.
+function findStrictPlainTextPageFooterSuffixStart(text: string): number | null {
+  const counterRe = new RegExp(STRICT_PAGE_COUNTER_RE.source, STRICT_PAGE_COUNTER_RE.flags);
+  let counterMatch: RegExpExecArray | null;
+  let latestFooterStart: number | null = null;
+
+  while ((counterMatch = counterRe.exec(text)) !== null) {
+    const footerStart = counterMatch.index;
+    if (
+      STRICT_PAGE_FOOTER_LEADING_BOUNDARY_RE.test(text.slice(0, footerStart)) &&
+      isStrictPlainTextPageFooter(text.slice(footerStart))
+    ) {
+      latestFooterStart = footerStart;
+    }
+  }
+
+  return latestFooterStart;
 }
 
 function isRecognizedLeadingHeading(prefix: string, followingClauseMajor: number): boolean {
@@ -88,7 +118,7 @@ export function hasStrictOuterAdornmentRelationship(cleanQuote: string, adornedQ
   const prefixIsAdornment =
     !prefix || isRecognizedLeadingHeading(prefix, Number(cleanClauseMatch[1]));
   const suffixIsAdornment =
-    !suffix || OUTER_ADORNMENT_PAGE_FOOTER_RE.test(suffix);
+    !suffix || isStrictPlainTextPageFooter(suffix);
 
   return prefixIsAdornment && suffixIsAdornment;
 }
@@ -113,11 +143,10 @@ function findTopLevelHeadingBoundaryBeforePosition(
 function findPlainTextPageFooterBoundaryBeforePosition(source: string, markerStart: number): number | null {
   const prefixStart = Math.max(0, markerStart - 500);
   const prefix = source.slice(prefixStart, markerStart);
-  const match = PLAIN_TEXT_PAGE_FOOTER_SUFFIX_RE.exec(prefix);
-  if (!match) return null;
+  const footerStart = findStrictPlainTextPageFooterSuffixStart(prefix);
+  if (footerStart === null) return null;
 
-  const footerStart = match.index + match[1].length + match[2].length;
-  if (footerStart <= 0 || !/[.!?]["')\]]?[ \t\r\n]*$/.test(prefix.slice(0, footerStart))) {
+  if (footerStart <= 0 || !/[.!?]["')\]]?[ \t\r\n\f]*$/.test(prefix.slice(0, footerStart))) {
     return null;
   }
 
