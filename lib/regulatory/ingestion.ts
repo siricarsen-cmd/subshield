@@ -61,9 +61,17 @@ const BLOCK_TAGS =
   /<\/?(?:address|article|aside|blockquote|br|dd|div|dl|dt|fieldset|figcaption|figure|footer|form|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|table|tbody|td|tfoot|th|thead|tr|ul)(?:\s[^>]*)?>/gi;
 const XML_BLOCK_TAGS =
   /<\/?(?:DIV\d*|FP|HD|P|PSPACE|SECTION|SUBPART|SUBJECT|EAR|EXTRACT|NOTE|AUTH|SOURCE|SECAUTH|APPENDIX|GPOTABLE|ROW|ENT)(?:\s[^>]*)?>/gi;
+const SHA256_RE = /^sha256:[a-f0-9]{64}$/;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function sha256(value: Uint8Array | string): string {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+}
+
+function decodeCodePoint(codePoint: number, fallback: string): string {
+  return Number.isInteger(codePoint) && codePoint >= 0 && codePoint <= 0x10ffff
+    ? String.fromCodePoint(codePoint)
+    : fallback;
 }
 
 function decodeEntities(value: string): string {
@@ -78,15 +86,24 @@ function decodeEntities(value: string): string {
 
   return value.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (entity, token: string) => {
     if (token.startsWith("#x") || token.startsWith("#X")) {
-      const codePoint = Number.parseInt(token.slice(2), 16);
-      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : entity;
+      return decodeCodePoint(Number.parseInt(token.slice(2), 16), entity);
     }
     if (token.startsWith("#")) {
-      const codePoint = Number.parseInt(token.slice(1), 10);
-      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : entity;
+      return decodeCodePoint(Number.parseInt(token.slice(1), 10), entity);
     }
     return namedEntities[token.toLowerCase()] ?? entity;
   });
+}
+
+function validateAsOfDate(value: string): void {
+  if (value === "current") return;
+  if (!ISO_DATE_RE.test(value)) {
+    throw new Error(`Invalid eCFR as-of date: ${value}`);
+  }
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
+    throw new Error(`Invalid eCFR as-of date: ${value}`);
+  }
 }
 
 export function normalizeRegulatoryText(value: string): string {
@@ -140,13 +157,14 @@ export function resolveRegulatoryRetrievalUrl(
   source: RegulatorySourceCatalogEntry,
   asOfDate = "current"
 ): string {
+  validateAsOfDate(asOfDate);
   const canonical = new URL(source.canonicalUrl);
   if (canonical.hostname.endsWith("ecfr.gov")) {
     const title = canonical.pathname.match(/\/title-(\d+)(?:\/|$)/)?.[1];
     const part = canonical.pathname.match(/\/part-(\d+(?:\.\d+)?)(?:\/|$)/)?.[1];
     if (title) {
       const endpoint = new URL(
-        `/api/versioner/v1/full/${encodeURIComponent(asOfDate)}/title-${title}.xml`,
+        `/api/versioner/v1/full/${asOfDate}/title-${title}.xml`,
         "https://www.ecfr.gov"
       );
       if (part) endpoint.searchParams.set("part", part);
@@ -249,18 +267,45 @@ async function fetchApprovedUrl(
 }
 
 async function readBoundedBody(response: Response, maxResponseBytes: number): Promise<Uint8Array> {
-  const declaredLength = Number(response.headers.get("content-length"));
+  if (!Number.isInteger(maxResponseBytes) || maxResponseBytes <= 0) {
+    throw new Error(`Invalid regulatory response-size limit: ${maxResponseBytes}`);
+  }
+
+  const contentLength = response.headers.get("content-length");
+  const declaredLength = contentLength === null ? Number.NaN : Number(contentLength);
   if (Number.isFinite(declaredLength) && declaredLength > maxResponseBytes) {
     throw new Error(
       `Regulatory source declared ${declaredLength} bytes, above the ${maxResponseBytes}-byte limit`
     );
   }
 
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  if (bytes.byteLength > maxResponseBytes) {
-    throw new Error(
-      `Regulatory source returned ${bytes.byteLength} bytes, above the ${maxResponseBytes}-byte limit`
-    );
+  if (!response.body) return new Uint8Array();
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxResponseBytes) {
+        await reader.cancel("Regulatory source exceeded the response-size limit");
+        throw new Error(
+          `Regulatory source returned more than the ${maxResponseBytes}-byte limit`
+        );
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
   }
   return bytes;
 }
@@ -386,14 +431,54 @@ export function hasValidSnapshotChecksum(snapshot: RegulatorySourceSnapshot): bo
   return snapshot.checksum === sha256(snapshot.text);
 }
 
+export function getRegulatorySnapshotValidationErrors(
+  snapshot: RegulatorySourceSnapshot
+): string[] {
+  const errors: string[] = [];
+  const source = getRegulatorySource(snapshot.sourceId);
+  if (!source) errors.push(`unknown source ID: ${snapshot.sourceId}`);
+  if (source && snapshot.canonicalUrl !== source.canonicalUrl) {
+    errors.push("canonical URL does not match the approved source catalog");
+  }
+  if (!isApprovedOfficialUrl(snapshot.canonicalUrl)) errors.push("canonical URL is not approved");
+  if (!isApprovedOfficialUrl(snapshot.retrieval.requestedUrl)) errors.push("requested URL is not approved");
+  if (!isApprovedOfficialUrl(snapshot.retrieval.finalUrl)) errors.push("final URL is not approved");
+  if (snapshot.retrieval.status < 200 || snapshot.retrieval.status >= 300) {
+    errors.push(`retrieval status is not successful: ${snapshot.retrieval.status}`);
+  }
+  if (snapshot.retrievedAt !== snapshot.retrieval.retrievedAt) {
+    errors.push("snapshot and retrieval timestamps do not match");
+  }
+  if (!SHA256_RE.test(snapshot.checksum) || !hasValidSnapshotChecksum(snapshot)) {
+    errors.push("normalized-text checksum is invalid");
+  }
+  if (!SHA256_RE.test(snapshot.rawChecksum)) errors.push("raw checksum is invalid");
+  if (!snapshot.normalizationVersion.trim()) errors.push("normalization version is missing");
+  if (snapshot.text.length < 40) errors.push("normalized source text is suspiciously short");
+  if (!Number.isInteger(snapshot.retrieval.rawByteLength) || snapshot.retrieval.rawByteLength < 0) {
+    errors.push("raw byte length is invalid");
+  }
+  for (const hop of snapshot.retrieval.redirectChain) {
+    if (!isApprovedOfficialUrl(hop.fromUrl) || !isApprovedOfficialUrl(hop.toUrl)) {
+      errors.push("redirect provenance contains an unapproved URL");
+      break;
+    }
+    if (hop.status < 300 || hop.status >= 400) {
+      errors.push("redirect provenance contains a non-redirect status");
+      break;
+    }
+  }
+  if (snapshot.reviewStatus === "approved" && (!snapshot.reviewedBy || !snapshot.reviewedAt)) {
+    errors.push("approved snapshot lacks reviewer provenance");
+  }
+  return errors;
+}
+
 export function canUseSnapshotForClientCitation(snapshot: RegulatorySourceSnapshot): boolean {
   const source = getRegulatorySource(snapshot.sourceId);
   return Boolean(
     source?.supportsClientCitation &&
       snapshot.reviewStatus === "approved" &&
-      hasValidSnapshotChecksum(snapshot) &&
-      isApprovedOfficialUrl(snapshot.canonicalUrl) &&
-      isApprovedOfficialUrl(snapshot.retrieval.requestedUrl) &&
-      isApprovedOfficialUrl(snapshot.retrieval.finalUrl)
+      getRegulatorySnapshotValidationErrors(snapshot).length === 0
   );
 }
