@@ -17,6 +17,7 @@ export interface RegulatoryAnalysisDateContext {
   basis: RegulatoryAnalysisDateBasis;
   authority: RegulatoryAnalysisDateAuthority;
   evidenceQuotes: string[];
+  evidenceDocumentText?: string;
 }
 
 export type RegulatoryVersionSelectionStatus =
@@ -62,6 +63,36 @@ interface ParsedVersionCandidate extends RegulatoryVersionCandidate {
 }
 
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_DATE_IN_TEXT_RE = /\b\d{4}-\d{2}-\d{2}\b/g;
+const SLASH_DATE_IN_TEXT_RE = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g;
+const MONTH_DATE_IN_TEXT_RE =
+  /\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?\s+(\d{1,2}),\s+(\d{4})\b/gi;
+const MONTHS: Readonly<Record<string, number>> = {
+  january: 1,
+  jan: 1,
+  february: 2,
+  feb: 2,
+  march: 3,
+  mar: 3,
+  april: 4,
+  apr: 4,
+  may: 5,
+  june: 6,
+  jun: 6,
+  july: 7,
+  jul: 7,
+  august: 8,
+  aug: 8,
+  september: 9,
+  sep: 9,
+  sept: 9,
+  october: 10,
+  oct: 10,
+  november: 11,
+  nov: 11,
+  december: 12,
+  dec: 12,
+};
 const ANALYSIS_DATE_BASES = new Set<string>([
   "solicitation-issued",
   "proposal-due",
@@ -74,6 +105,11 @@ const ANALYSIS_DATE_AUTHORITIES = new Set<string>([
   "contract-evidence",
   "user-provided",
 ]);
+
+function formatDateOnly(year: number, month: number, day: number): string | undefined {
+  const value = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return parseDateOnly(value) === undefined ? undefined : value;
+}
 
 function parseDateOnly(value: string): number | undefined {
   if (!DATE_ONLY_RE.test(value)) return undefined;
@@ -88,6 +124,31 @@ function parseDateOnly(value: string): number | undefined {
     return undefined;
   }
   return timestamp;
+}
+
+function normalizeEvidenceText(value: string): string {
+  return value
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function datesInEvidenceQuote(quote: string): string[] {
+  const dates = new Set<string>();
+  for (const match of quote.matchAll(ISO_DATE_IN_TEXT_RE)) {
+    if (parseDateOnly(match[0]) !== undefined) dates.add(match[0]);
+  }
+  for (const match of quote.matchAll(SLASH_DATE_IN_TEXT_RE)) {
+    const formatted = formatDateOnly(Number(match[3]), Number(match[1]), Number(match[2]));
+    if (formatted) dates.add(formatted);
+  }
+  for (const match of quote.matchAll(MONTH_DATE_IN_TEXT_RE)) {
+    const month = MONTHS[match[1].replace(/\.$/, "").toLowerCase()];
+    const formatted = formatDateOnly(Number(match[3]), month, Number(match[2]));
+    if (formatted) dates.add(formatted);
+  }
+  return [...dates];
 }
 
 function normalizeContext(value: unknown): RegulatoryAnalysisDateContext {
@@ -107,6 +168,10 @@ function normalizeContext(value: unknown): RegulatoryAnalysisDateContext {
       ? (record.authority as RegulatoryAnalysisDateAuthority)
       : "user-provided",
     evidenceQuotes,
+    evidenceDocumentText:
+      typeof record.evidenceDocumentText === "string"
+        ? record.evidenceDocumentText
+        : undefined,
   };
 }
 
@@ -128,6 +193,30 @@ function baseResult(
     explanation,
     ...overrides,
   };
+}
+
+function validateContractEvidence(context: RegulatoryAnalysisDateContext): string[] {
+  const errors: string[] = [];
+  if (!context.evidenceDocumentText?.trim()) {
+    errors.push("Contract-derived analysis date requires the analyzed document text");
+    return errors;
+  }
+  const normalizedDocument = normalizeEvidenceText(context.evidenceDocumentText);
+  const normalizedQuotes = context.evidenceQuotes.map(normalizeEvidenceText);
+
+  for (const [index, quote] of normalizedQuotes.entries()) {
+    if (!normalizedDocument.includes(quote)) {
+      errors.push(`Analysis-date evidence quote ${index + 1} is not present in the analyzed document`);
+    }
+  }
+
+  const dates = context.evidenceQuotes.flatMap(datesInEvidenceQuote);
+  if (!dates.includes(context.asOfDate)) {
+    errors.push(
+      `No verified analysis-date evidence quote contains the stated date ${context.asOfDate}`
+    );
+  }
+  return errors;
 }
 
 function validateContext(
@@ -161,6 +250,12 @@ function validateContext(
   } else if (record.evidenceQuotes.some((quote) => typeof quote !== "string")) {
     errors.push("Analysis-date evidence quotes must contain only strings");
   }
+  if (
+    record.evidenceDocumentText !== undefined &&
+    typeof record.evidenceDocumentText !== "string"
+  ) {
+    errors.push("Analyzed document text must be a string when supplied");
+  }
 
   if (context.authority === "contract-evidence") {
     if (
@@ -170,9 +265,16 @@ function validateContext(
       errors.push(
         "A contract-derived analysis date requires at least one exact nonblank evidence quote"
       );
+    } else {
+      errors.push(...validateContractEvidence(context));
     }
-  } else if (context.evidenceQuotes.some((quote) => !quote.trim())) {
-    errors.push("Analysis-date evidence quotes must not be blank");
+  } else {
+    if (context.evidenceQuotes.some((quote) => !quote.trim())) {
+      errors.push("Analysis-date evidence quotes must not be blank");
+    }
+    if (context.evidenceQuotes.length > 0 || context.evidenceDocumentText?.trim()) {
+      errors.push("A user-provided date must not be represented as verified contract evidence");
+    }
   }
   if (context.basis === "user-specified" && context.authority !== "user-provided") {
     errors.push("A user-specified date must identify the user as its authority");
@@ -196,6 +298,14 @@ function parseCandidate(snapshot: RegulatorySourceSnapshot): {
   const effectiveDay = parseDateOnly(snapshot.effectiveDate);
   if (effectiveDay === undefined) {
     return { error: `${snapshot.snapshotId}: effective date is invalid` };
+  }
+  if (
+    snapshot.historicalStatus === "superseded" &&
+    !snapshot.expirationOrSupersededDate
+  ) {
+    return {
+      error: `${snapshot.snapshotId}: superseded snapshot lacks its first non-effective date`,
+    };
   }
 
   let endExclusiveDay: number | undefined;
