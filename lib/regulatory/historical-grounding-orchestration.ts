@@ -209,11 +209,6 @@ function citationPackageMismatchReasons(
   if (citationPackage.customerFacingStatus !== "benchmark-only") {
     reasons.push("Citation package is not benchmark-only");
   }
-  if (citationPackage.sourceCoverage !== "complete") {
-    reasons.push(
-      `Citation package source coverage is ${citationPackage.sourceCoverage}; complete coverage is required`
-    );
-  }
 
   const citationSnapshotIdsBySource = new Map<string, Set<string>>();
   for (const citation of citationPackage.citations) {
@@ -279,6 +274,16 @@ export function orchestrateHistoricalRegulatoryGrounding(
   }
 
   const citationPackageErrors = validateRegulatoryCitationPackage(request.citationPackage);
+  if (request.citationPackage.sourceCoverage !== "complete") {
+    citationPackageErrors.push(
+      `Historical grounding requires complete citation coverage; observed ${request.citationPackage.sourceCoverage}`
+    );
+  }
+  if (request.citationPackage.uncoveredSourceIds.length > 0) {
+    citationPackageErrors.push(
+      `Historical grounding citation package leaves sources uncovered: ${request.citationPackage.uncoveredSourceIds.join(", ")}`
+    );
+  }
   if (citationPackageErrors.length > 0) {
     return result(
       request,
