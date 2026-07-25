@@ -5,7 +5,7 @@ on:
     paths:
       - "lib/regulatory/**"
       - "lib/analyzer/types.ts"
-      - "docs/accuracy/regulatory-source-registry-v1.md"
+      - "docs/accuracy/regulatory-*.md"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/regulatory-grounding.yml"
@@ -34,7 +34,13 @@ jobs:
         run: npm ci
 
       - name: Validate official source catalog
-        run: npm run test:regulatory
+        run: npm run test:regulatory:catalog
+
+      - name: Validate controlled source ingestion
+        run: npm run test:regulatory:ingestion
+
+      - name: Validate applicability mappings and source review
+        run: npm run test:regulatory:applicability
 
       - name: Preserve analyzer accuracy benchmarks
         run: npm run test:accuracy
