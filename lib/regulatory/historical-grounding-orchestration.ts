@@ -8,7 +8,6 @@ import {
   type ContractDateResolution,
 } from "./contract-date-evidence";
 import {
-  getHistoricalGroundingPolicy,
   validateHistoricalGroundingPolicies,
   type ContractGroundedDateBasis,
   type HistoricalSourceDatePolicy,
@@ -18,6 +17,12 @@ import {
   selectApprovedRegulatorySnapshotForDate,
   type ApprovedRegulatorySnapshotSelection,
 } from "./historical-selection";
+import {
+  compareWithRegisteredRegulatoryValue,
+  getRegisteredHistoricalGroundingPolicy,
+  getRegisteredRegulatoryMapping,
+  validateRegulatoryRegistryIntegrity,
+} from "./registry-integrity";
 import type { RegulatorySourceSnapshot } from "./types";
 
 export type HistoricalSourceGroundingStatus =
@@ -39,6 +44,7 @@ export interface HistoricalSourceGroundingDecision {
 
 export type HistoricalGroundingSelectionStatus =
   | "ready"
+  | "invalid-mapping"
   | "missing-policy"
   | "invalid-policy"
   | "date-unresolved"
@@ -178,61 +184,6 @@ function validatePolicyForMapping(
     }
   }
   return errors;
-}
-
-function suppliedPolicyMismatchReasons(
-  registered: RegulatoryHistoricalGroundingPolicy,
-  supplied: RegulatoryHistoricalGroundingPolicy
-): string[] {
-  const reasons: string[] = [];
-  if (supplied.policyId !== registered.policyId) {
-    reasons.push(
-      `Supplied policy ID differs from the registered policy: expected ${registered.policyId}, observed ${supplied.policyId}`
-    );
-  }
-  if (supplied.mappingId !== registered.mappingId) {
-    reasons.push(
-      `Supplied policy mapping differs from the registered policy: expected ${registered.mappingId}, observed ${supplied.mappingId}`
-    );
-  }
-  if (supplied.customerFacingStatus !== registered.customerFacingStatus) {
-    reasons.push("Supplied policy customer-facing status differs from the registered policy");
-  }
-  if (supplied.sourcePolicies.length !== registered.sourcePolicies.length) {
-    reasons.push(
-      `Supplied policy source count differs from the registered policy: expected ${registered.sourcePolicies.length}, observed ${supplied.sourcePolicies.length}`
-    );
-  }
-
-  const count = Math.max(registered.sourcePolicies.length, supplied.sourcePolicies.length);
-  for (let index = 0; index < count; index++) {
-    const expected = registered.sourcePolicies[index];
-    const observed = supplied.sourcePolicies[index];
-    if (!expected) {
-      reasons.push(`Supplied policy contains an unregistered source at position ${index + 1}`);
-      continue;
-    }
-    if (!observed) {
-      reasons.push(`Supplied policy omits registered source ${expected.sourceId}`);
-      continue;
-    }
-    if (observed.sourceId !== expected.sourceId) {
-      reasons.push(
-        `Supplied policy source order or identity differs at position ${index + 1}: expected ${expected.sourceId}, observed ${observed.sourceId}`
-      );
-    }
-    if (observed.dateBasis !== expected.dateBasis) {
-      reasons.push(
-        `Supplied policy date basis differs from the registered policy for ${expected.sourceId}: expected ${expected.dateBasis}, observed ${observed.dateBasis}`
-      );
-    }
-    if (observed.rationale !== expected.rationale) {
-      reasons.push(
-        `Supplied policy rationale differs from the registered policy for ${expected.sourceId}`
-      );
-    }
-  }
-  return uniqueNonblank(reasons);
 }
 
 function resolveDateForPolicy(
@@ -414,20 +365,49 @@ function citationPackageMismatchReasons(
 export function selectHistoricalRegulatorySources(
   request: HistoricalGroundingSelectionRequest
 ): HistoricalGroundingSelectionResult {
-  const registeredPolicy = getHistoricalGroundingPolicy(request.mapping.mappingId);
-  if (!registeredPolicy) {
+  const mappingEntry = getRegisteredRegulatoryMapping(request.mapping.mappingId);
+  if (!mappingEntry) {
+    return selectionResult(
+      request,
+      "invalid-mapping",
+      [`No registered regulatory mapping exists for ${request.mapping.mappingId}`]
+    );
+  }
+  const mappingIntegrityErrors = compareWithRegisteredRegulatoryValue(
+    "mapping",
+    request.mapping.mappingId,
+    request.mapping
+  );
+  if (mappingIntegrityErrors.length > 0) {
+    return selectionResult(
+      request,
+      "invalid-mapping",
+      mappingIntegrityErrors
+    );
+  }
+  const registeredMapping = mappingEntry.value as RegulatoryApplicabilityMapping;
+
+  const policyEntry = getRegisteredHistoricalGroundingPolicy(request.mapping.mappingId);
+  if (!policyEntry) {
     return selectionResult(
       request,
       "missing-policy",
       [`No historical grounding policy exists for mapping ${request.mapping.mappingId}`]
     );
   }
-
+  const registeredPolicy = policyEntry.value as RegulatoryHistoricalGroundingPolicy;
   const suppliedPolicyErrors = request.policy
-    ? suppliedPolicyMismatchReasons(registeredPolicy, request.policy)
+    ? compareWithRegisteredRegulatoryValue(
+        "historical-policy",
+        request.mapping.mappingId,
+        request.policy
+      )
     : [];
-  const globalPolicyErrors = validateHistoricalGroundingPolicies();
-  const mappingPolicyErrors = validatePolicyForMapping(request.mapping, registeredPolicy);
+  const globalPolicyErrors = [
+    ...validateHistoricalGroundingPolicies(),
+    ...validateRegulatoryRegistryIntegrity(),
+  ];
+  const mappingPolicyErrors = validatePolicyForMapping(registeredMapping, registeredPolicy);
   const policyErrors = uniqueNonblank([
     ...globalPolicyErrors,
     ...mappingPolicyErrors,
@@ -525,8 +505,19 @@ export function orchestrateHistoricalRegulatoryGrounding(
     );
   }
 
+  const registeredMapping = getRegisteredRegulatoryMapping(request.mapping.mappingId)
+    ?.value as RegulatoryApplicabilityMapping | undefined;
+  if (!registeredMapping) {
+    return orchestrationResult(
+      request,
+      "invalid-mapping",
+      [`No registered regulatory mapping exists for ${request.mapping.mappingId}`],
+      selection.sourceDecisions,
+      selection.policyId
+    );
+  }
   const mismatchReasons = citationPackageMismatchReasons(
-    request.mapping,
+    registeredMapping,
     request.citationPackage,
     selection.sourceDecisions
   );
