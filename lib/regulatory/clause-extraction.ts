@@ -61,7 +61,6 @@ function lineNumberAt(text: string, offset: number): number {
 }
 
 function includesAnchor(text: string, anchor: string): boolean {
-  whitespaceFlexiblePattern(anchor).lastIndex = 0;
   return whitespaceFlexiblePattern(anchor).test(text);
 }
 
