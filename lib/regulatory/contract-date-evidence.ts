@@ -111,7 +111,12 @@ const DATE_RULES: readonly DateRule[] = [
   {
     basis: "performance-started",
     anchor:
-      /\b(?:period\s+of\s+performance|performance\s+start\s+date|start\s+of\s+performance|commencement\s+date|notice\s+to\s+proceed\s+date)\b/i,
+      /\bperiod\s+of\s+performance\b\s*(?::|(?:begins?|starts?|commences?|from)\b)/i,
+  },
+  {
+    basis: "performance-started",
+    anchor:
+      /\b(?:performance\s+start\s+date|start\s+of\s+performance|commencement\s+date|notice\s+to\s+proceed\s+date)\b/i,
   },
 ];
 
