@@ -55,13 +55,17 @@ function entryById(
   label: string
 ): RegulatorySnapshotManifestEntry {
   const entry = entries.find((candidate) => candidate.snapshotId === snapshotId);
-  if (!entry) throw new Error(`${label} snapshot is not present in the controlled manifest: ${snapshotId}`);
+  if (!entry) {
+    throw new Error(`${label} snapshot is not present in the controlled manifest: ${snapshotId}`);
+  }
   return entry;
 }
 
 function exactInstant(value: string, label: string): number {
   const parsed = new Date(value).getTime();
-  if (!Number.isFinite(parsed)) throw new Error(`${label} is not a valid stored retrieval instant`);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`${label} is not a valid stored retrieval instant`);
+  }
   return parsed;
 }
 
@@ -84,6 +88,19 @@ function previousApprovedEntry(
     )[0];
 }
 
+function newerApprovedEntries(
+  entries: readonly RegulatorySnapshotManifestEntry[],
+  candidateEntry: RegulatorySnapshotManifestEntry
+): RegulatorySnapshotManifestEntry[] {
+  const candidateTime = exactInstant(candidateEntry.retrievedAt, "Candidate retrievedAt");
+  return entries.filter(
+    (entry) =>
+      entry.reviewStatus === "approved" &&
+      entry.snapshotId !== candidateEntry.snapshotId &&
+      exactInstant(entry.retrievedAt, "Approved snapshot retrievedAt") > candidateTime
+  );
+}
+
 function assertNoPendingReviewProvenance(
   entry: RegulatorySnapshotManifestEntry,
   snapshot: RegulatorySourceSnapshot
@@ -104,7 +121,10 @@ function assertNoPendingReviewProvenance(
 }
 
 function verificationPayload(
-  pair: Omit<VerifiedStoredRegulatoryUpdatePair, "verificationChecksum" | "baseline" | "candidate">
+  pair: Omit<
+    VerifiedStoredRegulatoryUpdatePair,
+    "verificationChecksum" | "baseline" | "candidate"
+  >
 ): Record<string, unknown> {
   return {
     verificationVersion: pair.verificationVersion,
@@ -121,7 +141,9 @@ function verificationPayload(
 export function isVerifiedStoredRegulatoryUpdatePair(
   value: unknown
 ): value is VerifiedStoredRegulatoryUpdatePair {
-  if (!value || typeof value !== "object" || !VERIFIED_PAIRS.has(value as object)) return false;
+  if (!value || typeof value !== "object" || !VERIFIED_PAIRS.has(value as object)) {
+    return false;
+  }
   const pair = value as VerifiedStoredRegulatoryUpdatePair;
   if (pair.verificationVersion !== 1) return false;
   if (pair.baseline.sourceId !== pair.sourceId || pair.candidate.sourceId !== pair.sourceId) {
@@ -140,7 +162,8 @@ export function isVerifiedStoredRegulatoryUpdatePair(
     return false;
   }
   return (
-    fingerprintRegulatoryRegistryValue(verificationPayload(pair)) === pair.verificationChecksum
+    fingerprintRegulatoryRegistryValue(verificationPayload(pair)) ===
+    pair.verificationChecksum
   );
 }
 
@@ -164,9 +187,15 @@ export async function loadVerifiedStoredRegulatoryUpdatePair(
     );
   }
 
-  const candidateEntry = entryById(manifest.snapshots, selectedCandidateId, "Update candidate");
+  const candidateEntry = entryById(
+    manifest.snapshots,
+    selectedCandidateId,
+    "Update candidate"
+  );
   if (candidateEntry.reviewStatus === "rejected") {
-    throw new Error(`Rejected stored regulatory snapshot cannot be an update candidate: ${candidateEntry.snapshotId}`);
+    throw new Error(
+      `Rejected stored regulatory snapshot cannot be an update candidate: ${candidateEntry.snapshotId}`
+    );
   }
   if (
     candidateEntry.reviewStatus !== "pending" &&
@@ -176,6 +205,19 @@ export async function loadVerifiedStoredRegulatoryUpdatePair(
       `Stored regulatory candidate has an unsupported review status: ${String(candidateEntry.reviewStatus)}`
     );
   }
+
+  const newerApproved = newerApprovedEntries(manifest.snapshots, candidateEntry);
+  if (newerApproved.length > 0) {
+    const newest = [...newerApproved].sort(
+      (left, right) =>
+        exactInstant(right.retrievedAt, "Approved snapshot retrievedAt") -
+        exactInstant(left.retrievedAt, "Approved snapshot retrievedAt")
+    )[0];
+    throw new Error(
+      `Stored regulatory candidate predates a retained approved snapshot and cannot create a rollback proposal: candidate ${candidateEntry.snapshotId}, newer approved ${newest.snapshotId}`
+    );
+  }
+
   const baselineEntry = previousApprovedEntry(manifest.snapshots, candidateEntry);
   if (!baselineEntry) {
     throw new Error(
@@ -205,7 +247,9 @@ export async function loadVerifiedStoredRegulatoryUpdatePair(
   }
   assertNoPendingReviewProvenance(candidateEntry, candidate);
   if (candidate.reviewStatus === "approved" && !canUseSnapshotForClientCitation(candidate)) {
-    throw new Error(`Approved stored regulatory candidate is not citation eligible: ${candidate.snapshotId}`);
+    throw new Error(
+      `Approved stored regulatory candidate is not citation eligible: ${candidate.snapshotId}`
+    );
   }
 
   const baselineTime = exactInstant(baseline.retrievedAt, "Baseline retrievedAt");
