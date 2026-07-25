@@ -7,32 +7,44 @@ import {
 } from "./citation-package";
 import type { RegulatoryExcerptRequest } from "./clause-extraction";
 import {
-  orchestrateHistoricalRegulatoryGrounding,
-  type HistoricalGroundingOrchestrationRequest,
-  type HistoricalGroundingOrchestrationResult,
+  selectHistoricalRegulatorySources,
+  type HistoricalGroundingSelectionRequest,
+  type HistoricalGroundingSelectionResult,
 } from "./historical-grounding-orchestration";
 import { REGULATORY_FULL_BENCHMARK_CITATION_PACKAGES } from "./source-coverage-citation-packages";
 import type { RegulatorySourceSnapshot } from "./types";
 
 export type HistoricalCitationRegenerationStatus =
   | "ready"
-  | "orchestration-unresolved"
+  | "selection-unresolved"
   | "registered-template-missing"
   | "registered-template-invalid"
   | "anchor-drift"
-  | "regenerated-package-invalid"
-  | "registered-excerpt-mismatch";
+  | "regenerated-package-invalid";
+
+export type SuppliedPackageComparisonStatus =
+  | "not-supplied"
+  | "matches-regenerated"
+  | "differs-from-regenerated";
 
 export interface HistoricalCitationRegenerationRequest
-  extends HistoricalGroundingOrchestrationRequest {}
+  extends HistoricalGroundingSelectionRequest {
+  /**
+   * Optional package to compare after regeneration. It never controls source
+   * selection or blocks generation of the historically correct package.
+   */
+  citationPackage?: RegulatoryCitationPackage;
+}
 
 export interface HistoricalCitationRegenerationResult {
   status: HistoricalCitationRegenerationStatus;
   mappingId: string;
   registeredTemplatePackageId?: string;
-  orchestration: HistoricalGroundingOrchestrationResult;
+  selection: HistoricalGroundingSelectionResult;
   regeneratedPackage?: RegulatoryCitationPackage;
   selectedSnapshotIds: string[];
+  suppliedPackageComparison: SuppliedPackageComparisonStatus;
+  suppliedPackageDifferences: string[];
   refusalReasons: string[];
   customerFacingStatus: "benchmark-only";
 }
@@ -43,19 +55,27 @@ function uniqueNonblank(values: readonly string[]): string[] {
 
 function result(
   request: HistoricalCitationRegenerationRequest,
-  orchestration: HistoricalGroundingOrchestrationResult,
+  selection: HistoricalGroundingSelectionResult,
   status: HistoricalCitationRegenerationStatus,
   refusalReasons: readonly string[],
   registeredTemplatePackageId?: string,
-  regeneratedPackage?: RegulatoryCitationPackage
+  regeneratedPackage?: RegulatoryCitationPackage,
+  suppliedPackageDifferences: readonly string[] = []
 ): HistoricalCitationRegenerationResult {
+  const differences = uniqueNonblank(suppliedPackageDifferences);
   return {
     status,
     mappingId: request.mapping.mappingId,
     registeredTemplatePackageId,
-    orchestration,
+    selection,
     regeneratedPackage,
-    selectedSnapshotIds: [...orchestration.selectedSnapshotIds],
+    selectedSnapshotIds: [...selection.selectedSnapshotIds],
+    suppliedPackageComparison: request.citationPackage
+      ? differences.length === 0
+        ? "matches-regenerated"
+        : "differs-from-regenerated"
+      : "not-supplied",
+    suppliedPackageDifferences: differences,
     refusalReasons: uniqueNonblank(refusalReasons),
     customerFacingStatus: "benchmark-only",
   };
@@ -108,11 +128,11 @@ export function registeredHistoricalCitationRequestForMapping(
   };
 }
 
-function selectedSnapshotsFromOrchestration(
-  orchestration: HistoricalGroundingOrchestrationResult
+function selectedSnapshotsFromSelection(
+  selection: HistoricalGroundingSelectionResult
 ): Readonly<Record<string, RegulatorySourceSnapshot>> {
   const entries: Array<[string, RegulatorySourceSnapshot]> = [];
-  for (const decision of orchestration.sourceDecisions) {
+  for (const decision of selection.sourceDecisions) {
     const snapshot = decision.versionSelection?.selectedSnapshot;
     if (decision.status === "selected" && snapshot) {
       entries.push([decision.sourceId, snapshot]);
@@ -158,11 +178,64 @@ function registeredTemplateErrors(
   return errors;
 }
 
-function registeredExcerptMismatchReasons(
+function suppliedPackageDifferences(
   supplied: RegulatoryCitationPackage,
   regenerated: RegulatoryCitationPackage
 ): string[] {
-  const reasons: string[] = [];
+  const reasons: string[] = validateRegulatoryCitationPackage(supplied).map(
+    (error) => `Supplied package validation: ${error}`
+  );
+  const packageFields: Array<[string, unknown, unknown]> = [
+    ["mapping ID", regenerated.mappingId, supplied.mappingId],
+    ["fixture ID", regenerated.fixtureId, supplied.fixtureId],
+    ["topic", regenerated.topic, supplied.topic],
+    [
+      "contractual imposition status",
+      regenerated.contractualImpositionStatus,
+      supplied.contractualImpositionStatus,
+    ],
+    [
+      "regulatory applicability status",
+      regenerated.regulatoryApplicabilityStatus,
+      supplied.regulatoryApplicabilityStatus,
+    ],
+    ["comparison status", regenerated.comparisonStatus, supplied.comparisonStatus],
+    [
+      "contract evidence quotes",
+      JSON.stringify(regenerated.contractEvidenceQuotes),
+      JSON.stringify(supplied.contractEvidenceQuotes),
+    ],
+    [
+      "supporting facts",
+      JSON.stringify(regenerated.supportingFacts),
+      JSON.stringify(supplied.supportingFacts),
+    ],
+    ["missing facts", JSON.stringify(regenerated.missingFacts), JSON.stringify(supplied.missingFacts)],
+    [
+      "prohibited inferences",
+      JSON.stringify(regenerated.prohibitedInferences),
+      JSON.stringify(supplied.prohibitedInferences),
+    ],
+    [
+      "recommended document requests",
+      JSON.stringify(regenerated.recommendedDocumentRequests),
+      JSON.stringify(supplied.recommendedDocumentRequests),
+    ],
+    ["reviewer conclusion", regenerated.reviewerConclusion, supplied.reviewerConclusion],
+    ["source coverage", regenerated.sourceCoverage, supplied.sourceCoverage],
+    [
+      "uncovered sources",
+      JSON.stringify(regenerated.uncoveredSourceIds),
+      JSON.stringify(supplied.uncoveredSourceIds),
+    ],
+    ["customer-facing status", regenerated.customerFacingStatus, supplied.customerFacingStatus],
+  ];
+  for (const [label, expected, observed] of packageFields) {
+    if (observed !== expected) {
+      reasons.push(`Supplied package ${label} differs from the regenerated package`);
+    }
+  }
+
   const suppliedByKey = new Map(
     supplied.citations.map((citation) => [
       `${citation.sourceId}:${citation.locator}`,
@@ -186,6 +259,14 @@ function registeredExcerptMismatchReasons(
       continue;
     }
     const fields: Array<[string, unknown, unknown]> = [
+      ["snapshot ID", expected.snapshotId, observed.snapshotId],
+      ["citation label", expected.citation, observed.citation],
+      ["title", expected.title, observed.title],
+      ["canonical URL", expected.canonicalUrl, observed.canonicalUrl],
+      ["version identifier", expected.versionIdentifier, observed.versionIdentifier],
+      ["effective date", expected.effectiveDate, observed.effectiveDate],
+      ["retrieval timestamp", expected.retrievedAt, observed.retrievedAt],
+      ["snapshot checksum", expected.checksum, observed.checksum],
       ["excerpt", expected.excerpt, observed.excerpt],
       ["excerpt checksum", expected.excerptChecksum, observed.excerptChecksum],
       ["start line", expected.startLine, observed.startLine],
@@ -229,13 +310,13 @@ function isAnchorDriftError(error: unknown): boolean {
 export function regenerateHistoricalCitationPackage(
   request: HistoricalCitationRegenerationRequest
 ): HistoricalCitationRegenerationResult {
-  const orchestration = orchestrateHistoricalRegulatoryGrounding(request);
-  if (orchestration.status !== "ready") {
+  const selection = selectHistoricalRegulatorySources(request);
+  if (selection.status !== "ready") {
     return result(
       request,
-      orchestration,
-      "orchestration-unresolved",
-      orchestration.refusalReasons
+      selection,
+      "selection-unresolved",
+      selection.refusalReasons
     );
   }
 
@@ -243,7 +324,7 @@ export function regenerateHistoricalCitationPackage(
   if (!template) {
     return result(
       request,
-      orchestration,
+      selection,
       "registered-template-missing",
       [`Exactly one registered citation template is required for ${request.mapping.mappingId}`]
     );
@@ -259,7 +340,7 @@ export function regenerateHistoricalCitationPackage(
   } catch (error) {
     return result(
       request,
-      orchestration,
+      selection,
       "registered-template-invalid",
       [error instanceof Error ? error.message : String(error)],
       template.packageId
@@ -274,14 +355,14 @@ export function regenerateHistoricalCitationPackage(
   if (templateErrors.length > 0) {
     return result(
       request,
-      orchestration,
+      selection,
       "registered-template-invalid",
       templateErrors,
       template.packageId
     );
   }
 
-  const selectedSnapshots = selectedSnapshotsFromOrchestration(orchestration);
+  const selectedSnapshots = selectedSnapshotsFromSelection(selection);
   let regeneratedPackage: RegulatoryCitationPackage;
   try {
     regeneratedPackage = buildRegulatoryCitationPackage(
@@ -292,7 +373,7 @@ export function regenerateHistoricalCitationPackage(
     const message = error instanceof Error ? error.message : String(error);
     return result(
       request,
-      orchestration,
+      selection,
       isAnchorDriftError(error) ? "anchor-drift" : "registered-template-invalid",
       [message],
       template.packageId
@@ -311,7 +392,7 @@ export function regenerateHistoricalCitationPackage(
   if (regeneratedErrors.length > 0) {
     return result(
       request,
-      orchestration,
+      selection,
       "regenerated-package-invalid",
       regeneratedErrors,
       template.packageId,
@@ -319,27 +400,17 @@ export function regenerateHistoricalCitationPackage(
     );
   }
 
-  const mismatchReasons = registeredExcerptMismatchReasons(
-    request.citationPackage,
-    regeneratedPackage
-  );
-  if (mismatchReasons.length > 0) {
-    return result(
-      request,
-      orchestration,
-      "registered-excerpt-mismatch",
-      mismatchReasons,
-      template.packageId,
-      regeneratedPackage
-    );
-  }
+  const comparisonDifferences = request.citationPackage
+    ? suppliedPackageDifferences(request.citationPackage, regeneratedPackage)
+    : [];
 
   return result(
     request,
-    orchestration,
+    selection,
     "ready",
     [],
     template.packageId,
-    regeneratedPackage
+    regeneratedPackage,
+    comparisonDifferences
   );
 }
