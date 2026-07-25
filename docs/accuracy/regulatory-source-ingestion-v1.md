@@ -18,13 +18,15 @@ The ingestion code:
 
 - accepts only source IDs already present in `lib/regulatory/source-catalog.ts`;
 - permits only HTTPS URLs on approved official government domains;
+- requires the requested route to match the selected catalog source, including the approved eCFR API transformation;
 - validates every redirect instead of following redirects blindly;
 - rejects redirects to non-approved domains;
-- applies request timeouts, redirect limits, content-type restrictions, and maximum response sizes;
+- applies request timeouts through both header retrieval and response-body transfer;
+- enforces redirect limits, content-type restrictions, and streaming response-size limits;
 - stores the requested URL, final URL, redirect chain, HTTP status, content type, byte count, ETag, and Last-Modified value when supplied;
 - calculates separate SHA-256 checksums for the raw response and normalized text;
 - marks every newly fetched snapshot `pending`;
-- blocks pending, rejected, altered, or checksum-invalid snapshots from client-facing citation use.
+- blocks pending, rejected, altered, mismatched-provenance, or checksum-invalid snapshots from client-facing citation use.
 
 No customer document, customer identifier, payment data, authentication data, or production secret is sent to a government source.
 
@@ -37,7 +39,7 @@ Normalization is deliberately conservative and versioned.
 - JSON: parses and serializes with stable key ordering.
 - Text: normalizes line endings, nonbreaking spaces, repeated horizontal whitespace, and excessive blank lines.
 
-The normalized-text checksum determines whether substantive stored content changed. Raw checksums remain available to identify markup or transport changes that did not alter normalized legal text.
+The normalized-text checksum determines whether substantive stored content changed. Raw checksums and retrieval receipts identify markup, redirect, or transport-metadata changes that did not alter normalized legal text.
 
 A future normalization change must use a new normalization version and must not silently overwrite historical snapshots.
 
@@ -55,7 +57,7 @@ is resolved to:
 https://www.ecfr.gov/api/versioner/v1/full/current/title-29.xml?part=5
 ```
 
-The canonical reader URL remains the customer-facing citation link; the API URL is retained as retrieval provenance.
+The canonical reader URL remains the customer-facing citation link; the API URL is retained as retrieval provenance. Historical retrieval accepts only `current` or an exact `YYYY-MM-DD` date.
 
 ## Historical storage
 
@@ -67,19 +69,22 @@ data/regulatory-snapshots/<source-id>/
 
 Each source has a manifest containing:
 
-- all retained snapshot IDs and file paths;
+- all retained normalized snapshot IDs and file paths;
 - raw and normalized checksums;
 - retrieval timestamps;
 - version identifiers when available;
 - review status;
-- the latest observed snapshot;
+- lightweight retrieval observations when raw markup or transport provenance changes without a normalized legal-text change;
+- the latest observed normalized snapshot;
 - the latest approved snapshot, when one exists.
 
-Unchanged normalized content does not create a duplicate snapshot or repository churn. Changed content creates a new immutable snapshot while preserving all prior versions.
+Changed normalized content creates a new immutable snapshot while preserving all prior versions. When normalized text is unchanged but raw markup, redirect provenance, ETag, Last-Modified, or related transport metadata changes, the manifest records a lightweight observation instead of duplicating the normalized text. An identical repeat retrieval creates no repository churn.
+
+Snapshot paths are constrained to the controlled source directory, manifest entries are validated against their files, and an existing snapshot file cannot be overwritten.
 
 ## Automated update proposals
 
-The scheduled GitHub workflow runs only against public approved sources. When changed content is detected, it creates a pull request containing **pending** snapshots. The workflow does not merge the pull request and does not approve the snapshots.
+The scheduled GitHub workflow runs only against public approved sources. When a normalized source snapshot or retained raw-provenance observation changes, it creates a pull request containing **pending** source records. The workflow does not merge the pull request and does not approve the snapshots.
 
 A source change therefore cannot silently alter customer conclusions. The update must be reviewed for:
 
@@ -135,8 +140,9 @@ This phase does not change existing analyzer findings or report display. A snaps
 
 1. its source remains approved;
 2. its checksum validates;
-3. its requested and final URLs remain approved official HTTPS URLs;
-4. its review status is `approved`;
-5. later applicability logic ties the source to the facts and exact contract evidence.
+3. its canonical and requested routes match the selected catalog source;
+4. its redirect chain and final URL remain approved and internally consistent;
+5. its review status is `approved` with reviewer provenance;
+6. later applicability logic ties the source to the facts and exact contract evidence.
 
 The next phase after reliable ingestion is source review/approval plus clause-level retrieval and applicability mapping for QA-C and QA-D.
