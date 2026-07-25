@@ -197,8 +197,9 @@ export function validateRegulatoryUpdateReviewPacket(
     ) {
       errors.push("Update review packet proposal escaped the non-applied benchmark boundary");
     }
-    if (
-      isIsoInstant(packet.proposal.createdAt) &&
+    if (!isIsoInstant(packet.proposal.createdAt)) {
+      errors.push("Update review packet proposal createdAt must be ISO");
+    } else if (
       isIsoInstant(packet.createdAt) &&
       new Date(packet.createdAt).getTime() < new Date(packet.proposal.createdAt).getTime()
     ) {
@@ -310,6 +311,12 @@ export async function loadRegulatoryUpdateReviewPacket(
   const errors = validateRegulatoryUpdateReviewPacket(packet);
   if (errors.length > 0) {
     throw new Error(`Stored regulatory update review packet is invalid: ${errors.join("; ")}`);
+  }
+  const canonicalRelativePath = relativePacketPath(packet);
+  if (relativePath !== canonicalRelativePath) {
+    throw new Error(
+      `Stored regulatory update packet path does not match its checksum-derived canonical path: expected ${canonicalRelativePath}, observed ${relativePath}`
+    );
   }
   if (expectedSourceId && packet.sourceId !== expectedSourceId) {
     throw new Error(
