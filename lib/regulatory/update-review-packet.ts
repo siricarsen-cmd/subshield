@@ -39,24 +39,20 @@ const SOURCE_ID_RE = /^[a-z0-9][a-z0-9-]*$/;
 const PACKET_FILENAME_RE = /^\d{4}-\d{2}-\d{2}-[a-f0-9]{16}\.json$/;
 const SHA256_RE = /^sha256:[a-f0-9]{64}$/;
 
-function deepClone<T>(value: T): T {
-  if (Array.isArray(value)) return value.map((item) => deepClone(item)) as T;
-  if (value && typeof value === "object") {
-    const clone: Record<string, unknown> = {};
-    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
-      clone[key] = deepClone(item);
-    }
-    return clone as T;
-  }
-  return value;
-}
-
 function deepFreeze<T>(value: T): Readonly<T> {
   if (value && typeof value === "object" && !Object.isFrozen(value)) {
     for (const nested of Object.values(value as Record<string, unknown>)) deepFreeze(nested);
     Object.freeze(value);
   }
   return value as Readonly<T>;
+}
+
+function jsonClone<T>(value: T): T {
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) {
+    throw new Error("Regulatory update review packet value is not JSON serializable");
+  }
+  return JSON.parse(serialized) as T;
 }
 
 function isIsoInstant(value: string): boolean {
@@ -72,7 +68,7 @@ function packetPayload(
   packet: Omit<RegulatoryUpdateReviewPacket, "packetChecksum"> | RegulatoryUpdateReviewPacket
 ): Omit<RegulatoryUpdateReviewPacket, "packetChecksum"> {
   const { packetChecksum: _ignored, ...payload } = packet as RegulatoryUpdateReviewPacket;
-  return payload;
+  return jsonClone(payload);
 }
 
 function checksumForPacket(
@@ -152,11 +148,18 @@ export function validateRegulatoryUpdateReviewPacket(
   if (packet.schemaVersion !== 1) errors.push("Update review packet schema version is invalid");
   if (!packet.packetId.trim()) errors.push("Update review packet ID must not be blank");
   if (!SOURCE_ID_RE.test(packet.sourceId)) errors.push("Update review packet source ID is invalid");
+  const expectedPacketPrefix = `regulatory-update-review:${packet.sourceId}:`;
+  if (!packet.packetId.startsWith(expectedPacketPrefix)) {
+    errors.push("Update review packet ID is not tied to its source");
+  }
   if (!packet.baselineSnapshotId.trim() || !packet.candidateSnapshotId.trim()) {
     errors.push("Update review packet snapshot identities must not be blank");
   }
   if (packet.baselineSnapshotId === packet.candidateSnapshotId) {
     errors.push("Update review packet baseline and candidate must be distinct");
+  }
+  if (!packet.candidateSnapshotId.startsWith(`${packet.sourceId}:`)) {
+    errors.push("Update review packet candidate snapshot ID is not tied to its source");
   }
   if (!isIsoInstant(packet.createdAt)) errors.push("Update review packet createdAt must be ISO");
   if (!packet.requestedBy.trim()) errors.push("Update review packet requester must not be blank");
@@ -193,6 +196,13 @@ export function validateRegulatoryUpdateReviewPacket(
       packet.proposal.customerFacingStatus !== "benchmark-only"
     ) {
       errors.push("Update review packet proposal escaped the non-applied benchmark boundary");
+    }
+    if (
+      isIsoInstant(packet.proposal.createdAt) &&
+      isIsoInstant(packet.createdAt) &&
+      new Date(packet.createdAt).getTime() < new Date(packet.proposal.createdAt).getTime()
+    ) {
+      errors.push("Update review packet cannot predate its intake proposal");
     }
   }
   if (packet.reviewStatus !== "pending") {
@@ -238,7 +248,7 @@ export function buildRegulatoryUpdateReviewPacket(
     throw new Error("Review-packet-eligible intake lacks baseline/candidate snapshot identities");
   }
 
-  const payload: Omit<RegulatoryUpdateReviewPacket, "packetChecksum"> = {
+  const payload = jsonClone<Omit<RegulatoryUpdateReviewPacket, "packetChecksum">>({
     schemaVersion: 1,
     packetId: `regulatory-update-review:${intake.sourceId}:${candidateSnapshotId}`,
     sourceId: intake.sourceId,
@@ -247,19 +257,19 @@ export function buildRegulatoryUpdateReviewPacket(
     createdAt,
     requestedBy: requestedBy.trim(),
     intakeStatus: intake.status,
-    difference: deepClone(intake.difference),
-    impacts: deepClone(intake.impacts),
-    proposal: intake.proposal ? deepClone(intake.proposal) : undefined,
-    refusalReasons: [...intake.refusalReasons],
-    reviewNotes: [...intake.reviewNotes],
+    difference: intake.difference,
+    impacts: intake.impacts,
+    proposal: intake.proposal,
+    refusalReasons: intake.refusalReasons,
+    reviewNotes: intake.reviewNotes,
     reviewStatus: "pending",
     applicationStatus: "not-applied",
     customerFacingStatus: "benchmark-only",
-  };
-  const packet: RegulatoryUpdateReviewPacket = {
+  });
+  const packet = jsonClone<RegulatoryUpdateReviewPacket>({
     ...payload,
     packetChecksum: checksumForPacket(payload),
-  };
+  });
   const errors = validateRegulatoryUpdateReviewPacket(packet);
   if (errors.length > 0) {
     throw new Error(`Invalid regulatory update review packet: ${errors.join("; ")}`);
@@ -284,7 +294,7 @@ export async function storeRegulatoryUpdateReviewPacket(
     flag: "wx",
   });
   return {
-    packet: deepFreeze(deepClone(packet)),
+    packet: deepFreeze(jsonClone(packet)),
     packetPath,
     relativePath,
   };
