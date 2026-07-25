@@ -1,0 +1,118 @@
+name: Regulatory Source Ingestion
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_id:
+        description: "Approved catalog source ID, or starter for the controlled starter set"
+        required: true
+        default: "starter"
+        type: string
+  schedule:
+    - cron: "17 13 * * 1"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: regulatory-source-ingestion
+  cancel-in-progress: false
+
+jobs:
+  ingest-approved-sources:
+    name: Fetch official sources and propose pending snapshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Fetch and store pending official-source snapshots
+        id: ingest
+        continue-on-error: true
+        shell: bash
+        env:
+          REQUESTED_SOURCE: ${{ github.event.inputs.source_id || 'starter' }}
+        run: |
+          set +e
+          if [[ "$REQUESTED_SOURCE" == "starter" ]]; then
+            npm run regulatory:ingest -- --starter --output-dir data/regulatory-snapshots 2>&1 | tee regulatory-ingestion-summary.txt
+          else
+            if [[ ! "$REQUESTED_SOURCE" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+              echo "Invalid source ID: $REQUESTED_SOURCE" | tee regulatory-ingestion-summary.txt
+              status=2
+              echo "status=$status" >> "$GITHUB_OUTPUT"
+              exit "$status"
+            fi
+            npm run regulatory:ingest -- --source-id "$REQUESTED_SOURCE" --output-dir data/regulatory-snapshots 2>&1 | tee regulatory-ingestion-summary.txt
+          fi
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Upload ingestion summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regulatory-ingestion-summary-${{ github.run_id }}
+          path: regulatory-ingestion-summary.txt
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Detect changed snapshots
+        id: changes
+        if: steps.ingest.outputs.status == '0'
+        shell: bash
+        run: |
+          if [[ -n "$(git status --porcelain -- data/regulatory-snapshots)" ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open pending source-update pull request
+        if: steps.ingest.outputs.status == '0' && steps.changes.outputs.changed == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_SOURCE: ${{ github.event.inputs.source_id || 'starter' }}
+        run: |
+          branch="automation/regulatory-source-updates-${GITHUB_RUN_ID}"
+          git config user.name "subshield-regulatory-bot"
+          git config user.email "subshield-regulatory-bot@users.noreply.github.com"
+          git switch -c "$branch"
+          git add data/regulatory-snapshots
+          git commit -m "chore: ingest pending official regulatory snapshots"
+          git push --set-upstream origin "$branch"
+
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "Review pending official regulatory source updates" \
+            --body "## Automated controlled ingestion\n\nFetched approved public government sources for: **${REQUESTED_SOURCE}**.\n\nAll new snapshots are marked **pending** and cannot support customer-facing citations or conclusions until reviewed and approved. Historical snapshots remain intact, unchanged normalized content creates no duplicate files, and no customer data or production secret was used.\n\n### Required review\n\n- Confirm source authenticity and retrieval provenance.\n- Review substantive text and version/effective-date changes.\n- Confirm normalization did not distort legal meaning.\n- Identify any applicability or benchmark updates required.\n- Do not approve or merge merely because the fetch succeeded.\n\nWorkflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+      - name: Report unchanged sources
+        if: steps.ingest.outputs.status == '0' && steps.changes.outputs.changed == 'false'
+        run: echo "No normalized official-source content changed; no pull request was created."
+
+      - name: Enforce ingestion success
+        if: always()
+        shell: bash
+        run: |
+          status="${{ steps.ingest.outputs.status }}"
+          echo "Regulatory ingestion status: ${status:-missing}"
+          test "$status" = "0"
