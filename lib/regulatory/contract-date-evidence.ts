@@ -190,7 +190,8 @@ function candidateKey(candidate: ContractDateEvidenceCandidate): string {
   return [
     candidate.basis,
     candidate.normalizedDate,
-    normalizeWhitespace(candidate.foundText),
+    candidate.sourceIndex,
+    normalizeWhitespace(candidate.anchorText),
   ].join("|");
 }
 
