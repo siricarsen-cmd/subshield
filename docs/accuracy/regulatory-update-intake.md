@@ -14,13 +14,14 @@ It does not approve a source, apply a registry change, change an analyzer conclu
 
 Every intake requires:
 
-- one retained approved baseline snapshot;
+- one baseline that exactly matches the immutable retained approved-evidence registry;
 - one later pending or approved candidate snapshot for the same official source;
+- a candidate snapshot ID tied to its source ID;
 - a named requester;
-- an ISO creation timestamp; and
+- an ISO creation timestamp after retrieval; and
 - complete checksum and retrieval provenance.
 
-Rejected snapshots, proposed regulations, invalid checksums, mismatched source IDs, duplicate snapshot IDs, or candidates retrieved before the baseline are refused.
+Rejected snapshots, proposed/superseded/archived source states, invalid checksums, mismatched source IDs, duplicate snapshot IDs, premature review timestamps, pending snapshots with final-review fields, or candidates retrieved before the baseline are refused.
 
 ## Difference classes
 
@@ -35,7 +36,7 @@ Content changes include a bounded line-level review record with common prefix/su
 
 ## Registry impact analysis
 
-The pipeline reads the immutable mapping, governing-date policy, and citation-template registries. For every mapping that declares the changed source, it records the current fingerprints and finds each registered citation locator that depends on that source.
+The pipeline first validates the immutable registry itself, then reads the mapping, governing-date policy, and citation-template registries. For every mapping that declares the changed source, it records the current fingerprints and finds each registered citation locator that depends on that source.
 
 The candidate snapshot is then tested with the existing registered extraction anchors:
 
@@ -51,7 +52,7 @@ This is a benchmark-only preview. A pending snapshot does not become client-cita
 When all registered anchors remain deterministic, the pipeline can prepare citation-template transition drafts containing:
 
 - current and proposed fingerprints;
-- the complete proposed citation-template value;
+- the complete structurally validated proposed citation-template value;
 - exact candidate snapshot evidence;
 - changed locators;
 - benchmark impact;
@@ -60,13 +61,13 @@ When all registered anchors remain deterministic, the pipeline can prepare citat
 
 The proposal never assumes that the existing applicability conclusion or governing-date policy remains correct. Both remain mandatory human-review questions.
 
-A pending candidate is marked `awaiting-snapshot-approval`. An approved candidate may be marked `ready-for-controlled-change-set-draft`, but the result is still not applied and must pass the separate registry change-control process.
+A pending candidate is marked `awaiting-snapshot-approval`. An approved-looking candidate that has not yet been retained in the immutable approved-evidence registry is marked `awaiting-approved-evidence-registration`. Only an exact retained approved candidate may become `ready-for-controlled-change-set-draft`, and even then the result is not applied and must pass the separate registry change-control process.
 
-## Anchor drift
+## Anchor or package drift
 
-Automatic proposal preparation stops when any registered anchor is missing, duplicated, reversed, overlong, or otherwise non-deterministic in the candidate snapshot.
+Automatic proposal preparation stops when any registered anchor is missing, duplicated, reversed, overlong, or otherwise non-deterministic in the candidate snapshot. It also stops when the regenerated proposed citation package fails structural validation.
 
-The result becomes `manual-review-required`, contains the precise anchor failures, and includes no proposed citation-template transition. The system does not broaden anchors, select approximate text, or silently substitute a different passage.
+The result becomes `manual-review-required`, contains the precise failures, and releases no usable citation-template transition. The system does not broaden anchors, select approximate text, silently substitute a different passage, or accept an invalid package.
 
 ## Observation-only outcomes
 
@@ -86,12 +87,16 @@ The benchmark proves that:
 - transport-only changes remain observation-only;
 - metadata changes prepare non-applied citation-template drafts;
 - substantive in-passage changes are deterministically re-extracted;
+- proposed transition packages remain structurally valid;
 - line-level differences remain bounded;
-- pending and approved candidates receive different readiness states;
+- pending and approved-but-unretained candidates receive conservative readiness states;
+- caller-supplied approval fields cannot bypass approved-evidence retention;
+- altered approved-looking baselines are refused;
 - missing anchors force manual review;
 - invalid checksums are refused;
-- proposed and rejected sources are refused;
-- stale retrievals are refused; and
+- proposed, superseded, archived, and rejected sources are refused;
+- pending snapshots cannot claim final reviewer provenance;
+- stale or future-dated intake sequencing is refused; and
 - requester provenance is mandatory.
 
 ## Customer-facing boundary
