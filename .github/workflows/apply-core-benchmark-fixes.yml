@@ -1,0 +1,92 @@
+name: Apply Core Benchmark Fixes
+
+on:
+  push:
+    branches:
+      - test/core-accuracy-benchmark
+    paths:
+      - ".github/workflows/apply-core-benchmark-fixes.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fixes:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out benchmark branch
+        uses: actions/checkout@v4
+        with:
+          ref: test/core-accuracy-benchmark
+          fetch-depth: 0
+
+      - name: Apply evidence-scoped detector fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("lib/analyzer/deterministic.ts")
+          text = path.read_text(encoding="utf-8")
+
+          setoff_marker = '''    regulation: "Broad Setoff / Backcharge / Withholding Rights",
+              severity: "Medium-High",
+              patterns: [
+          '''
+          setoff_replacement = setoff_marker + '''      // Construction and other cost-recovery clauses often allow Prime to
+              // withhold or backcharge an estimated amount before responsibility is
+              // established. Require affirmative Prime discretion, an expressly
+              // estimated/claimed amount, and unresolved-responsibility language so
+              // protective agreed-amount and final-resolution clauses stay outside.
+              /Prime(?:\\s+Contractor)?\\s+may(?!\\s+not\\b)[^.]{0,80}(?:withhold|back[\\s-]?charge|set[\\s-]?off|deduct)[^.]{0,100}(?:estimated|claimed|anticipated|unliquidated)\\s+amounts?[^.]{0,180}(?:before|pending)[^.]{0,100}(?:responsibility|liability|resolution|determination)/i,
+          '''
+
+          rework_marker = '''    regulation: "Acceptance, Rejection, or Rework Without Clear Compensation",
+              severity: "Medium-High",
+              patterns: [
+          '''
+          rework_replacement = rework_marker + '''      // Construction clauses frequently put the Subcontractor-cost allocation
+              // before the collateral removal/replacement costs. Require defective or
+              // nonconforming work, express own-cost allocation, and at least one
+              // collateral construction-cost signal so an ordinary verified-defect
+              // warranty without those broader costs does not trigger.
+              /Subcontractor\\s+(?:shall|will|must|is\\s+required\\s+to)[^.]{0,100}(?:remove(?:\\s+and\\s+replace)?|replace|correct|re-?perform|rework)[^.]{0,140}(?:defective|nonconforming)\\s+work[^.]{0,100}at\\s+(?:its|the\\s+Subcontractor(?:'s|\\u2019s))\\s+own\\s+(?:cost|expense)[^.]{0,240}(?:access|demolition|testing|restoration|schedule[\\s-]recovery|damage\\s+to\\s+adjacent\\s+work)/i,
+          '''
+
+          wage_marker = '''    regulation: "Missing or Unresolved Wage Determination / Labor Standards Requirement",
+              severity: "Medium",
+              patterns: [
+          '''
+          wage_replacement = '''    regulation: "Missing or Unresolved Wage Determination / Labor Standards Requirement",
+              severity: "Medium",
+              preferClauseLocalQuote: true,
+              patterns: [
+          '''
+
+          replacements = [
+              (setoff_marker, setoff_replacement, "setoff/backcharge"),
+              (rework_marker, rework_replacement, "construction rework"),
+              (wage_marker, wage_replacement, "wage clause locality"),
+          ]
+
+          for old, new, label in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one {label} marker, found {count}")
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Remove one-time patch workflow
+        run: rm .github/workflows/apply-core-benchmark-fixes.yml
+
+      - name: Commit targeted fixes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/analyzer/deterministic.ts .github/workflows/apply-core-benchmark-fixes.yml
+          git commit -m "Fix QA-D withholding rework and wage grounding"
+          git push origin HEAD:test/core-accuracy-benchmark
