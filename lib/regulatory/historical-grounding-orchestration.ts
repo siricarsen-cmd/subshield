@@ -37,27 +37,44 @@ export interface HistoricalSourceGroundingDecision {
   refusalReasons: string[];
 }
 
-export type HistoricalGroundingOrchestrationStatus =
+export type HistoricalGroundingSelectionStatus =
   | "ready"
   | "missing-policy"
   | "invalid-policy"
-  | "invalid-citation-package"
   | "date-unresolved"
-  | "historical-version-unresolved"
-  | "citation-package-mismatch";
+  | "historical-version-unresolved";
 
-export interface HistoricalGroundingOrchestrationRequest {
+export interface HistoricalGroundingSelectionRequest {
   mapping: RegulatoryApplicabilityMapping;
   documentText: string;
   sourceHistories: Readonly<
     Record<string, readonly RegulatorySourceSnapshot[] | undefined>
   >;
-  citationPackage: RegulatoryCitationPackage;
   /**
    * Optional caller assertion. The registered policy always governs; a supplied
    * policy must exactly match it and can never override a source date basis.
    */
   policy?: RegulatoryHistoricalGroundingPolicy;
+}
+
+export interface HistoricalGroundingSelectionResult {
+  status: HistoricalGroundingSelectionStatus;
+  mappingId: string;
+  policyId?: string;
+  sourceDecisions: HistoricalSourceGroundingDecision[];
+  selectedSnapshotIds: string[];
+  refusalReasons: string[];
+  customerFacingStatus: "benchmark-only";
+}
+
+export type HistoricalGroundingOrchestrationStatus =
+  | HistoricalGroundingSelectionStatus
+  | "invalid-citation-package"
+  | "citation-package-mismatch";
+
+export interface HistoricalGroundingOrchestrationRequest
+  extends HistoricalGroundingSelectionRequest {
+  citationPackage: RegulatoryCitationPackage;
 }
 
 export interface HistoricalGroundingOrchestrationResult {
@@ -80,7 +97,33 @@ function uniqueNonblank(values: readonly string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
-function result(
+function selectedSnapshotIds(
+  sourceDecisions: readonly HistoricalSourceGroundingDecision[]
+): string[] {
+  return sourceDecisions
+    .map((decision) => decision.selectedSnapshotId)
+    .filter((snapshotId): snapshotId is string => Boolean(snapshotId));
+}
+
+function selectionResult(
+  request: HistoricalGroundingSelectionRequest,
+  status: HistoricalGroundingSelectionStatus,
+  refusalReasons: readonly string[],
+  sourceDecisions: HistoricalSourceGroundingDecision[] = [],
+  policyId?: string
+): HistoricalGroundingSelectionResult {
+  return {
+    status,
+    mappingId: request.mapping.mappingId,
+    policyId,
+    sourceDecisions,
+    selectedSnapshotIds: selectedSnapshotIds(sourceDecisions),
+    refusalReasons: uniqueNonblank(refusalReasons),
+    customerFacingStatus: "benchmark-only",
+  };
+}
+
+function orchestrationResult(
   request: HistoricalGroundingOrchestrationRequest,
   status: HistoricalGroundingOrchestrationStatus,
   refusalReasons: readonly string[],
@@ -94,9 +137,7 @@ function result(
     citationPackageId: request.citationPackage.packageId,
     citationPackageStatus: status === "ready" ? "ready" : "refused",
     sourceDecisions,
-    selectedSnapshotIds: sourceDecisions
-      .map((decision) => decision.selectedSnapshotId)
-      .filter((snapshotId): snapshotId is string => Boolean(snapshotId)),
+    selectedSnapshotIds: selectedSnapshotIds(sourceDecisions),
     refusalReasons: uniqueNonblank(refusalReasons),
     customerFacingStatus: "benchmark-only",
   };
@@ -370,12 +411,12 @@ function citationPackageMismatchReasons(
   return uniqueNonblank(reasons);
 }
 
-export function orchestrateHistoricalRegulatoryGrounding(
-  request: HistoricalGroundingOrchestrationRequest
-): HistoricalGroundingOrchestrationResult {
+export function selectHistoricalRegulatorySources(
+  request: HistoricalGroundingSelectionRequest
+): HistoricalGroundingSelectionResult {
   const registeredPolicy = getHistoricalGroundingPolicy(request.mapping.mappingId);
   if (!registeredPolicy) {
-    return result(
+    return selectionResult(
       request,
       "missing-policy",
       [`No historical grounding policy exists for mapping ${request.mapping.mappingId}`]
@@ -393,31 +434,10 @@ export function orchestrateHistoricalRegulatoryGrounding(
     ...suppliedPolicyErrors,
   ]);
   if (policyErrors.length > 0) {
-    return result(
+    return selectionResult(
       request,
       "invalid-policy",
       policyErrors,
-      [],
-      registeredPolicy.policyId
-    );
-  }
-
-  const citationPackageErrors = validateRegulatoryCitationPackage(request.citationPackage);
-  if (request.citationPackage.sourceCoverage !== "complete") {
-    citationPackageErrors.push(
-      `Historical grounding requires complete citation coverage; observed ${request.citationPackage.sourceCoverage}`
-    );
-  }
-  if (request.citationPackage.uncoveredSourceIds.length > 0) {
-    citationPackageErrors.push(
-      `Historical grounding citation package leaves sources uncovered: ${request.citationPackage.uncoveredSourceIds.join(", ")}`
-    );
-  }
-  if (citationPackageErrors.length > 0) {
-    return result(
-      request,
-      "invalid-citation-package",
-      citationPackageErrors,
       [],
       registeredPolicy.policyId
     );
@@ -437,7 +457,7 @@ export function orchestrateHistoricalRegulatoryGrounding(
     (decision) => decision.status === "date-unresolved"
   );
   if (dateFailures.length > 0) {
-    return result(
+    return selectionResult(
       request,
       "date-unresolved",
       dateFailures.flatMap((decision) =>
@@ -452,7 +472,7 @@ export function orchestrateHistoricalRegulatoryGrounding(
     (decision) => decision.status === "history-unresolved"
   );
   if (historyFailures.length > 0) {
-    return result(
+    return selectionResult(
       request,
       "historical-version-unresolved",
       historyFailures.flatMap((decision) =>
@@ -463,20 +483,68 @@ export function orchestrateHistoricalRegulatoryGrounding(
     );
   }
 
-  const mismatchReasons = citationPackageMismatchReasons(
-    request.mapping,
-    request.citationPackage,
-    sourceDecisions
+  return selectionResult(
+    request,
+    "ready",
+    [],
+    sourceDecisions,
+    registeredPolicy.policyId
   );
-  if (mismatchReasons.length > 0) {
-    return result(
+}
+
+export function orchestrateHistoricalRegulatoryGrounding(
+  request: HistoricalGroundingOrchestrationRequest
+): HistoricalGroundingOrchestrationResult {
+  const citationPackageErrors = validateRegulatoryCitationPackage(request.citationPackage);
+  if (request.citationPackage.sourceCoverage !== "complete") {
+    citationPackageErrors.push(
+      `Historical grounding requires complete citation coverage; observed ${request.citationPackage.sourceCoverage}`
+    );
+  }
+  if (request.citationPackage.uncoveredSourceIds.length > 0) {
+    citationPackageErrors.push(
+      `Historical grounding citation package leaves sources uncovered: ${request.citationPackage.uncoveredSourceIds.join(", ")}`
+    );
+  }
+  if (citationPackageErrors.length > 0) {
+    return orchestrationResult(
       request,
-      "citation-package-mismatch",
-      mismatchReasons,
-      sourceDecisions,
-      registeredPolicy.policyId
+      "invalid-citation-package",
+      citationPackageErrors
     );
   }
 
-  return result(request, "ready", [], sourceDecisions, registeredPolicy.policyId);
+  const selection = selectHistoricalRegulatorySources(request);
+  if (selection.status !== "ready") {
+    return orchestrationResult(
+      request,
+      selection.status,
+      selection.refusalReasons,
+      selection.sourceDecisions,
+      selection.policyId
+    );
+  }
+
+  const mismatchReasons = citationPackageMismatchReasons(
+    request.mapping,
+    request.citationPackage,
+    selection.sourceDecisions
+  );
+  if (mismatchReasons.length > 0) {
+    return orchestrationResult(
+      request,
+      "citation-package-mismatch",
+      mismatchReasons,
+      selection.sourceDecisions,
+      selection.policyId
+    );
+  }
+
+  return orchestrationResult(
+    request,
+    "ready",
+    [],
+    selection.sourceDecisions,
+    selection.policyId
+  );
 }

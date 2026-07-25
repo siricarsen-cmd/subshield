@@ -17,6 +17,10 @@ export interface ExtractedRegulatoryCitation extends RegulatoryCitation {
   excerptChecksum: string;
   startLine: number;
   endLine: number;
+  extractionStartAnchor: string;
+  extractionEndAnchor: string;
+  extractionRequiredAnchors: string[];
+  extractionMaxCharacters: number;
 }
 
 interface AnchorMatch {
@@ -78,8 +82,14 @@ export function extractApprovedRegulatoryCitation(
     throw new Error(`Regulatory snapshot is not approved for citation: ${snapshot.snapshotId}`);
   }
   if (!request.locator.trim()) throw new Error("Regulatory excerpt locator must not be blank");
+  if (!request.startAnchor.trim()) throw new Error("Regulatory excerpt start anchor must not be blank");
+  if (!request.endAnchor.trim()) throw new Error("Regulatory excerpt end anchor must not be blank");
   if (request.requiredAnchors.length === 0) {
     throw new Error("Regulatory excerpt requires at least one source-specific anchor");
+  }
+  const requiredAnchors = request.requiredAnchors.map((anchor) => anchor.trim());
+  if (requiredAnchors.some((anchor) => !anchor)) {
+    throw new Error("Regulatory excerpt required anchors must not contain blank values");
   }
 
   const start = uniqueAnchorMatch(snapshot.text, request.startAnchor, "start");
@@ -102,8 +112,8 @@ export function extractApprovedRegulatoryCitation(
     throw new Error(`Regulatory excerpt is suspiciously short: ${request.locator}`);
   }
 
-  for (const anchor of request.requiredAnchors) {
-    if (!anchor.trim() || !includesAnchor(excerpt, anchor)) {
+  for (const anchor of requiredAnchors) {
+    if (!includesAnchor(excerpt, anchor)) {
       throw new Error(`Required regulatory excerpt anchor is missing: ${anchor}`);
     }
   }
@@ -123,5 +133,9 @@ export function extractApprovedRegulatoryCitation(
     excerptChecksum: sha256(excerpt),
     startLine: lineNumberAt(snapshot.text, start.start),
     endLine: lineNumberAt(snapshot.text, end.end),
+    extractionStartAnchor: request.startAnchor.trim(),
+    extractionEndAnchor: request.endAnchor.trim(),
+    extractionRequiredAnchors: [...new Set(requiredAnchors)],
+    extractionMaxCharacters: maxCharacters,
   };
 }
