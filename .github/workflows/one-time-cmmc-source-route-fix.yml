@@ -1,0 +1,47 @@
+name: One-time CMMC source route fix
+
+on:
+  push:
+    branches:
+      - feat/regulatory-source-coverage-completion
+
+permissions:
+  contents: write
+
+jobs:
+  correct-catalog-route:
+    if: ${{ !contains(github.event.head_commit.message, '[cmmc-route-fixed]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/regulatory-source-coverage-completion
+          fetch-depth: 0
+
+      - name: Correct official eCFR route and remove this one-time workflow
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          catalog = Path('lib/regulatory/source-catalog.ts')
+          text = catalog.read_text(encoding='utf-8')
+          old = 'https://www.ecfr.gov/current/title-32/subtitle-A/chapter-I/subchapter-D/part-170'
+          new = 'https://www.ecfr.gov/current/title-32/subtitle-A/chapter-I/subchapter-G/part-170'
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'Expected exactly one obsolete CMMC route, observed {count}')
+          catalog.write_text(text.replace(old, new), encoding='utf-8')
+          Path('.github/workflows/one-time-cmmc-source-route-fix.yml').unlink()
+          PY
+
+      - name: Commit corrected source catalog
+        shell: bash
+        run: |
+          git config user.name "subshield-automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add lib/regulatory/source-catalog.ts .github/workflows/one-time-cmmc-source-route-fix.yml
+          git commit -m "fix: correct CMMC eCFR source route [cmmc-route-fixed]"
+          git push origin HEAD:feat/regulatory-source-coverage-completion
