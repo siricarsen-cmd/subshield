@@ -39,7 +39,7 @@ const COVERAGE_REQUESTS: RegulatoryCitationPackageRequest[] = [
         locator: "FAR 52.222-6(b)-(c) — attached wage determination and conformance authority",
         startAnchor: "(b)(1) All laborers and mechanics employed",
         endAnchor:
-          "the proposed rate bears a reasonable relationship to the wage rates contained in the wage determination",
+          "the proposed wage rate, including any bona fide fringe benefits, bears a reasonable relationship to the wage rates contained in the wage determination",
         requiredAnchors: [
           "wage determination of the Secretary of Labor",
           "attached hereto and made a part hereof",
@@ -50,18 +50,17 @@ const COVERAGE_REQUESTS: RegulatoryCitationPackageRequest[] = [
         sourceId: "sam-wage-determinations",
         locator: "SAM.gov Wage Determinations — search dimensions and prevailing-wage content",
         startAnchor: "A wage determination (WD) is a set of wages",
-        endAnchor:
-          "Service Contracts identifies wage rates for service employees under the Service Contract Act",
+        endAnchor: "Service Contract Act (SCA)",
         requiredAnchors: [
           "given labor category in a given locality",
-          "Search by wage determination number",
+          "Search by WD Number",
           "Public Buildings or Works",
         ],
       },
       {
         sourceId: "ecfr-29-part-5",
         locator: "29 CFR 5.5(a)(6) and (d) — wage determination flowdown and incorporation",
-        startAnchor: "(6) Subcontracts. The contractor or subcontractor must insert",
+        startAnchor: "(a)(6) Subcontracts. The contractor or subcontractor must insert",
         endAnchor:
           "the same force and effect as if they were inserted in full text",
         requiredAnchors: [
@@ -91,13 +90,12 @@ const COVERAGE_REQUESTS: RegulatoryCitationPackageRequest[] = [
         sourceId: "ecfr-29-part-3",
         locator: "29 CFR 3.3(b) and 3.4(a) — weekly certified payroll and seven-day delivery",
         startAnchor: "(b) Each contractor or subcontractor engaged in the construction",
-        endAnchor:
-          "to a Federal or State agency contracting for or financing the building or work",
+        endAnchor: "to the agency contracting for or financing the building or work",
         requiredAnchors: [
           "each week must provide a copy of its weekly payroll",
           "Form WH-347",
           "or on any form with identical wording",
-          "within seven days after the regular payment date",
+          "within 7 days after the regular payment date",
         ],
       },
     ],
@@ -122,7 +120,7 @@ const COVERAGE_REQUESTS: RegulatoryCitationPackageRequest[] = [
         sourceId: "ecfr-29-part-4",
         locator: "29 CFR 4.111, 4.113, and 4.130 — principal purpose and service-employee coverage",
         startAnchor: "(a) Principal purpose as criterion",
-        endAnchor: "support services at military installations",
+        endAnchor: "Support services at military installations",
         requiredAnchors: [
           "principal purpose is to provide something other than services",
           "only incidental to the performance of a contract for another purpose",
@@ -143,7 +141,7 @@ const COVERAGE_REQUESTS: RegulatoryCitationPackageRequest[] = [
         locator: "FAR 52.222-6(c) — contracting-officer conformance process",
         startAnchor: "(c)(1) The Contracting Officer shall require",
         endAnchor:
-          "the proposed rate bears a reasonable relationship to the wage rates contained in the wage determination",
+          "the proposed wage rate, including any bona fide fringe benefits, bears a reasonable relationship to the wage rates contained in the wage determination",
         requiredAnchors: [
           "The Contracting Officer shall approve",
           "classification is utilized in the area by the construction industry",
@@ -214,14 +212,14 @@ const COVERAGE_REQUESTS: RegulatoryCitationPackageRequest[] = [
       },
       {
         sourceId: "cui-registry",
-        locator: "CUI Registry — categories, authorities, and implementing guidance",
-        startAnchor: "The CUI Registry is the Government-wide online repository",
-        endAnchor:
-          "Contractors should not follow CUI program requirements or markings until directed to do so in a contract or agreement",
+        locator: "CUI Registry — government-wide guidance and agency implementation",
+        startAnchor: "Established by Executive Order 13556",
+        endAnchor: "Registry Change Log",
         requiredAnchors: [
-          "CUI categories, markings and controls",
-          "safeguarding or dissemination authority",
-          "government contracting activity",
+          "requires safeguarding or dissemination controls",
+          "Government-wide online repository",
+          "agency personnel and contractors should first consult",
+          "Categories, Markings and Controls",
         ],
       },
     ],
@@ -256,7 +254,7 @@ const COVERAGE_REQUESTS: RegulatoryCitationPackageRequest[] = [
         endAnchor: "DoD may provide specific guidance pertaining to flow-down",
         requiredAnchors: [
           "applicable CMMC level and assessment type for each subcontract",
-          "only process, store, or transmit FCI and not CUI",
+          "only process, store, or transmit FCI (and not CUI)",
           "process, store, or transmit CUI",
         ],
       },
@@ -271,14 +269,14 @@ const COVERAGE_REQUESTS: RegulatoryCitationPackageRequest[] = [
     excerpts: [
       {
         sourceId: "cui-registry",
-        locator: "CUI Registry — category, authority, and contracting-activity guidance",
-        startAnchor: "The CUI Registry is the Government-wide online repository",
-        endAnchor:
-          "Contractors should not follow CUI program requirements or markings until directed to do so in a contract or agreement",
+        locator: "CUI Registry — program scope and agency implementation guidance",
+        startAnchor: "Established by Executive Order 13556",
+        endAnchor: "Registry Change Log",
         requiredAnchors: [
-          "category description, category marking, and safeguarding or dissemination authority",
-          "Questions regarding the status of marked or unmarked information",
-          "government contracting activity",
+          "requires safeguarding or dissemination controls",
+          "Government-wide online repository",
+          "agency personnel and contractors should first consult",
+          "Categories, Markings and Controls",
         ],
       },
       {
