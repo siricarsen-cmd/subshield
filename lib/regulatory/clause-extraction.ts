@@ -25,6 +25,7 @@ interface AnchorMatch {
 }
 
 const DEFAULT_MAX_EXCERPT_CHARACTERS = 3_500;
+const ANCHOR_SEPARATOR = `[\\s“”"'‘’]+`;
 
 function sha256(value: string): string {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
@@ -39,7 +40,7 @@ function whitespaceFlexiblePattern(anchor: string): RegExp {
   if (tokens.length === 0 || tokens.some((token) => token.length === 0)) {
     throw new Error("Regulatory source anchor must not be blank");
   }
-  return new RegExp(tokens.join("\\s+"), "giu");
+  return new RegExp(tokens.join(ANCHOR_SEPARATOR), "giu");
 }
 
 function uniqueAnchorMatch(text: string, anchor: string, label: string): AnchorMatch {
