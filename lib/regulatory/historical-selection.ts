@@ -62,6 +62,18 @@ interface ParsedVersionCandidate extends RegulatoryVersionCandidate {
 }
 
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const ANALYSIS_DATE_BASES = new Set<string>([
+  "solicitation-issued",
+  "proposal-due",
+  "subcontract-executed",
+  "modification-effective",
+  "performance-started",
+  "user-specified",
+]);
+const ANALYSIS_DATE_AUTHORITIES = new Set<string>([
+  "contract-evidence",
+  "user-provided",
+]);
 
 function parseDateOnly(value: string): number | undefined {
   if (!DATE_ONLY_RE.test(value)) return undefined;
@@ -76,6 +88,26 @@ function parseDateOnly(value: string): number | undefined {
     return undefined;
   }
   return timestamp;
+}
+
+function normalizeContext(value: unknown): RegulatoryAnalysisDateContext {
+  const record =
+    typeof value === "object" && value !== null
+      ? (value as Record<string, unknown>)
+      : {};
+  const evidenceQuotes = Array.isArray(record.evidenceQuotes)
+    ? record.evidenceQuotes.filter((quote): quote is string => typeof quote === "string")
+    : [];
+  return {
+    asOfDate: typeof record.asOfDate === "string" ? record.asOfDate : "",
+    basis: ANALYSIS_DATE_BASES.has(String(record.basis))
+      ? (record.basis as RegulatoryAnalysisDateBasis)
+      : "user-specified",
+    authority: ANALYSIS_DATE_AUTHORITIES.has(String(record.authority))
+      ? (record.authority as RegulatoryAnalysisDateAuthority)
+      : "user-provided",
+    evidenceQuotes,
+  };
 }
 
 function baseResult(
@@ -98,17 +130,46 @@ function baseResult(
   };
 }
 
-function validateContext(context: RegulatoryAnalysisDateContext): string[] {
+function validateContext(
+  rawContext: unknown,
+  context: RegulatoryAnalysisDateContext
+): string[] {
   const errors: string[] = [];
-  if (parseDateOnly(context.asOfDate) === undefined) {
+  const record =
+    typeof rawContext === "object" && rawContext !== null
+      ? (rawContext as Record<string, unknown>)
+      : undefined;
+
+  if (!record) {
+    errors.push("Analysis-date context must be an object");
+    return errors;
+  }
+  if (typeof record.asOfDate !== "string" || parseDateOnly(context.asOfDate) === undefined) {
     errors.push("Analysis date must be a real calendar date in YYYY-MM-DD format");
   }
+  if (typeof record.basis !== "string" || !ANALYSIS_DATE_BASES.has(record.basis)) {
+    errors.push("Analysis date basis is unsupported");
+  }
+  if (
+    typeof record.authority !== "string" ||
+    !ANALYSIS_DATE_AUTHORITIES.has(record.authority)
+  ) {
+    errors.push("Analysis date authority is unsupported");
+  }
+  if (!Array.isArray(record.evidenceQuotes)) {
+    errors.push("Analysis-date evidence quotes must be an array");
+  } else if (record.evidenceQuotes.some((quote) => typeof quote !== "string")) {
+    errors.push("Analysis-date evidence quotes must contain only strings");
+  }
+
   if (context.authority === "contract-evidence") {
     if (
       context.evidenceQuotes.length === 0 ||
       context.evidenceQuotes.some((quote) => !quote.trim())
     ) {
-      errors.push("A contract-derived analysis date requires at least one exact nonblank evidence quote");
+      errors.push(
+        "A contract-derived analysis date requires at least one exact nonblank evidence quote"
+      );
     }
   } else if (context.evidenceQuotes.some((quote) => !quote.trim())) {
     errors.push("Analysis-date evidence quotes must not be blank");
@@ -119,7 +180,7 @@ function validateContext(context: RegulatoryAnalysisDateContext): string[] {
   if (context.basis !== "user-specified" && context.authority !== "contract-evidence") {
     errors.push("A contract date basis must be grounded in contract evidence");
   }
-  return errors;
+  return [...new Set(errors)];
 }
 
 function parseCandidate(snapshot: RegulatorySourceSnapshot): {
@@ -164,17 +225,22 @@ function parseCandidate(snapshot: RegulatorySourceSnapshot): {
 }
 
 function publicCandidate(candidate: ParsedVersionCandidate): RegulatoryVersionCandidate {
-  const { effectiveDay: _effectiveDay, endExclusiveDay: _endExclusiveDay, ...publicValue } =
-    candidate;
-  return publicValue;
+  return {
+    snapshotId: candidate.snapshotId,
+    versionIdentifier: candidate.versionIdentifier,
+    effectiveDate: candidate.effectiveDate,
+    endExclusiveDate: candidate.endExclusiveDate,
+    historicalStatus: candidate.historicalStatus,
+  };
 }
 
 export function selectRegulatoryVersionForDate(
   sourceId: string,
   snapshots: readonly RegulatorySourceSnapshot[],
-  context: RegulatoryAnalysisDateContext
+  contextInput: RegulatoryAnalysisDateContext
 ): RegulatoryVersionSelectionResult {
-  const contextErrors = validateContext(context);
+  const context = normalizeContext(contextInput);
+  const contextErrors = validateContext(contextInput, context);
   if (contextErrors.length > 0) {
     return baseResult(
       "invalid-request",
@@ -204,7 +270,11 @@ export function selectRegulatoryVersionForDate(
       sourceId,
       context,
       "The source set contains duplicate snapshot identities.",
-      { missingFacts: [...new Set(duplicateSnapshotIds)].map((id) => `Unique snapshot identity: ${id}`) }
+      {
+        missingFacts: [...new Set(duplicateSnapshotIds)].map(
+          (id) => `Unique snapshot identity: ${id}`
+        ),
+      }
     );
   }
 
@@ -228,8 +298,9 @@ export function selectRegulatoryVersionForDate(
       snapshot.historicalStatus !== "proposed" &&
       canUseSnapshotForClientCitation(snapshot)
   );
+  const eligibleIds = new Set(eligible.map((snapshot) => snapshot.snapshotId));
   const excludedSnapshotIds = snapshots
-    .filter((snapshot) => !eligible.includes(snapshot))
+    .filter((snapshot) => !eligibleIds.has(snapshot.snapshotId))
     .map((snapshot) => snapshot.snapshotId);
 
   if (eligible.length === 0) {
