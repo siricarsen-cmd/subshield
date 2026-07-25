@@ -7,7 +7,6 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/analyzer-accuracy.yml"
-      - ".github/scripts/resolve-typescript-loader.mjs"
   workflow_dispatch:
 
 permissions:
