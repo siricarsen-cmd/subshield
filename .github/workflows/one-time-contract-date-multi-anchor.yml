@@ -1,0 +1,107 @@
+name: One-time contract date multi-anchor support
+
+on:
+  push:
+    branches:
+      - feat/regulatory-contract-date-evidence
+
+permissions:
+  contents: write
+
+jobs:
+  add-multi-anchor-support:
+    if: ${{ !contains(github.event.head_commit.message, '[date-multi-anchor-added]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/regulatory-contract-date-evidence
+          fetch-depth: 0
+
+      - name: Add bounded repeated-anchor matching
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/regulatory/contract-date-evidence.ts')
+          text = path.read_text(encoding='utf-8')
+          old_constant = 'const DATE_RULES: readonly DateRule[] = ['
+          new_constant = 'const MAX_DATE_DISTANCE_AFTER_ANCHOR = 96;\n\nconst DATE_RULES: readonly DateRule[] = ['
+          if text.count(old_constant) != 1:
+              raise SystemExit('DATE_RULES insertion point not unique')
+          text = text.replace(old_constant, new_constant)
+
+          old_block = '''    for (const rule of DATE_RULES) {
+      rule.anchor.lastIndex = 0;
+      const anchorMatch = rule.anchor.exec(window);
+      if (!anchorMatch || anchorMatch.index === undefined) continue;
+      const anchorEnd = anchorMatch.index + anchorMatch[0].length;
+      const date = dates.find(
+        (candidate) => candidate.normalizedDate && candidate.start >= anchorEnd
+      );
+      if (!date?.normalizedDate) continue;
+      if (!quoteExistsInDocument(window, normalizedDocument)) continue;
+
+      const candidate: ContractDateEvidenceCandidate = {
+        basis: rule.basis,
+        normalizedDate: date.normalizedDate,
+        dateText: date.dateText,
+        foundText: window,
+        anchorText: anchorMatch[0],
+        sourceIndex: normalizedDocument.indexOf(window),
+        confidence: "high",
+      };
+      const key = candidateKey(candidate);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      candidates.push(candidate);
+    }'''
+          new_block = '''    for (const rule of DATE_RULES) {
+      const flags = rule.anchor.flags.includes("g")
+        ? rule.anchor.flags
+        : `${rule.anchor.flags}g`;
+      const anchorPattern = new RegExp(rule.anchor.source, flags);
+      for (const anchorMatch of window.matchAll(anchorPattern)) {
+        if (anchorMatch.index === undefined) continue;
+        const anchorEnd = anchorMatch.index + anchorMatch[0].length;
+        const date = dates.find(
+          (candidate) =>
+            candidate.normalizedDate &&
+            candidate.start >= anchorEnd &&
+            candidate.start - anchorEnd <= MAX_DATE_DISTANCE_AFTER_ANCHOR
+        );
+        if (!date?.normalizedDate) continue;
+        if (!quoteExistsInDocument(window, normalizedDocument)) continue;
+
+        const candidate: ContractDateEvidenceCandidate = {
+          basis: rule.basis,
+          normalizedDate: date.normalizedDate,
+          dateText: date.dateText,
+          foundText: window,
+          anchorText: anchorMatch[0],
+          sourceIndex: normalizedDocument.indexOf(window),
+          confidence: "high",
+        };
+        const key = candidateKey(candidate);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        candidates.push(candidate);
+      }
+    }'''
+          if text.count(old_block) != 1:
+              raise SystemExit('Anchor loop block not found exactly once')
+          path.write_text(text.replace(old_block, new_block), encoding='utf-8')
+          Path('.github/workflows/one-time-contract-date-multi-anchor.yml').unlink()
+          PY
+
+      - name: Commit multi-anchor support
+        shell: bash
+        run: |
+          git config user.name "subshield-automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add lib/regulatory/contract-date-evidence.ts .github/workflows/one-time-contract-date-multi-anchor.yml
+          git commit -m "fix: support bounded repeated date anchors [date-multi-anchor-added]"
+          git push origin HEAD:feat/regulatory-contract-date-evidence
