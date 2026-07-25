@@ -155,6 +155,35 @@ jobs:
           echo "Regulatory historical-selection status: ${status:-missing}"
           test "$status" = "0"
 
+      - name: Run contract date evidence extraction
+        id: dates
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          npm run test:regulatory:dates > regulatory-contract-date-output.txt 2>&1
+          status=$?
+          cat regulatory-contract-date-output.txt
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Upload contract date evidence output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regulatory-contract-date-output-${{ github.run_id }}
+          path: regulatory-contract-date-output.txt
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce contract date evidence result
+        if: always()
+        shell: bash
+        run: |
+          status="${{ steps.dates.outputs.status }}"
+          echo "Regulatory contract-date status: ${status:-missing}"
+          test "$status" = "0"
+
       - name: Preserve analyzer accuracy benchmarks
         run: npm run test:accuracy
 
