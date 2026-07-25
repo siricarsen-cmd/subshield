@@ -12,7 +12,8 @@
     "test:accuracy": "npm run test:accuracy:core && npm run test:accuracy:qa-c",
     "test:regulatory:catalog": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/source-catalog.test.mjs",
     "test:regulatory:ingestion": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/ingestion.test.mjs",
-    "test:regulatory": "npm run test:regulatory:catalog && npm run test:regulatory:ingestion",
+    "test:regulatory:applicability": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/applicability-mapping.test.mjs",
+    "test:regulatory": "npm run test:regulatory:catalog && npm run test:regulatory:ingestion && npm run test:regulatory:applicability",
     "regulatory:ingest": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/cli/ingest-source.ts"
   },
   "dependencies": {

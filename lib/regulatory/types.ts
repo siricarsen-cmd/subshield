@@ -115,6 +115,7 @@ export interface RegulatorySourceSnapshot {
   reviewStatus: "pending" | "approved" | "rejected";
   reviewedBy?: string;
   reviewedAt?: string;
+  reviewNotes?: string[];
 }
 
 export type RegulatorySnapshotChangeStatus =
@@ -141,6 +142,9 @@ export interface RegulatorySnapshotManifestEntry {
   retrievedAt: string;
   reviewStatus: RegulatorySourceSnapshot["reviewStatus"];
   versionIdentifier?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewNotes?: string[];
 }
 
 export interface RegulatoryRetrievalObservation {
