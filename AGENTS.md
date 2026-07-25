@@ -8,7 +8,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## Product purpose and user trust
 
-SubShield is a GovCon subcontract risk-review tool for small businesses and subcontractors working under federal prime contractors. It organizes contract risks, missing information, negotiation questions, notice obligations, and attorney-preparation materials. SubShield is not a law firm and must never state or imply that a contract is safe to sign.
+SubShield is exclusively a federal government subcontract risk-review tool for small businesses and subcontractors working under federal prime contractors. It reviews prime-issued subcontract and solicitation packages from the subcontractor's perspective. It is not a federal prime-contract review platform, a Government contracting-officer tool, a general commercial-contract analyzer, or a state/local procurement analyzer.
+
+SubShield organizes contract risks, missing information, negotiation questions, notice obligations, and attorney-preparation materials. SubShield is not a law firm and must never state or imply that a contract is safe to sign.
 
 Client-facing analyzer accuracy is the highest priority. Prefer an honest Limited Scan or an explicit uncertainty statement over a confident but unsupported conclusion. Protect against both false positives and false negatives.
 
