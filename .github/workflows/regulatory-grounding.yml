@@ -68,6 +68,35 @@ jobs:
           echo "Regulatory applicability status: ${status:-missing}"
           test "$status" = "0"
 
+      - name: Run clause-level citation packages
+        id: citations
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          npm run test:regulatory:citations > regulatory-citation-output.txt 2>&1
+          status=$?
+          cat regulatory-citation-output.txt
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Upload regulatory citation output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regulatory-citation-output-${{ github.run_id }}
+          path: regulatory-citation-output.txt
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce citation-package result
+        if: always()
+        shell: bash
+        run: |
+          status="${{ steps.citations.outputs.status }}"
+          echo "Regulatory citation-package status: ${status:-missing}"
+          test "$status" = "0"
+
       - name: Preserve analyzer accuracy benchmarks
         run: npm run test:accuracy
 
