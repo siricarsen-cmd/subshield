@@ -7,6 +7,7 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/analyzer-accuracy.yml"
+      - ".github/scripts/resolve-typescript-loader.mjs"
   workflow_dispatch:
 
 permissions:
@@ -16,7 +17,7 @@ jobs:
   accuracy-benchmarks:
     name: QA-B / QA-C / QA-D / QA-E1
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Check out repository
@@ -79,3 +80,9 @@ jobs:
           echo "QA-C benchmark status: ${qa_c_status:-missing}"
           test "$core_status" = "0"
           test "$qa_c_status" = "0"
+
+      - name: Validate TypeScript
+        run: npx tsc --noEmit
+
+      - name: Build production application
+        run: npm run build
