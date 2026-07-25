@@ -31,5 +31,51 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Run analyzer accuracy benchmarks
-        run: npm run test:accuracy
+      - name: Run QA-B / QA-D / QA-E1 core benchmark
+        id: core
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          npm run test:accuracy:core 2>&1 | tee core-accuracy-output.txt
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Upload core benchmark output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-accuracy-output
+          path: core-accuracy-output.txt
+          if-no-files-found: error
+
+      - name: Run QA-C cyber benchmark
+        id: qa_c
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          npm run test:accuracy:qa-c 2>&1 | tee qa-c-accuracy-output.txt
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Upload QA-C benchmark output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-c-accuracy-output
+          path: qa-c-accuracy-output.txt
+          if-no-files-found: error
+
+      - name: Enforce benchmark results
+        if: always()
+        shell: bash
+        run: |
+          core_status="${{ steps.core.outputs.status }}"
+          qa_c_status="${{ steps.qa_c.outputs.status }}"
+          echo "Core benchmark status: ${core_status:-missing}"
+          echo "QA-C benchmark status: ${qa_c_status:-missing}"
+          test "$core_status" = "0"
+          test "$qa_c_status" = "0"
