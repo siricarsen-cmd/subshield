@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
+  canUseSnapshotForClientCitation,
   compareRegulatorySnapshots,
   getRegulatorySnapshotValidationErrors,
 } from "./ingestion";
@@ -22,6 +23,13 @@ export interface StoreRegulatorySnapshotResult {
   comparison: RegulatorySnapshotComparison;
   manifest: RegulatorySnapshotManifest;
   snapshotPath?: string;
+  manifestPath: string;
+}
+
+export interface PersistRegulatorySnapshotReviewResult {
+  status: "approved" | "rejected";
+  snapshot: RegulatorySourceSnapshot;
+  manifest: RegulatorySnapshotManifest;
   manifestPath: string;
 }
 
@@ -104,6 +112,11 @@ async function writeJsonImmutable(filePath: string, value: unknown): Promise<voi
   });
 }
 
+function isIsoInstant(value: string): boolean {
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString() === value;
+}
+
 function validateManifestEntry(entry: RegulatorySnapshotManifestEntry, sourceId: string): void {
   if (
     !entry.snapshotId ||
@@ -114,6 +127,18 @@ function validateManifestEntry(entry: RegulatorySnapshotManifestEntry, sourceId:
     throw new Error(`Incomplete regulatory snapshot manifest entry: ${entry.snapshotId || "missing-id"}`);
   }
   resolveContainedSnapshotPath(".", entry.path, sourceId);
+
+  if (entry.reviewStatus !== "pending") {
+    if (
+      !entry.reviewedBy?.trim() ||
+      !entry.reviewedAt ||
+      !isIsoInstant(entry.reviewedAt) ||
+      !entry.reviewNotes?.length ||
+      entry.reviewNotes.some((note) => !note.trim())
+    ) {
+      throw new Error(`Reviewed regulatory snapshot manifest entry lacks provenance: ${entry.snapshotId}`);
+    }
+  }
 }
 
 function validateObservation(
@@ -172,7 +197,37 @@ export async function loadRegulatorySnapshotManifest(
   }
   for (const entry of existing.snapshots) validateManifestEntry(entry, sourceId);
   for (const observation of existing.observations) validateObservation(observation, existing);
+
+  if (existing.latestApprovedSnapshotId) {
+    const approvedEntry = existing.snapshots.find(
+      (entry) => entry.snapshotId === existing.latestApprovedSnapshotId
+    );
+    if (!approvedEntry || approvedEntry.reviewStatus !== "approved") {
+      throw new Error(`Manifest latestApprovedSnapshotId is not an approved snapshot: ${sourceId}`);
+    }
+  }
   return existing;
+}
+
+function withPersistedReview(
+  snapshot: RegulatorySourceSnapshot,
+  entry: RegulatorySnapshotManifestEntry
+): RegulatorySourceSnapshot {
+  const reviewNotes = entry.reviewNotes ?? [];
+  const baseProvenanceNotes = snapshot.provenanceNotes.filter(
+    (note) => !note.startsWith("Review: ")
+  );
+  return {
+    ...snapshot,
+    reviewStatus: entry.reviewStatus,
+    reviewedBy: entry.reviewedBy,
+    reviewedAt: entry.reviewedAt,
+    reviewNotes: reviewNotes.length > 0 ? reviewNotes : undefined,
+    provenanceNotes: [
+      ...baseProvenanceNotes,
+      ...reviewNotes.map((note) => `Review: ${note}`),
+    ],
+  };
 }
 
 export async function loadStoredRegulatorySnapshot(
@@ -181,20 +236,20 @@ export async function loadStoredRegulatorySnapshot(
   expectedSourceId?: string
 ): Promise<RegulatorySourceSnapshot> {
   const absolutePath = resolveContainedSnapshotPath(outputRoot, entry.path, expectedSourceId);
-  const snapshot = await readJsonFile<RegulatorySourceSnapshot>(absolutePath);
-  if (!snapshot) throw new Error(`Regulatory snapshot file is missing: ${absolutePath}`);
+  const immutableSnapshot = await readJsonFile<RegulatorySourceSnapshot>(absolutePath);
+  if (!immutableSnapshot) throw new Error(`Regulatory snapshot file is missing: ${absolutePath}`);
 
   if (
-    snapshot.snapshotId !== entry.snapshotId ||
-    snapshot.checksum !== entry.checksum ||
-    snapshot.rawChecksum !== entry.rawChecksum ||
-    snapshot.retrievedAt !== entry.retrievedAt ||
-    snapshot.reviewStatus !== entry.reviewStatus ||
-    snapshot.sourceId !== (expectedSourceId ?? entry.path.split("/", 1)[0])
+    immutableSnapshot.snapshotId !== entry.snapshotId ||
+    immutableSnapshot.checksum !== entry.checksum ||
+    immutableSnapshot.rawChecksum !== entry.rawChecksum ||
+    immutableSnapshot.retrievedAt !== entry.retrievedAt ||
+    immutableSnapshot.sourceId !== (expectedSourceId ?? entry.path.split("/", 1)[0])
   ) {
     throw new Error(`Regulatory snapshot does not match its manifest entry: ${absolutePath}`);
   }
 
+  const snapshot = withPersistedReview(immutableSnapshot, entry);
   const validationErrors = getRegulatorySnapshotValidationErrors(snapshot);
   if (validationErrors.length > 0) {
     throw new Error(
@@ -302,6 +357,11 @@ export async function storeRegulatorySnapshot(
   snapshot: RegulatorySourceSnapshot
 ): Promise<StoreRegulatorySnapshotResult> {
   assertSafeSourceId(snapshot.sourceId);
+  if (snapshot.reviewStatus !== "pending") {
+    throw new Error(
+      "New regulatory snapshots must be stored pending and reviewed through the persisted review transition"
+    );
+  }
   const validationErrors = getRegulatorySnapshotValidationErrors(snapshot);
   if (validationErrors.length > 0) {
     throw new Error(
@@ -368,16 +428,12 @@ export async function storeRegulatorySnapshot(
     checksum: snapshot.checksum,
     rawChecksum: snapshot.rawChecksum,
     retrievedAt: snapshot.retrievedAt,
-    reviewStatus: snapshot.reviewStatus,
+    reviewStatus: "pending",
     versionIdentifier: snapshot.versionIdentifier,
   };
   const nextManifest: RegulatorySnapshotManifest = {
     ...manifest,
     latestObservedSnapshotId: snapshot.snapshotId,
-    latestApprovedSnapshotId:
-      snapshot.reviewStatus === "approved"
-        ? snapshot.snapshotId
-        : manifest.latestApprovedSnapshotId,
     snapshots: [...manifest.snapshots, entry],
   };
   await writeJsonAtomic(manifestPath, nextManifest);
@@ -387,6 +443,94 @@ export async function storeRegulatorySnapshot(
     comparison,
     manifest: nextManifest,
     snapshotPath: absoluteSnapshotPath,
+    manifestPath,
+  };
+}
+
+export async function persistRegulatorySnapshotReview(
+  outputRoot: string,
+  reviewedSnapshot: RegulatorySourceSnapshot
+): Promise<PersistRegulatorySnapshotReviewResult> {
+  assertSafeSourceId(reviewedSnapshot.sourceId);
+  if (reviewedSnapshot.reviewStatus === "pending") {
+    throw new Error("A pending regulatory snapshot does not contain a completed review decision");
+  }
+  if (
+    !reviewedSnapshot.reviewedBy?.trim() ||
+    !reviewedSnapshot.reviewedAt ||
+    !isIsoInstant(reviewedSnapshot.reviewedAt) ||
+    !reviewedSnapshot.reviewNotes?.length ||
+    reviewedSnapshot.reviewNotes.some((note) => !note.trim())
+  ) {
+    throw new Error("Reviewed regulatory snapshot lacks persistent reviewer provenance");
+  }
+
+  const validationErrors = getRegulatorySnapshotValidationErrors(reviewedSnapshot);
+  if (validationErrors.length > 0) {
+    throw new Error(
+      `Reviewed regulatory snapshot cannot be persisted: ${validationErrors.join("; ")}`
+    );
+  }
+  if (
+    reviewedSnapshot.reviewStatus === "approved" &&
+    !canUseSnapshotForClientCitation(reviewedSnapshot)
+  ) {
+    throw new Error("Approved regulatory snapshot is not eligible for client citation");
+  }
+
+  const manifestPath = manifestFilePath(outputRoot, reviewedSnapshot.sourceId);
+  const manifest = await loadRegulatorySnapshotManifest(outputRoot, reviewedSnapshot.sourceId);
+  const entryIndex = manifest.snapshots.findIndex(
+    (entry) => entry.snapshotId === reviewedSnapshot.snapshotId
+  );
+  if (entryIndex < 0) {
+    throw new Error(`Reviewed regulatory snapshot is not present in storage: ${reviewedSnapshot.snapshotId}`);
+  }
+  const existingEntry = manifest.snapshots[entryIndex];
+  if (existingEntry.reviewStatus !== "pending") {
+    throw new Error(`Regulatory snapshot review is already final: ${reviewedSnapshot.snapshotId}`);
+  }
+
+  const storedPendingSnapshot = await loadStoredRegulatorySnapshot(
+    outputRoot,
+    existingEntry,
+    reviewedSnapshot.sourceId
+  );
+  if (!sameImmutableSnapshot(storedPendingSnapshot, reviewedSnapshot)) {
+    throw new Error(`Reviewed regulatory snapshot content differs from the immutable stored snapshot`);
+  }
+  if (existingEntry.versionIdentifier !== reviewedSnapshot.versionIdentifier) {
+    throw new Error("Reviewed regulatory snapshot version differs from its manifest entry");
+  }
+
+  const reviewedEntry: RegulatorySnapshotManifestEntry = {
+    ...existingEntry,
+    reviewStatus: reviewedSnapshot.reviewStatus,
+    reviewedBy: reviewedSnapshot.reviewedBy,
+    reviewedAt: reviewedSnapshot.reviewedAt,
+    reviewNotes: [...reviewedSnapshot.reviewNotes],
+  };
+  const nextEntries = [...manifest.snapshots];
+  nextEntries[entryIndex] = reviewedEntry;
+  const nextManifest: RegulatorySnapshotManifest = {
+    ...manifest,
+    latestApprovedSnapshotId:
+      reviewedSnapshot.reviewStatus === "approved"
+        ? reviewedSnapshot.snapshotId
+        : manifest.latestApprovedSnapshotId,
+    snapshots: nextEntries,
+  };
+  await writeJsonAtomic(manifestPath, nextManifest);
+
+  const persistedSnapshot = await loadStoredRegulatorySnapshot(
+    outputRoot,
+    reviewedEntry,
+    reviewedSnapshot.sourceId
+  );
+  return {
+    status: reviewedSnapshot.reviewStatus,
+    snapshot: persistedSnapshot,
+    manifest: nextManifest,
     manifestPath,
   };
 }
