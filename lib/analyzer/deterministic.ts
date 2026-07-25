@@ -927,6 +927,12 @@ const CATEGORIES: DeterministicCategory[] = [
     regulation: "Broad Setoff / Backcharge / Withholding Rights",
     severity: "Medium-High",
     patterns: [
+      // Construction and other cost-recovery clauses often allow Prime to
+    // withhold or backcharge an estimated amount before responsibility is
+    // established. Require affirmative Prime discretion, an expressly
+    // estimated/claimed amount, and unresolved-responsibility language so
+    // protective agreed-amount and final-resolution clauses stay outside.
+    /Prime(?:\s+Contractor)?\s+may(?!\s+not\b)[^.]{0,80}(?:withhold|back[\s-]?charge|set[\s-]?off|deduct)[^.]{0,100}(?:estimated|claimed|anticipated|unliquidated)\s+amounts?[^.]{0,180}(?:before|pending)[^.]{0,100}(?:responsibility|liability|resolution|determination)/i,
       /Prime(?:\s+Contractor)?\s+may\s+(?:offset|deduct|set[\s-]?off|withhold|charge\s+back|back[\s-]?charge)[^.]{0,150}(?:any\s+(?:costs?|amounts?|sums?|damages?)|from\s+(?:any\s+)?(?:payments?|amounts?\s+(?:due|owed)))/i,
       /right\s+to\s+(?:offset|set[\s-]?off|deduct|withhold|backcharge|back[\s-]?charge)[^.]{0,150}(?:any\s+(?:amounts?|costs?|sums?)|from\s+(?:any\s+)?payments?)/i,
       /(?:set[\s-]?off|backcharge|back[\s-]?charge)[^.]{0,150}(?:any\s+(?:amounts?|costs?)|amounts?\s+(?:owed|due)|reduce\s+payment)/i,
@@ -968,6 +974,12 @@ const CATEGORIES: DeterministicCategory[] = [
     regulation: "Acceptance, Rejection, or Rework Without Clear Compensation",
     severity: "Medium-High",
     patterns: [
+      // Construction clauses frequently put the Subcontractor-cost allocation
+    // before the collateral removal/replacement costs. Require defective or
+    // nonconforming work, express own-cost allocation, and at least one
+    // collateral construction-cost signal so an ordinary verified-defect
+    // warranty without those broader costs does not trigger.
+    /Subcontractor\s+(?:shall|will|must|is\s+required\s+to)[^.]{0,100}(?:remove(?:\s+and\s+replace)?|replace|correct|re-?perform|rework)[^.]{0,140}(?:defective|nonconforming)\s+work[^.]{0,100}at\s+(?:its|the\s+Subcontractor(?:'s|\u2019s))\s+own\s+(?:cost|expense)[^.]{0,240}(?:access|demolition|testing|restoration|schedule[\s-]recovery|damage\s+to\s+adjacent\s+work)/i,
       // Cross-sentence pattern first (see notice-waiver/cure-period categories
       // above for why): real contracts frequently state the correction/
       // replacement/re-performance trigger (e.g. "Prime determines work does
@@ -1010,6 +1022,7 @@ const CATEGORIES: DeterministicCategory[] = [
     familyKey: "labor",
     regulation: "Missing or Unresolved Wage Determination / Labor Standards Requirement",
     severity: "Medium",
+    preferClauseLocalQuote: true,
     patterns: [
       /wage\s+determination[^.]{0,100}(?:may\s+apply|will\s+apply|to\s+be\s+(?:determined|issued|provided|incorporated)|not\s+yet\s+(?:issued|available|determined)|is\s+not\s+(?:currently\s+)?(?:attached|included|available))/i,
       /(?:applicable\s+)?wage\s+determination(?:s)?\s+(?:has|have)\s+not\s+(?:yet\s+)?been\s+(?:issued|incorporated|attached)/i,
