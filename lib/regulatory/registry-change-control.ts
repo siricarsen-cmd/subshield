@@ -1,6 +1,11 @@
 import type { RegulatoryApplicabilityMapping } from "./applicability";
+import {
+  getApprovedRegulatoryEvidenceSnapshot,
+  validateApprovedRegulatoryEvidenceRegistry,
+} from "./approved-evidence-registry";
 import type { RegulatoryCitationPackage } from "./citation-package";
 import { validateRegulatoryCitationPackage } from "./citation-package";
+import { extractApprovedRegulatoryCitation } from "./clause-extraction";
 import type { RegulatoryHistoricalGroundingPolicy } from "./historical-grounding-policy";
 import {
   fingerprintRegulatoryRegistryValue,
@@ -103,9 +108,7 @@ function deepClone<T>(value: T): T {
 
 function deepFreeze<T>(value: T): Readonly<T> {
   if (value && typeof value === "object" && !Object.isFrozen(value)) {
-    for (const nested of Object.values(value as Record<string, unknown>)) {
-      deepFreeze(nested);
-    }
+    for (const nested of Object.values(value as Record<string, unknown>)) deepFreeze(nested);
     Object.freeze(value);
   }
   return value as Readonly<T>;
@@ -151,8 +154,7 @@ function sourceIdsForValue(
   value: RegulatoryRegistryValue
 ): string[] {
   if (kind === "mapping") {
-    const comparisons = (value as Partial<RegulatoryApplicabilityMapping>)
-      .sourceComparisons;
+    const comparisons = (value as Partial<RegulatoryApplicabilityMapping>).sourceComparisons;
     return Array.isArray(comparisons)
       ? comparisons
           .map((comparison) => comparison?.sourceId?.trim())
@@ -160,8 +162,7 @@ function sourceIdsForValue(
       : [];
   }
   if (kind === "historical-policy") {
-    const policies = (value as Partial<RegulatoryHistoricalGroundingPolicy>)
-      .sourcePolicies;
+    const policies = (value as Partial<RegulatoryHistoricalGroundingPolicy>).sourcePolicies;
     return Array.isArray(policies)
       ? policies
           .map((policy) => policy?.sourceId?.trim())
@@ -177,14 +178,12 @@ function sourceIdsForValue(
 }
 
 function sourceSetKey(sourceIds: readonly string[]): string {
-  return [...new Set(sourceIds)].sort((left, right) => left.localeCompare(right)).join("|");
+  return [...new Set(sourceIds)]
+    .sort((left, right) => left.localeCompare(right))
+    .join("|");
 }
 
-function validateNonblankList(
-  label: string,
-  values: unknown,
-  errors: string[]
-): void {
+function validateNonblankList(label: string, values: unknown, errors: string[]): void {
   if (!Array.isArray(values) || values.length === 0) {
     errors.push(`${label} requires at least one entry`);
     return;
@@ -252,6 +251,78 @@ function validatePolicyStructure(
   }
 }
 
+function validateTemplateCitationAgainstApprovedSnapshot(
+  citation: RegulatoryCitationPackage["citations"][number],
+  errors: string[]
+): void {
+  const snapshot = getApprovedRegulatoryEvidenceSnapshot(
+    citation.sourceId,
+    citation.snapshotId
+  );
+  const label = `${citation.sourceId}/${citation.locator}`;
+  if (!snapshot) {
+    errors.push(`${label}: citation does not reference a retained approved snapshot`);
+    return;
+  }
+
+  const metadata: Array<[string, unknown, unknown]> = [
+    ["citation", snapshot.citation, citation.citation],
+    ["title", snapshot.canonicalTitle, citation.title],
+    ["canonical URL", snapshot.canonicalUrl, citation.canonicalUrl],
+    ["version identifier", snapshot.versionIdentifier, citation.versionIdentifier],
+    ["effective date", snapshot.effectiveDate, citation.effectiveDate],
+    ["retrievedAt", snapshot.retrievedAt, citation.retrievedAt],
+    ["snapshot checksum", snapshot.checksum, citation.checksum],
+  ];
+  for (const [field, expected, observed] of metadata) {
+    if (observed !== expected) {
+      errors.push(
+        `${label}: citation ${field} does not match retained approved snapshot`
+      );
+    }
+  }
+
+  try {
+    const extracted = extractApprovedRegulatoryCitation(snapshot, {
+      sourceId: citation.sourceId,
+      locator: citation.locator,
+      startAnchor: citation.extractionStartAnchor,
+      endAnchor: citation.extractionEndAnchor,
+      requiredAnchors: [...citation.extractionRequiredAnchors],
+      maxCharacters: citation.extractionMaxCharacters,
+    });
+    const fields: Array<[string, unknown, unknown]> = [
+      ["excerpt", extracted.excerpt, citation.excerpt],
+      ["excerpt checksum", extracted.excerptChecksum, citation.excerptChecksum],
+      ["start line", extracted.startLine, citation.startLine],
+      ["end line", extracted.endLine, citation.endLine],
+      ["start anchor", extracted.extractionStartAnchor, citation.extractionStartAnchor],
+      ["end anchor", extracted.extractionEndAnchor, citation.extractionEndAnchor],
+      [
+        "required anchors",
+        JSON.stringify(extracted.extractionRequiredAnchors),
+        JSON.stringify(citation.extractionRequiredAnchors),
+      ],
+      [
+        "maximum characters",
+        extracted.extractionMaxCharacters,
+        citation.extractionMaxCharacters,
+      ],
+    ];
+    for (const [field, expected, observed] of fields) {
+      if (observed !== expected) {
+        errors.push(
+          `${label}: citation ${field} does not match deterministic extraction from the retained approved snapshot`
+        );
+      }
+    }
+  } catch (error) {
+    errors.push(
+      `${label}: retained-snapshot citation extraction failed: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
 function validateTemplateStructure(
   template: RegulatoryCitationPackage,
   errors: string[]
@@ -262,6 +333,9 @@ function validateTemplateStructure(
   }
   if (template.sourceCoverage !== "complete" || template.uncoveredSourceIds.length > 0) {
     errors.push("citation template must retain complete source coverage");
+  }
+  for (const citation of template.citations) {
+    validateTemplateCitationAgainstApprovedSnapshot(citation, errors);
   }
 }
 
@@ -304,6 +378,34 @@ function validateEvidence(
     }
     if (!item.evidenceNote?.trim()) {
       errors.push(`${changeLabel}: evidence note must not be blank`);
+    }
+
+    if (
+      item.sourceId?.trim() &&
+      item.snapshotId?.trim() &&
+      item.citation?.trim() &&
+      SHA256_RE.test(item.checksum)
+    ) {
+      const snapshot = getApprovedRegulatoryEvidenceSnapshot(
+        item.sourceId,
+        item.snapshotId
+      );
+      if (!snapshot) {
+        errors.push(
+          `${changeLabel}: evidence does not resolve to a retained approved snapshot: ${item.sourceId}/${item.snapshotId}`
+        );
+      } else {
+        if (item.citation !== snapshot.citation) {
+          errors.push(
+            `${changeLabel}: evidence citation does not match retained approved snapshot: ${item.snapshotId}`
+          );
+        }
+        if (item.checksum !== snapshot.checksum) {
+          errors.push(
+            `${changeLabel}: evidence checksum does not match retained approved snapshot: ${item.snapshotId}`
+          );
+        }
+      }
     }
   }
 }
@@ -383,7 +485,7 @@ function validateCoordinatedSourceChanges(
 export function validateRegulatoryRegistryChangeSet(
   changeSet: RegulatoryRegistryChangeSet
 ): RegulatoryRegistryChangeSetValidation {
-  const errors: string[] = [];
+  const errors: string[] = [...validateApprovedRegulatoryEvidenceRegistry()];
   if (!changeSet.changeSetId?.trim()) errors.push("change-set ID must not be blank");
   if (!changeSet.createdAt || !isIsoInstant(changeSet.createdAt)) {
     errors.push("change-set createdAt must be an ISO timestamp");
