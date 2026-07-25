@@ -22,7 +22,7 @@ The QA-D package now compares the subcontract language with:
 
 - FAR 52.222-6 for the attached wage determination and contracting-officer conformance process;
 - SAM.gov for wage-determination search dimensions such as determination number, labor category, locality, and construction or service category; and
-- 29 CFR 5.5 for covered-contract clauses, wage-determination incorporation, and lower-tier flowdown.
+- 29 CFR 5.5 for wage-determination incorporation and lower-tier flowdown.
 
 The fictional `WD 2026-CA-9999` remains unverified. Source coverage does not create a wage rate, fringe rate, classification, locality, construction type, or modification number.
 
@@ -31,7 +31,7 @@ The fictional `WD 2026-CA-9999` remains unverified. Source coverage does not cre
 The official comparison preserves two separate deadlines:
 
 - the Prime's contract requires submission within three business days after each payroll period; and
-- the controlled 29 CFR part 3 source describes delivery within seven days after the regular payment date.
+- the controlled 29 CFR part 3 source states delivery within 7 days after the regular payment date.
 
 The package also preserves that Form WH-347 or a form with identical wording may satisfy the referenced certification language. It does not state that WH-347 is the only permissible format.
 
@@ -43,7 +43,7 @@ The subcontract's statement that SCLS applies if the Prime later decides it appl
 
 ### Labor changes and lower tiers
 
-FAR 52.222-6 assigns construction classification conformance and approval functions to the contracting officer and Department of Labor process. The Prime's unilateral direction and pass-through-only price relief remain separately identified commercial risks.
+FAR 52.222-6 assigns construction classification conformance and approval functions to the contracting officer process. The Prime's unilateral direction and pass-through-only price relief remain separately identified commercial risks.
 
 FAR 52.222-41 limits its quoted flowdown to subcontracts that are themselves subject to the Service Contract Labor Standards statute. The benchmark therefore rejects a blanket conclusion that every labor clause applies identically to every supplier.
 
@@ -57,7 +57,7 @@ The benchmark continues to require the actual contractually specified NIST revis
 
 ### CUI Registry
 
-The controlled CUI source preserves that the Registry supplies government-wide categories, markings, controls, and authority information, while agency and contract implementation facts remain necessary.
+The controlled CUI source establishes that the program concerns unclassified information requiring safeguarding or dissemination controls pursuant to law, Federal regulations, and Government-wide policies. It also establishes that the Registry is the Government-wide repository for Federal-level guidance and directs agency personnel and contractors to consult agency implementing policies and program management. The retained excerpt does not identify a particular CUI category or authority.
 
 A Prime or customer representative's unsupported label may create a conservative contractual handling duty under the subcontract, but the benchmark does not treat that label alone as proof of a federal CUI category or authority.
 
@@ -79,6 +79,6 @@ The full benchmark now requires:
 
 ## Fixture limitation
 
-The supplemental source fixtures are controlled, reviewed excerpt transcriptions used to test deterministic extraction, matching, and refusal behavior. They are not substitutes for production retrieval of complete official pages and historical versions.
+The supplemental source fixtures are controlled benchmark snapshots containing verbatim selected paragraphs from approved official sources. They intentionally are not represented as complete page snapshots, and regression checks reject the summarized or cross-page wording that this phase replaced.
 
-Before any citation package can affect a customer report, SubShield must retrieve the full live source, retain its immutable checksum and provenance, complete non-automated review, select the correct current or historical version, and receive explicit approval for customer-facing analyzer integration.
+They are not substitutes for production retrieval of complete official pages and historical versions. Before any citation package can affect a customer report, SubShield must retrieve the full live source, retain its immutable checksum and provenance, complete non-automated review, select the correct current or historical version, and receive explicit approval for customer-facing analyzer integration.
