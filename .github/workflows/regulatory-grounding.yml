@@ -39,8 +39,34 @@ jobs:
       - name: Validate controlled source ingestion
         run: npm run test:regulatory:ingestion
 
-      - name: Validate applicability mappings and source review
-        run: npm run test:regulatory:applicability
+      - name: Run applicability mappings and source review
+        id: applicability
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          npm run test:regulatory:applicability > regulatory-applicability-output.txt 2>&1
+          status=$?
+          cat regulatory-applicability-output.txt
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Upload regulatory applicability output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regulatory-applicability-output-${{ github.run_id }}
+          path: regulatory-applicability-output.txt
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce applicability result
+        if: always()
+        shell: bash
+        run: |
+          status="${{ steps.applicability.outputs.status }}"
+          echo "Regulatory applicability status: ${status:-missing}"
+          test "$status" = "0"
 
       - name: Preserve analyzer accuracy benchmarks
         run: npm run test:accuracy
