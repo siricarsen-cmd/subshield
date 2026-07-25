@@ -21,7 +21,9 @@ Every historical selection requires one explicit `YYYY-MM-DD` analysis date and 
 - performance started; or
 - user specified.
 
-A contract-derived date requires at least one exact contract evidence quote. A user-specified date remains labeled user-provided and does not fabricate contract evidence.
+A contract-derived date requires the analyzed document text and at least one exact contract evidence quote. Every supplied quote must exist in that document after whitespace and smart-quote normalization, and at least one verified quote must contain a calendar date that resolves to the stated analysis date. ISO, slash-date, and named-month forms are handled deterministically.
+
+An invented quote, a quote absent from the uploaded text, a real quote containing a different date, or a date supplied without the analyzed document produces `invalid-request`. A user-specified date remains labeled user-provided and is rejected if it is represented as verified contract evidence.
 
 The date basis is preserved in the selection result because different questions may require different dates. For example, solicitation provisions, executed subcontract clauses, and later modifications may not be governed by the same source snapshot.
 
@@ -34,17 +36,20 @@ A version is active when:
 
 The superseded or expiration date is treated as the first date the old version is no longer effective. It is therefore an exclusive boundary. A new version effective on that date is selected instead of the old version.
 
+A snapshot marked `superseded` must retain this first non-effective date. Without that boundary, the selector returns unresolved version metadata rather than treating the obsolete text as effective forever.
+
 Retrieval time, file creation time, and the order in which archives were discovered never determine legal version selection.
 
 ## Refusal conditions
 
 The selector refuses to choose a source when:
 
-- the date is invalid or lacks required authority/evidence;
+- the date is invalid or lacks required authority, document text, exact quote, or matching date evidence;
 - the source is not in the approved catalog;
 - snapshots from different source families are mixed;
 - no approved, citation-eligible, non-proposed snapshot exists;
 - any approved candidate lacks a verified version identifier or effective window;
+- a superseded snapshot lacks its first non-effective date;
 - the analysis date predates retained approved history;
 - approved windows contain a gap; or
 - more than one approved window covers the same date.
@@ -73,8 +78,11 @@ The returned approved history is ordered by effective date for deterministic rev
 
 The regression suite proves that:
 
+- an exact quote in the analyzed document must contain the stated analysis date;
+- invented, absent, unrelated-date, or document-less evidence is rejected;
 - an older contract selects the older approved version even when that archive was retrieved later;
 - the exact supersession boundary selects the new version;
+- a superseded version without an end boundary is unresolved rather than perpetual;
 - gaps and overlaps refuse selection;
 - incomplete version metadata blocks a definitive result;
 - pending, rejected, and proposed snapshots are excluded;
