@@ -6,6 +6,7 @@ import {
   getRegulatorySnapshotValidationErrors,
 } from "./ingestion";
 import type {
+  RegulatoryRetrievalObservation,
   RegulatorySnapshotComparison,
   RegulatorySnapshotManifest,
   RegulatorySnapshotManifestEntry,
@@ -14,9 +15,10 @@ import type {
 
 const SOURCE_ID_RE = /^[a-z0-9][a-z0-9-]*$/;
 const SNAPSHOT_FILENAME_RE = /^\d{4}-\d{2}-\d{2}-[a-f0-9]{16}\.json$/;
+const SHA256_RE = /^sha256:[a-f0-9]{64}$/;
 
 export interface StoreRegulatorySnapshotResult {
-  status: "stored" | "unchanged";
+  status: "stored" | "observed" | "unchanged";
   comparison: RegulatorySnapshotComparison;
   manifest: RegulatorySnapshotManifest;
   snapshotPath?: string;
@@ -103,10 +105,38 @@ async function writeJsonImmutable(filePath: string, value: unknown): Promise<voi
 }
 
 function validateManifestEntry(entry: RegulatorySnapshotManifestEntry, sourceId: string): void {
-  if (!entry.snapshotId || !entry.checksum || !entry.rawChecksum || !entry.retrievedAt) {
+  if (
+    !entry.snapshotId ||
+    !SHA256_RE.test(entry.checksum) ||
+    !SHA256_RE.test(entry.rawChecksum) ||
+    !entry.retrievedAt
+  ) {
     throw new Error(`Incomplete regulatory snapshot manifest entry: ${entry.snapshotId || "missing-id"}`);
   }
   resolveContainedSnapshotPath(".", entry.path, sourceId);
+}
+
+function validateObservation(
+  observation: RegulatoryRetrievalObservation,
+  manifest: RegulatorySnapshotManifest
+): void {
+  if (
+    !observation.observationId ||
+    !SHA256_RE.test(observation.checksum) ||
+    !SHA256_RE.test(observation.rawChecksum) ||
+    !observation.normalizationVersion ||
+    !observation.retrieval.retrievedAt
+  ) {
+    throw new Error(`Invalid regulatory retrieval observation: ${observation.observationId || "missing-id"}`);
+  }
+  const normalizedEntry = manifest.snapshots.find(
+    (entry) => entry.snapshotId === observation.normalizedSnapshotId
+  );
+  if (!normalizedEntry || normalizedEntry.checksum !== observation.checksum) {
+    throw new Error(
+      `Regulatory retrieval observation does not reference a retained normalized snapshot: ${observation.observationId}`
+    );
+  }
 }
 
 export async function loadRegulatorySnapshotManifest(
@@ -115,21 +145,33 @@ export async function loadRegulatorySnapshotManifest(
 ): Promise<RegulatorySnapshotManifest> {
   assertSafeSourceId(sourceId);
   const manifestPath = manifestFilePath(outputRoot, sourceId);
-  const existing = await readJsonFile<RegulatorySnapshotManifest>(manifestPath);
-  if (!existing) {
+  const parsed = await readJsonFile<RegulatorySnapshotManifest>(manifestPath);
+  if (!parsed) {
     return {
       schemaVersion: 1,
       sourceId,
       snapshots: [],
+      observations: [],
     };
   }
+  const existing: RegulatorySnapshotManifest = {
+    ...parsed,
+    observations: Array.isArray(parsed.observations) ? parsed.observations : [],
+  };
   if (existing.schemaVersion !== 1 || existing.sourceId !== sourceId) {
     throw new Error(`Invalid regulatory snapshot manifest: ${manifestPath}`);
   }
   if (new Set(existing.snapshots.map((entry) => entry.snapshotId)).size !== existing.snapshots.length) {
     throw new Error(`Regulatory snapshot manifest contains duplicate snapshot IDs: ${manifestPath}`);
   }
+  if (
+    new Set(existing.observations.map((entry) => entry.observationId)).size !==
+    existing.observations.length
+  ) {
+    throw new Error(`Regulatory snapshot manifest contains duplicate observation IDs: ${manifestPath}`);
+  }
   for (const entry of existing.snapshots) validateManifestEntry(entry, sourceId);
+  for (const observation of existing.observations) validateObservation(observation, existing);
   return existing;
 }
 
@@ -199,6 +241,62 @@ function sameImmutableSnapshot(
   );
 }
 
+function retrievalFingerprint(
+  rawChecksum: string,
+  normalizationVersion: string,
+  retrieval: RegulatorySourceSnapshot["retrieval"]
+): string {
+  return JSON.stringify({
+    rawChecksum,
+    normalizationVersion,
+    requestedUrl: retrieval.requestedUrl,
+    finalUrl: retrieval.finalUrl,
+    status: retrieval.status,
+    contentType: retrieval.contentType,
+    rawByteLength: retrieval.rawByteLength,
+    redirectChain: retrieval.redirectChain,
+    etag: retrieval.etag ?? null,
+    lastModified: retrieval.lastModified ?? null,
+  });
+}
+
+function latestRetrievalFingerprint(
+  manifest: RegulatorySnapshotManifest,
+  previous: RegulatorySourceSnapshot
+): string {
+  const observation = [...manifest.observations]
+    .reverse()
+    .find((candidate) => candidate.normalizedSnapshotId === previous.snapshotId);
+  if (observation) {
+    return retrievalFingerprint(
+      observation.rawChecksum,
+      observation.normalizationVersion,
+      observation.retrieval
+    );
+  }
+  return retrievalFingerprint(
+    previous.rawChecksum,
+    previous.normalizationVersion,
+    previous.retrieval
+  );
+}
+
+function createRetrievalObservation(
+  snapshot: RegulatorySourceSnapshot,
+  normalizedSnapshotId: string
+): RegulatoryRetrievalObservation {
+  return {
+    observationId: `${snapshot.sourceId}:observation:${snapshot.retrievedAt
+      .replace(/[^0-9]/g, "")
+      .slice(0, 14)}:${snapshot.rawChecksum.slice(-12)}`,
+    normalizedSnapshotId,
+    checksum: snapshot.checksum,
+    rawChecksum: snapshot.rawChecksum,
+    normalizationVersion: snapshot.normalizationVersion,
+    retrieval: snapshot.retrieval,
+  };
+}
+
 export async function storeRegulatorySnapshot(
   outputRoot: string,
   snapshot: RegulatorySourceSnapshot
@@ -216,11 +314,34 @@ export async function storeRegulatorySnapshot(
   const previous = await loadLatestObservedRegulatorySnapshot(outputRoot, snapshot.sourceId);
   const comparison = compareRegulatorySnapshots(snapshot, previous);
 
-  if (comparison.status === "unchanged") {
+  if (comparison.status === "unchanged" && previous) {
+    const newFingerprint = retrievalFingerprint(
+      snapshot.rawChecksum,
+      snapshot.normalizationVersion,
+      snapshot.retrieval
+    );
+    if (newFingerprint === latestRetrievalFingerprint(manifest, previous)) {
+      return {
+        status: "unchanged",
+        comparison,
+        manifest,
+        manifestPath,
+      };
+    }
+
+    const observation = createRetrievalObservation(snapshot, previous.snapshotId);
+    if (manifest.observations.some((entry) => entry.observationId === observation.observationId)) {
+      throw new Error(`Duplicate regulatory retrieval observation ID: ${observation.observationId}`);
+    }
+    const observedManifest: RegulatorySnapshotManifest = {
+      ...manifest,
+      observations: [...manifest.observations, observation],
+    };
+    await writeJsonAtomic(manifestPath, observedManifest);
     return {
-      status: "unchanged",
+      status: "observed",
       comparison,
-      manifest,
+      manifest: observedManifest,
       manifestPath,
     };
   }
