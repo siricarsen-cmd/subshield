@@ -11,7 +11,11 @@ import {
   type HistoricalGroundingSelectionRequest,
   type HistoricalGroundingSelectionResult,
 } from "./historical-grounding-orchestration";
-import { REGULATORY_FULL_BENCHMARK_CITATION_PACKAGES } from "./source-coverage-citation-packages";
+import {
+  compareWithRegisteredRegulatoryValue,
+  getRegisteredCitationTemplate,
+  getRegisteredRegulatoryMapping,
+} from "./registry-integrity";
 import type { RegulatorySourceSnapshot } from "./types";
 
 export type HistoricalCitationRegenerationStatus =
@@ -84,10 +88,9 @@ function result(
 function registeredTemplateForMapping(
   mappingId: string
 ): RegulatoryCitationPackage | undefined {
-  const candidates = REGULATORY_FULL_BENCHMARK_CITATION_PACKAGES.filter(
-    (citationPackage) => citationPackage.mappingId === mappingId
-  );
-  return candidates.length === 1 ? candidates[0] : undefined;
+  return getRegisteredCitationTemplate(mappingId)?.value as
+    | RegulatoryCitationPackage
+    | undefined;
 }
 
 function excerptRequestFromRegisteredCitation(
@@ -119,11 +122,17 @@ function excerptRequestFromRegisteredCitation(
 export function registeredHistoricalCitationRequestForMapping(
   mapping: RegulatoryApplicabilityMapping
 ): RegulatoryCitationPackageRequest | undefined {
+  if (
+    compareWithRegisteredRegulatoryValue("mapping", mapping.mappingId, mapping).length > 0
+  ) {
+    return undefined;
+  }
+  const mappingEntry = getRegisteredRegulatoryMapping(mapping.mappingId);
   const template = registeredTemplateForMapping(mapping.mappingId);
-  if (!template) return undefined;
+  if (!mappingEntry || !template) return undefined;
   return {
     packageId: `${mapping.mappingId}-historical-selected-snapshot-regenerated`,
-    mapping,
+    mapping: mappingEntry.value as RegulatoryApplicabilityMapping,
     excerpts: template.citations.map(excerptRequestFromRegisteredCitation),
   };
 }
@@ -320,13 +329,14 @@ export function regenerateHistoricalCitationPackage(
     );
   }
 
+  const mappingEntry = getRegisteredRegulatoryMapping(request.mapping.mappingId);
   const template = registeredTemplateForMapping(request.mapping.mappingId);
-  if (!template) {
+  if (!mappingEntry || !template) {
     return result(
       request,
       selection,
       "registered-template-missing",
-      [`Exactly one registered citation template is required for ${request.mapping.mappingId}`]
+      [`Exactly one registered citation template and mapping are required for ${request.mapping.mappingId}`]
     );
   }
 
@@ -334,7 +344,7 @@ export function regenerateHistoricalCitationPackage(
   try {
     registeredRequest = {
       packageId: `${request.mapping.mappingId}-historical-selected-snapshot-regenerated`,
-      mapping: request.mapping,
+      mapping: mappingEntry.value as RegulatoryApplicabilityMapping,
       excerpts: template.citations.map(excerptRequestFromRegisteredCitation),
     };
   } catch (error) {
@@ -347,11 +357,18 @@ export function regenerateHistoricalCitationPackage(
     );
   }
 
-  const templateErrors = registeredTemplateErrors(
-    request.mapping,
-    template,
-    registeredRequest
-  );
+  const templateErrors = [
+    ...compareWithRegisteredRegulatoryValue(
+      "citation-template",
+      request.mapping.mappingId,
+      template
+    ),
+    ...registeredTemplateErrors(
+      mappingEntry.value as RegulatoryApplicabilityMapping,
+      template,
+      registeredRequest
+    ),
+  ];
   if (templateErrors.length > 0) {
     return result(
       request,
