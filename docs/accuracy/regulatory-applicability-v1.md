@@ -73,12 +73,26 @@ This fixture now tests a critical regulatory-grounding capability: detecting whe
 A fetched official-source snapshot remains `pending` until a non-automated reviewer:
 
 - verifies its source identity and retained checksum;
-- confirms required source-specific text anchors;
-- confirms version and effective-date metadata when supplied;
+- confirms at least two distinct source-specific text anchors for approval;
+- explicitly verifies every retained version identifier and effective date;
 - records substantive review notes and an exact ISO review timestamp;
 - approves or rejects the snapshot.
 
-Automated identities cannot approve snapshots. A checksum-invalid snapshot, missing source anchor, mismatched version, or source-provenance failure cannot become citation eligible.
+Automated identities cannot approve snapshots. A checksum-invalid snapshot, missing source anchor, unverified or mismatched version metadata, or source-provenance failure cannot become citation eligible.
+
+## Persisted review lifecycle
+
+Retrieved source content is immutable. The original snapshot file remains in its initial `pending` state with the original text, retrieval receipt, and checksums.
+
+Approval or rejection is persisted separately in the source manifest as a review envelope containing:
+
+- final review status;
+- reviewer identity;
+- exact review timestamp;
+- substantive review notes;
+- the snapshot ID and checksums already bound to the immutable source file.
+
+Normal snapshot loading overlays that persisted review envelope onto the immutable source record. An approved transition sets `latestApprovedSnapshotId`; a rejected later version does not displace the last approved source. Reviewed snapshots cannot be stored through the normal ingestion path or silently overwrite the original source file.
 
 ## Customer-facing boundary
 
