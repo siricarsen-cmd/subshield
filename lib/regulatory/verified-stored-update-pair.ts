@@ -59,6 +59,31 @@ function entryById(
   return entry;
 }
 
+function exactInstant(value: string, label: string): number {
+  const parsed = new Date(value).getTime();
+  if (!Number.isFinite(parsed)) throw new Error(`${label} is not a valid stored retrieval instant`);
+  return parsed;
+}
+
+function previousApprovedEntry(
+  entries: readonly RegulatorySnapshotManifestEntry[],
+  candidateEntry: RegulatorySnapshotManifestEntry
+): RegulatorySnapshotManifestEntry | undefined {
+  const candidateTime = exactInstant(candidateEntry.retrievedAt, "Candidate retrievedAt");
+  return [...entries]
+    .filter(
+      (entry) =>
+        entry.reviewStatus === "approved" &&
+        entry.snapshotId !== candidateEntry.snapshotId &&
+        exactInstant(entry.retrievedAt, "Approved baseline retrievedAt") < candidateTime
+    )
+    .sort(
+      (left, right) =>
+        exactInstant(right.retrievedAt, "Approved baseline retrievedAt") -
+        exactInstant(left.retrievedAt, "Approved baseline retrievedAt")
+    )[0];
+}
+
 function assertNoPendingReviewProvenance(
   entry: RegulatorySnapshotManifestEntry,
   snapshot: RegulatorySourceSnapshot
@@ -128,9 +153,6 @@ export async function loadVerifiedStoredRegulatoryUpdatePair(
     throw new Error(`Unsafe stored regulatory update source ID: ${sourceId}`);
   }
   const manifest = await loadRegulatorySnapshotManifest(outputRoot, sourceId);
-  if (!manifest.latestApprovedSnapshotId) {
-    throw new Error(`No approved stored regulatory baseline exists for ${sourceId}`);
-  }
   if (!manifest.latestObservedSnapshotId) {
     throw new Error(`No observed stored regulatory candidate exists for ${sourceId}`);
   }
@@ -141,21 +163,16 @@ export async function loadVerifiedStoredRegulatoryUpdatePair(
       `Stored regulatory candidate is not the latest observed snapshot: expected ${manifest.latestObservedSnapshotId}, observed ${selectedCandidateId}`
     );
   }
-  if (selectedCandidateId === manifest.latestApprovedSnapshotId) {
-    throw new Error(`No distinct stored regulatory update candidate exists for ${sourceId}`);
-  }
 
-  const baselineEntry = entryById(
-    manifest.snapshots,
-    manifest.latestApprovedSnapshotId,
-    "Approved baseline"
-  );
   const candidateEntry = entryById(manifest.snapshots, selectedCandidateId, "Update candidate");
-  if (baselineEntry.reviewStatus !== "approved") {
-    throw new Error(`Stored regulatory baseline is not approved: ${baselineEntry.snapshotId}`);
-  }
   if (candidateEntry.reviewStatus === "rejected") {
     throw new Error(`Rejected stored regulatory snapshot cannot be an update candidate: ${candidateEntry.snapshotId}`);
+  }
+  const baselineEntry = previousApprovedEntry(manifest.snapshots, candidateEntry);
+  if (!baselineEntry) {
+    throw new Error(
+      `No earlier approved stored regulatory baseline exists for candidate ${candidateEntry.snapshotId}`
+    );
   }
 
   const baseline = await loadStoredRegulatorySnapshot(outputRoot, baselineEntry, sourceId);
@@ -178,13 +195,9 @@ export async function loadVerifiedStoredRegulatoryUpdatePair(
     throw new Error(`Approved stored regulatory candidate is not citation eligible: ${candidate.snapshotId}`);
   }
 
-  const baselineTime = new Date(baseline.retrievedAt).getTime();
-  const candidateTime = new Date(candidate.retrievedAt).getTime();
-  if (
-    !Number.isFinite(baselineTime) ||
-    !Number.isFinite(candidateTime) ||
-    candidateTime <= baselineTime
-  ) {
+  const baselineTime = exactInstant(baseline.retrievedAt, "Baseline retrievedAt");
+  const candidateTime = exactInstant(candidate.retrievedAt, "Candidate retrievedAt");
+  if (candidateTime <= baselineTime) {
     throw new Error("Stored regulatory candidate must be retrieved after the approved baseline");
   }
 
