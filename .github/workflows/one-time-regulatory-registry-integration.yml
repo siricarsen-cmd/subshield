@@ -1,0 +1,246 @@
+name: One-time regulatory registry integration
+
+on:
+  push:
+    branches:
+      - feat/regulatory-registry-integrity
+
+permissions:
+  contents: write
+
+jobs:
+  integrate-registry:
+    if: ${{ !contains(github.event.head_commit.message, '[registry-integrated]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/regulatory-registry-integrity
+          fetch-depth: 0
+
+      - name: Integrate immutable registry gates
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one match, observed {count}: {old[:120]!r}')
+              p.write_text(text.replace(old, new), encoding='utf-8')
+
+          orchestration = 'lib/regulatory/historical-grounding-orchestration.ts'
+          replace_once(
+              orchestration,
+              '''import {
+  getHistoricalGroundingPolicy,
+  validateHistoricalGroundingPolicies,
+  type ContractGroundedDateBasis,
+  type HistoricalSourceDatePolicy,
+  type RegulatoryHistoricalGroundingPolicy,
+} from "./historical-grounding-policy";''',
+              '''import {
+  validateHistoricalGroundingPolicies,
+  type ContractGroundedDateBasis,
+  type HistoricalSourceDatePolicy,
+  type RegulatoryHistoricalGroundingPolicy,
+} from "./historical-grounding-policy";
+import {
+  compareWithRegisteredRegulatoryValue,
+  getRegisteredHistoricalGroundingPolicy,
+  getRegisteredRegulatoryMapping,
+  validateRegulatoryRegistryIntegrity,
+} from "./registry-integrity";'''
+          )
+          replace_once(
+              orchestration,
+              '''export type HistoricalGroundingSelectionStatus =
+  | "ready"
+  | "missing-policy"''',
+              '''export type HistoricalGroundingSelectionStatus =
+  | "ready"
+  | "invalid-mapping"
+  | "missing-policy"'''
+          )
+          replace_once(
+              orchestration,
+              '''export function selectHistoricalRegulatorySources(
+  request: HistoricalGroundingSelectionRequest
+): HistoricalGroundingSelectionResult {
+  const registeredPolicy = getHistoricalGroundingPolicy(request.mapping.mappingId);
+  if (!registeredPolicy) {
+    return selectionResult(
+      request,
+      "missing-policy",
+      [`No historical grounding policy exists for mapping ${request.mapping.mappingId}`]
+    );
+  }
+
+  const suppliedPolicyErrors = request.policy
+    ? suppliedPolicyMismatchReasons(registeredPolicy, request.policy)
+    : [];
+  const globalPolicyErrors = validateHistoricalGroundingPolicies();
+  const mappingPolicyErrors = validatePolicyForMapping(request.mapping, registeredPolicy);''',
+              '''export function selectHistoricalRegulatorySources(
+  request: HistoricalGroundingSelectionRequest
+): HistoricalGroundingSelectionResult {
+  const mappingEntry = getRegisteredRegulatoryMapping(request.mapping.mappingId);
+  if (!mappingEntry) {
+    return selectionResult(
+      request,
+      "invalid-mapping",
+      [`No registered regulatory mapping exists for ${request.mapping.mappingId}`]
+    );
+  }
+  const mappingIntegrityErrors = compareWithRegisteredRegulatoryValue(
+    "mapping",
+    request.mapping.mappingId,
+    request.mapping
+  );
+  if (mappingIntegrityErrors.length > 0) {
+    return selectionResult(
+      request,
+      "invalid-mapping",
+      mappingIntegrityErrors
+    );
+  }
+  const registeredMapping = mappingEntry.value as RegulatoryApplicabilityMapping;
+
+  const policyEntry = getRegisteredHistoricalGroundingPolicy(request.mapping.mappingId);
+  if (!policyEntry) {
+    return selectionResult(
+      request,
+      "missing-policy",
+      [`No historical grounding policy exists for mapping ${request.mapping.mappingId}`]
+    );
+  }
+  const registeredPolicy = policyEntry.value as RegulatoryHistoricalGroundingPolicy;
+  const suppliedPolicyErrors = request.policy
+    ? compareWithRegisteredRegulatoryValue(
+        "historical-policy",
+        request.mapping.mappingId,
+        request.policy
+      )
+    : [];
+  const globalPolicyErrors = [
+    ...validateHistoricalGroundingPolicies(),
+    ...validateRegulatoryRegistryIntegrity(),
+  ];
+  const mappingPolicyErrors = validatePolicyForMapping(registeredMapping, registeredPolicy);'''
+          )
+
+          regeneration = 'lib/regulatory/historical-citation-regeneration.ts'
+          replace_once(
+              regeneration,
+              '''import { REGULATORY_FULL_BENCHMARK_CITATION_PACKAGES } from "./source-coverage-citation-packages";
+import type { RegulatorySourceSnapshot } from "./types";''',
+              '''import {
+  compareWithRegisteredRegulatoryValue,
+  getRegisteredCitationTemplate,
+  getRegisteredRegulatoryMapping,
+} from "./registry-integrity";
+import type { RegulatorySourceSnapshot } from "./types";'''
+          )
+          replace_once(
+              regeneration,
+              '''function registeredTemplateForMapping(
+  mappingId: string
+): RegulatoryCitationPackage | undefined {
+  const candidates = REGULATORY_FULL_BENCHMARK_CITATION_PACKAGES.filter(
+    (citationPackage) => citationPackage.mappingId === mappingId
+  );
+  return candidates.length === 1 ? candidates[0] : undefined;
+}''',
+              '''function registeredTemplateForMapping(
+  mappingId: string
+): RegulatoryCitationPackage | undefined {
+  return getRegisteredCitationTemplate(mappingId)?.value as
+    | RegulatoryCitationPackage
+    | undefined;
+}'''
+          )
+          replace_once(
+              regeneration,
+              '''export function registeredHistoricalCitationRequestForMapping(
+  mapping: RegulatoryApplicabilityMapping
+): RegulatoryCitationPackageRequest | undefined {
+  const template = registeredTemplateForMapping(mapping.mappingId);
+  if (!template) return undefined;
+  return {
+    packageId: `${mapping.mappingId}-historical-selected-snapshot-regenerated`,
+    mapping,
+    excerpts: template.citations.map(excerptRequestFromRegisteredCitation),
+  };
+}''',
+              '''export function registeredHistoricalCitationRequestForMapping(
+  mapping: RegulatoryApplicabilityMapping
+): RegulatoryCitationPackageRequest | undefined {
+  if (
+    compareWithRegisteredRegulatoryValue("mapping", mapping.mappingId, mapping).length > 0
+  ) {
+    return undefined;
+  }
+  const mappingEntry = getRegisteredRegulatoryMapping(mapping.mappingId);
+  const template = registeredTemplateForMapping(mapping.mappingId);
+  if (!mappingEntry || !template) return undefined;
+  return {
+    packageId: `${mapping.mappingId}-historical-selected-snapshot-regenerated`,
+    mapping: mappingEntry.value as RegulatoryApplicabilityMapping,
+    excerpts: template.citations.map(excerptRequestFromRegisteredCitation),
+  };
+}'''
+          )
+          replace_once(
+              regeneration,
+              '''  const template = registeredTemplateForMapping(request.mapping.mappingId);
+  if (!template) {''',
+              '''  const mappingEntry = getRegisteredRegulatoryMapping(request.mapping.mappingId);
+  const template = registeredTemplateForMapping(request.mapping.mappingId);
+  if (!mappingEntry || !template) {'''
+          )
+          replace_once(
+              regeneration,
+              '''      mapping: request.mapping,
+      excerpts: template.citations.map(excerptRequestFromRegisteredCitation),''',
+              '''      mapping: mappingEntry.value as RegulatoryApplicabilityMapping,
+      excerpts: template.citations.map(excerptRequestFromRegisteredCitation),'''
+          )
+          replace_once(
+              regeneration,
+              '''  const templateErrors = registeredTemplateErrors(
+    request.mapping,
+    template,
+    registeredRequest
+  );''',
+              '''  const templateErrors = [
+    ...compareWithRegisteredRegulatoryValue(
+      "citation-template",
+      request.mapping.mappingId,
+      template
+    ),
+    ...registeredTemplateErrors(
+      mappingEntry.value as RegulatoryApplicabilityMapping,
+      template,
+      registeredRequest
+    ),
+  ];'''
+          )
+
+          Path('.github/workflows/one-time-regulatory-registry-integration.yml').unlink()
+          PY
+
+      - name: Commit registry integration
+        shell: bash
+        run: |
+          git config user.name "subshield-automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add lib/regulatory/historical-grounding-orchestration.ts \
+            lib/regulatory/historical-citation-regeneration.ts \
+            .github/workflows/one-time-regulatory-registry-integration.yml
+          git commit -m "fix: enforce immutable regulatory registries [registry-integrated]"
+          git push origin HEAD:feat/regulatory-registry-integrity
