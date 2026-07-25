@@ -16,7 +16,8 @@
     "test:regulatory:citations": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/citation-package.test.mjs",
     "test:regulatory:coverage": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/source-coverage-citation-packages.test.mjs",
     "test:regulatory:history": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/historical-version-selection.test.mjs && node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/historical-context-runtime.test.mjs",
-    "test:regulatory": "npm run test:regulatory:catalog && npm run test:regulatory:ingestion && npm run test:regulatory:applicability && npm run test:regulatory:citations && npm run test:regulatory:coverage && npm run test:regulatory:history",
+    "test:regulatory:dates": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/contract-date-evidence.test.mjs && node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/contract-date-performance-boundary.test.mjs",
+    "test:regulatory": "npm run test:regulatory:catalog && npm run test:regulatory:ingestion && npm run test:regulatory:applicability && npm run test:regulatory:citations && npm run test:regulatory:coverage && npm run test:regulatory:history && npm run test:regulatory:dates",
     "regulatory:ingest": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/cli/ingest-source.ts"
   },
   "dependencies": {
