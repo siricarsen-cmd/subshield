@@ -1,6 +1,8 @@
 // Shared types for the grounded GovCon subcontract analyzer pipeline.
 // Output of runAnalyzer() must stay compatible with app/report/[id]/page.tsx.
 
+import type { RegulatoryGrounding } from "../regulatory/types";
+
 export type RiskLevel = "High" | "Medium-High" | "Medium" | "Low";
 
 export type TriggerType = "Contract Risk Trigger" | "Regulatory Trigger";
@@ -50,6 +52,10 @@ export interface Finding {
   riskAnalysis: string;
   redlineFix: string;
   familyKey?: string;
+  // Optional until the retrieval/applicability layer is implemented. Existing
+  // findings remain unchanged; future regulatory findings must populate this
+  // only from approved, versioned official-source snapshots.
+  regulatoryGrounding?: RegulatoryGrounding;
 }
 
 export interface AnalyzerResult {
