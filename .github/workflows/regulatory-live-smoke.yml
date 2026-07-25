@@ -1,0 +1,93 @@
+name: Regulatory Live Source Smoke
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/regulatory-live-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  live-far-source:
+    name: FAR 52.222-6 live pending-snapshot check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Fetch live official FAR 52.222-6 source
+        shell: bash
+        run: |
+          npm run regulatory:ingest -- \
+            --source-id far-52-222-6 \
+            --output-dir live-regulatory-snapshots \
+            2>&1 | tee live-regulatory-summary.txt
+
+      - name: Validate live pending snapshot
+        shell: bash
+        run: |
+          snapshot_file="$(find live-regulatory-snapshots/far-52-222-6 -maxdepth 1 -name '*.json' ! -name 'manifest.json' -print -quit)"
+          test -n "$snapshot_file"
+          SNAPSHOT_FILE="$snapshot_file" node \
+            --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs \
+            --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          import { canUseSnapshotForClientCitation } from "./lib/regulatory/ingestion.ts";
+
+          const snapshot = JSON.parse(await readFile(process.env.SNAPSHOT_FILE, "utf8"));
+          const requiredText = [
+            /52\.222-6/i,
+            /Construction Wage Rate Requirements/i,
+            /laborers and mechanics/i,
+          ];
+
+          if (snapshot.sourceId !== "far-52-222-6") throw new Error("Unexpected source ID");
+          if (snapshot.reviewStatus !== "pending") throw new Error("Live snapshot was not held pending");
+          if (!/^sha256:[a-f0-9]{64}$/.test(snapshot.checksum)) throw new Error("Invalid normalized checksum");
+          if (!/^sha256:[a-f0-9]{64}$/.test(snapshot.rawChecksum)) throw new Error("Invalid raw checksum");
+          if (snapshot.text.length < 500) throw new Error("Live normalized source text is suspiciously short");
+          for (const pattern of requiredText) {
+            if (!pattern.test(snapshot.text)) throw new Error(`Missing expected official-source text: ${pattern}`);
+          }
+          if (canUseSnapshotForClientCitation(snapshot)) {
+            throw new Error("Pending live snapshot incorrectly became citation eligible");
+          }
+
+          console.log(JSON.stringify({
+            sourceId: snapshot.sourceId,
+            canonicalUrl: snapshot.canonicalUrl,
+            requestedUrl: snapshot.retrieval.requestedUrl,
+            finalUrl: snapshot.retrieval.finalUrl,
+            status: snapshot.retrieval.status,
+            contentType: snapshot.retrieval.contentType,
+            rawByteLength: snapshot.retrieval.rawByteLength,
+            normalizedTextLength: snapshot.text.length,
+            checksum: snapshot.checksum,
+            rawChecksum: snapshot.rawChecksum,
+            reviewStatus: snapshot.reviewStatus,
+            redirectCount: snapshot.retrieval.redirectChain.length,
+          }, null, 2));
+          NODE
+
+      - name: Upload live smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regulatory-live-smoke-evidence-${{ github.run_id }}
+          path: |
+            live-regulatory-summary.txt
+            live-regulatory-snapshots/
+          if-no-files-found: error
+          retention-days: 30
