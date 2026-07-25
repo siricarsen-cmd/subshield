@@ -1,4 +1,11 @@
 import {
+  fingerprintRegulatoryRegistryValue,
+} from "./registry-integrity";
+import {
+  loadRegulatorySnapshotManifest,
+  loadStoredRegulatorySnapshot,
+} from "./snapshot-store";
+import {
   buildRegulatoryUpdateReviewPacket,
   storeRegulatoryUpdateReviewPacket,
 } from "./update-review-packet";
@@ -8,6 +15,10 @@ import {
   type RegulatoryUpdateIntakeStatus,
 } from "./update-intake";
 import { loadVerifiedStoredRegulatoryUpdatePair } from "./verified-stored-update-pair";
+import type {
+  RegulatoryRetrievalObservation,
+  RegulatorySnapshotManifest,
+} from "./types";
 
 export interface PrepareStoredRegulatoryUpdateReviewRequest {
   snapshotRoot: string;
@@ -28,7 +39,9 @@ export interface PrepareStoredRegulatoryUpdateReviewResult {
   sourceId: string;
   baselineSnapshotId: string;
   candidateSnapshotId: string;
-  pairVerificationChecksum: string;
+  candidateObservationId?: string;
+  pairVerificationChecksum?: string;
+  observationVerificationChecksum?: string;
   intakeStatus: RegulatoryUpdateIntakeStatus;
   differenceClassification: RegulatoryUpdateDifferenceClassification;
   proposalReadiness?: string;
@@ -49,6 +62,11 @@ function deepFreeze<T>(value: T): Readonly<T> {
   return value as Readonly<T>;
 }
 
+function isIsoInstant(value: string): boolean {
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString() === value;
+}
+
 function isReviewPacketEligible(
   intakeStatus: RegulatoryUpdateIntakeStatus,
   difference: RegulatoryUpdateDifferenceClassification
@@ -62,14 +80,160 @@ function isReviewPacketEligible(
   );
 }
 
+function latestObservation(
+  manifest: RegulatorySnapshotManifest
+): RegulatoryRetrievalObservation | undefined {
+  return [...manifest.observations].sort(
+    (left, right) =>
+      new Date(right.retrieval.retrievedAt).getTime() -
+      new Date(left.retrieval.retrievedAt).getTime()
+  )[0];
+}
+
+function retrievalFingerprint(receipt: RegulatoryRetrievalObservation["retrieval"]): string {
+  return fingerprintRegulatoryRegistryValue({
+    requestedUrl: receipt.requestedUrl,
+    finalUrl: receipt.finalUrl,
+    status: receipt.status,
+    contentType: receipt.contentType,
+    rawByteLength: receipt.rawByteLength,
+    redirectChain: receipt.redirectChain,
+    etag: receipt.etag,
+    lastModified: receipt.lastModified,
+  });
+}
+
+async function noPairObservationResult(
+  request: PrepareStoredRegulatoryUpdateReviewRequest,
+  originalError: unknown
+): Promise<Readonly<PrepareStoredRegulatoryUpdateReviewResult>> {
+  const message = originalError instanceof Error ? originalError.message : String(originalError);
+  if (!/No earlier approved stored regulatory baseline exists/i.test(message)) {
+    throw originalError;
+  }
+  if (!request.requestedBy.trim()) {
+    return deepFreeze({
+      status: "intake-refused",
+      sourceId: request.sourceId,
+      baselineSnapshotId: "unresolved",
+      candidateSnapshotId: "unresolved",
+      intakeStatus: "refused",
+      differenceClassification: "unchanged",
+      refusalReasons: ["Update-intake requester must not be blank"],
+      reviewNotes: ["No review packet was created."],
+      reviewStatus: "not-created",
+      applicationStatus: "not-applied",
+      customerFacingStatus: "benchmark-only",
+    });
+  }
+  if (!isIsoInstant(request.createdAt)) {
+    return deepFreeze({
+      status: "intake-refused",
+      sourceId: request.sourceId,
+      baselineSnapshotId: "unresolved",
+      candidateSnapshotId: "unresolved",
+      intakeStatus: "refused",
+      differenceClassification: "unchanged",
+      refusalReasons: ["Update-intake createdAt must be an ISO timestamp"],
+      reviewNotes: ["No review packet was created."],
+      reviewStatus: "not-created",
+      applicationStatus: "not-applied",
+      customerFacingStatus: "benchmark-only",
+    });
+  }
+
+  const manifest = await loadRegulatorySnapshotManifest(
+    request.snapshotRoot,
+    request.sourceId
+  );
+  const snapshotId = manifest.latestObservedSnapshotId;
+  if (!snapshotId || snapshotId !== manifest.latestApprovedSnapshotId) {
+    throw originalError;
+  }
+  if (request.candidateSnapshotId && request.candidateSnapshotId !== snapshotId) {
+    throw originalError;
+  }
+  const entry = manifest.snapshots.find((candidate) => candidate.snapshotId === snapshotId);
+  const observation = latestObservation(manifest);
+  if (!entry || !observation || observation.normalizedSnapshotId !== snapshotId) {
+    throw originalError;
+  }
+  const approvedSnapshot = await loadStoredRegulatorySnapshot(
+    request.snapshotRoot,
+    entry,
+    request.sourceId
+  );
+  if (approvedSnapshot.reviewStatus !== "approved") throw originalError;
+
+  const observationTime = new Date(observation.retrieval.retrievedAt).getTime();
+  const createdTime = new Date(request.createdAt).getTime();
+  if (!Number.isFinite(observationTime) || createdTime < observationTime) {
+    return deepFreeze({
+      status: "intake-refused",
+      sourceId: request.sourceId,
+      baselineSnapshotId: snapshotId,
+      candidateSnapshotId: snapshotId,
+      candidateObservationId: observation.observationId,
+      intakeStatus: "refused",
+      differenceClassification: "unchanged",
+      refusalReasons: ["Update intake cannot be created before the latest retrieval observation"],
+      reviewNotes: ["No review packet was created."],
+      reviewStatus: "not-created",
+      applicationStatus: "not-applied",
+      customerFacingStatus: "benchmark-only",
+    });
+  }
+
+  const rawChanged = observation.rawChecksum !== entry.rawChecksum;
+  const transportChanged =
+    retrievalFingerprint(observation.retrieval) !==
+    retrievalFingerprint(approvedSnapshot.retrieval);
+  const differenceClassification: RegulatoryUpdateDifferenceClassification =
+    rawChanged || transportChanged ? "transport-only" : "unchanged";
+  const observationVerificationChecksum = fingerprintRegulatoryRegistryValue({
+    sourceId: request.sourceId,
+    manifest,
+    snapshotFingerprint: fingerprintRegulatoryRegistryValue(approvedSnapshot),
+    observation,
+  });
+
+  return deepFreeze({
+    status: "no-review-packet",
+    sourceId: request.sourceId,
+    baselineSnapshotId: snapshotId,
+    candidateSnapshotId: snapshotId,
+    candidateObservationId: observation.observationId,
+    observationVerificationChecksum,
+    intakeStatus:
+      differenceClassification === "unchanged" ? "no-change" : "observation-only",
+    differenceClassification,
+    refusalReasons: [],
+    reviewNotes: [
+      differenceClassification === "unchanged"
+        ? "The latest controlled retrieval is identical to the approved stored snapshot."
+        : "The latest controlled retrieval changes only raw or transport provenance; normalized regulatory text remains tied to the approved snapshot.",
+      "No regulatory review packet was created.",
+    ],
+    reviewStatus: "not-created",
+    applicationStatus: "not-applied",
+    customerFacingStatus: "benchmark-only",
+  });
+}
+
 export async function prepareStoredRegulatoryUpdateReview(
   request: PrepareStoredRegulatoryUpdateReviewRequest
 ): Promise<Readonly<PrepareStoredRegulatoryUpdateReviewResult>> {
-  const pair = await loadVerifiedStoredRegulatoryUpdatePair(
-    request.snapshotRoot,
-    request.sourceId,
-    request.candidateSnapshotId
-  );
+  let pair;
+  try {
+    pair = await loadVerifiedStoredRegulatoryUpdatePair(
+      request.snapshotRoot,
+      request.sourceId,
+      request.candidateSnapshotId
+    );
+  } catch (error) {
+    return noPairObservationResult(request, error);
+  }
+
   const intake = prepareVerifiedStoredRegulatoryUpdateIntake(
     pair,
     request.requestedBy,
