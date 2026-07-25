@@ -168,6 +168,14 @@ export async function loadVerifiedStoredRegulatoryUpdatePair(
   if (candidateEntry.reviewStatus === "rejected") {
     throw new Error(`Rejected stored regulatory snapshot cannot be an update candidate: ${candidateEntry.snapshotId}`);
   }
+  if (
+    candidateEntry.reviewStatus !== "pending" &&
+    candidateEntry.reviewStatus !== "approved"
+  ) {
+    throw new Error(
+      `Stored regulatory candidate has an unsupported review status: ${String(candidateEntry.reviewStatus)}`
+    );
+  }
   const baselineEntry = previousApprovedEntry(manifest.snapshots, candidateEntry);
   if (!baselineEntry) {
     throw new Error(
@@ -188,6 +196,11 @@ export async function loadVerifiedStoredRegulatoryUpdatePair(
         ...baselineErrors.map((error) => `baseline: ${error}`),
         ...candidateErrors.map((error) => `candidate: ${error}`),
       ].join("; ")}`
+    );
+  }
+  if (candidate.reviewStatus !== candidateEntry.reviewStatus) {
+    throw new Error(
+      `Stored regulatory candidate review status differs from its manifest entry: ${candidate.snapshotId}`
     );
   }
   assertNoPendingReviewProvenance(candidateEntry, candidate);
