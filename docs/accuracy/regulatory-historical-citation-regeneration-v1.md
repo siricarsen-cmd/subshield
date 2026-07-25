@@ -8,7 +8,22 @@ Customer-facing status: not enabled
 
 Historical source selection identifies which approved official-source snapshot governed a grounded contract date. This phase then rebuilds each citation from that selected immutable snapshot using the repository's registered extraction request.
 
-A supplied citation is not trusted merely because its source ID, snapshot ID, checksum, and excerpt are internally consistent. The historically selected snapshot must contain the registered start anchor, end anchor, and required anchors, and deterministic extraction must reproduce the registered passage and line provenance.
+A caller does not need to prebuild the historically correct package. The supplied package is optional and never controls source selection or blocks regeneration. This allows a current citation package to be converted into the package supported by older governing dates.
+
+## Separated phases
+
+Historical date and version selection is an independent phase. It receives the mapping, uploaded document text, approved source histories, and the registered date policy. It does not receive or inspect a citation package.
+
+After selection succeeds, regeneration:
+
+1. obtains the immutable snapshot selected for each declared source;
+2. retrieves the repository's single registered citation template for the mapping;
+3. reconstructs the extraction requests from the template's retained anchors;
+4. extracts each passage from the selected historical snapshot;
+5. validates complete source coverage; and
+6. optionally compares a supplied package with the regenerated package.
+
+A current, altered, or absent supplied package cannot prevent creation of the historically correct package. Comparison differences are returned separately as `matches-regenerated`, `differs-from-regenerated`, or `not-supplied`.
 
 ## Retained extraction provenance
 
@@ -24,24 +39,9 @@ Every benchmark citation now retains:
 
 These values are produced by the controlled extraction function, not supplied by a language model.
 
-## Regeneration sequence
-
-The regeneration layer:
-
-1. runs historical grounding orchestration;
-2. refuses unresolved dates, policies, source versions, or citation provenance;
-3. obtains the immutable snapshot selected for each declared source;
-4. retrieves the repository's single registered citation template for the mapping;
-5. reconstructs the extraction requests from the template's retained anchors;
-6. extracts each passage again from the selected historical snapshot;
-7. validates complete source coverage; and
-8. compares the regenerated passages, checksums, anchors, character limits, and line provenance with the supplied package.
-
-Only an exact match is `ready`. The result remains benchmark-only.
-
 ## Anchor-drift refusal
 
-Regeneration refuses when:
+Regeneration itself refuses when:
 
 - a registered start or end anchor is missing;
 - a registered anchor appears more than once;
@@ -53,27 +53,26 @@ Regeneration refuses when:
 
 The system does not select the first approximate match, broaden the excerpt automatically, or silently replace the registered anchors with current wording.
 
-## Exact-but-unregistered passages
+## Supplied-package comparison
 
-An alternative passage may be a genuine exact substring of the selected source snapshot and may have a correct checksum. It is still refused when it is not the passage produced by the registered extraction request.
+A supplied citation is not trusted merely because its source ID, snapshot ID, checksum, and excerpt are internally consistent. After regeneration, the supplied package is compared with the historically correct package for package conclusions, source identity, immutable snapshot provenance, exact excerpt text, checksums, registered anchors, character limits, and line provenance.
 
-This prevents a caller from substituting a less relevant paragraph from the correct source version while preserving otherwise valid provenance metadata.
+An alternative passage may be a genuine exact substring of the selected source snapshot and may have a correct checksum. It is reported as different when it is not the passage produced by the registered extraction request. Incorrect line provenance is likewise reported while the correct line range remains in the regenerated package.
 
-## Line provenance
-
-The regenerated start and end line numbers must match the supplied citation. An exact excerpt with incorrect line provenance is refused. This supports inspectable reviewer output and prevents later report citations from pointing to the wrong location within a retained source snapshot.
+Comparison differences do not erase or block the correct regenerated package. They show why the supplied package should not be reused as historical evidence.
 
 ## Regression coverage
 
 The benchmark proves that:
 
-- registered anchors regenerate a complete CMMC citation package from source-specific historical snapshots;
-- the solicitation-date DFARS 252.204-7025 citation is rebuilt from the older selected snapshot;
+- a registered/current package can be regenerated when the governing solicitation date selects an older DFARS 252.204-7025 snapshot;
+- callers do not need to prebuild or supply a citation package;
+- a package already built from the selected snapshots compares as an exact match;
 - retained extraction metadata and line provenance survive regeneration;
 - missing anchors are refused as historical anchor drift;
 - duplicate anchors are refused as ambiguous;
-- exact but unregistered passages are refused;
-- incorrect line provenance is refused; and
+- exact but unregistered passages are reported as supplied-package differences;
+- incorrect supplied line provenance is reported while correct provenance is regenerated; and
 - regeneration does not run when the governing contract date is unresolved.
 
 ## Customer-facing boundary
