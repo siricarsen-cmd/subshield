@@ -26,6 +26,19 @@ function normalized(value: string): string {
   return value.replace(/\s+/g, " ").trim().toLowerCase();
 }
 
+function requireMatchingRetainedMetadata(
+  label: string,
+  retainedValue: string | undefined,
+  reviewedValue: string | undefined
+): void {
+  if (retainedValue !== undefined && reviewedValue === undefined) {
+    throw new Error(`Regulatory snapshot approval requires verification of retained ${label}`);
+  }
+  if (retainedValue !== reviewedValue) {
+    throw new Error(`Reviewed ${label} does not match the retained snapshot`);
+  }
+}
+
 export function reviewRegulatorySnapshot(
   snapshot: RegulatorySourceSnapshot,
   review: RegulatorySnapshotReviewDecision
@@ -39,7 +52,7 @@ export function reviewRegulatorySnapshot(
   const source = getRegulatorySource(snapshot.sourceId);
   if (!source) throw new Error(`Regulatory snapshot source is not approved: ${snapshot.sourceId}`);
   if (!review.reviewedBy.trim() || AUTOMATION_REVIEWER_RE.test(review.reviewedBy)) {
-    throw new Error("Regulatory snapshot approval requires an identified non-automated reviewer");
+    throw new Error("Regulatory snapshot review requires an identified non-automated reviewer");
   }
   if (!isIsoInstant(review.reviewedAt)) {
     throw new Error("Regulatory snapshot review timestamp must be an exact ISO instant");
@@ -50,6 +63,12 @@ export function reviewRegulatorySnapshot(
   if (review.requiredTextAnchors.length === 0) {
     throw new Error("Regulatory snapshot review requires source-specific text anchors");
   }
+  if (review.decision === "approved" && review.requiredTextAnchors.length < 2) {
+    throw new Error("Regulatory snapshot approval requires at least two source-specific text anchors");
+  }
+  if (new Set(review.requiredTextAnchors.map(normalized)).size !== review.requiredTextAnchors.length) {
+    throw new Error("Regulatory snapshot review anchors must be distinct");
+  }
 
   const normalizedText = normalized(snapshot.text);
   for (const anchor of review.requiredTextAnchors) {
@@ -57,27 +76,43 @@ export function reviewRegulatorySnapshot(
       throw new Error(`Required regulatory source anchor is missing: ${anchor}`);
     }
   }
-  if (
-    review.verifiedVersionIdentifier !== undefined &&
-    snapshot.versionIdentifier !== review.verifiedVersionIdentifier
-  ) {
-    throw new Error("Reviewed version identifier does not match the retained snapshot");
-  }
-  if (
-    review.verifiedEffectiveDate !== undefined &&
-    snapshot.effectiveDate !== review.verifiedEffectiveDate
-  ) {
-    throw new Error("Reviewed effective date does not match the retained snapshot");
+
+  if (review.decision === "approved") {
+    requireMatchingRetainedMetadata(
+      "version identifier",
+      snapshot.versionIdentifier,
+      review.verifiedVersionIdentifier
+    );
+    requireMatchingRetainedMetadata(
+      "effective date",
+      snapshot.effectiveDate,
+      review.verifiedEffectiveDate
+    );
+  } else {
+    if (
+      review.verifiedVersionIdentifier !== undefined &&
+      snapshot.versionIdentifier !== review.verifiedVersionIdentifier
+    ) {
+      throw new Error("Reviewed version identifier does not match the retained snapshot");
+    }
+    if (
+      review.verifiedEffectiveDate !== undefined &&
+      snapshot.effectiveDate !== review.verifiedEffectiveDate
+    ) {
+      throw new Error("Reviewed effective date does not match the retained snapshot");
+    }
   }
 
+  const reviewNotes = review.reviewNotes.map((note) => note.trim());
   const reviewed: RegulatorySourceSnapshot = {
     ...snapshot,
     reviewStatus: review.decision,
     reviewedBy: review.reviewedBy.trim(),
     reviewedAt: review.reviewedAt,
+    reviewNotes,
     provenanceNotes: [
       ...snapshot.provenanceNotes,
-      ...review.reviewNotes.map((note) => `Review: ${note.trim()}`),
+      ...reviewNotes.map((note) => `Review: ${note}`),
     ],
   };
 
