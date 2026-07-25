@@ -15,7 +15,7 @@
     "test:regulatory:applicability": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/applicability-mapping.test.mjs",
     "test:regulatory:citations": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/citation-package.test.mjs",
     "test:regulatory:coverage": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/source-coverage-citation-packages.test.mjs",
-    "test:regulatory:history": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/historical-selection.test.mjs",
+    "test:regulatory:history": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/historical-selection.test.mjs && node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/historical-context-runtime.test.mjs",
     "test:regulatory": "npm run test:regulatory:catalog && npm run test:regulatory:ingestion && npm run test:regulatory:applicability && npm run test:regulatory:citations && npm run test:regulatory:coverage && npm run test:regulatory:history",
     "regulatory:ingest": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/cli/ingest-source.ts"
   },
