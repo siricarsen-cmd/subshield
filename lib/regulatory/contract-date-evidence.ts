@@ -89,7 +89,7 @@ const DATE_RULES: readonly DateRule[] = [
   {
     basis: "solicitation-issued",
     anchor:
-      /\bsolicitation\b.{0,48}\b(?:issue(?:d|\s+date)?|date\s+issued|release(?:d|\s+date)?|date)\b/i,
+      /(?:\bsolicitation\b.{0,48}\b(?:issued|issue\s+date|date\s+issued|released|release\s+date)\b|^solicitation\s+date\s*:)/i,
   },
   {
     basis: "proposal-due",
@@ -99,7 +99,7 @@ const DATE_RULES: readonly DateRule[] = [
   {
     basis: "subcontract-executed",
     anchor:
-      /^(?:(?:subcontract|agreement|contract)\s+)?(?:effective\s+date|execution\s+date|date\s+of\s+execution)\b/i,
+      /^(?:(?:document|subcontract|agreement|contract)\s+)?(?:effective\s+date|execution\s+date|date\s+of\s+execution)\s*:/i,
   },
   {
     basis: "subcontract-executed",
