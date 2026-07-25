@@ -1,3 +1,4 @@
+import type { RegulatoryApplicabilityMapping } from "./applicability";
 import type { RegulatoryAnalysisDateBasis } from "./historical-selection";
 import {
   QA_C_REGULATORY_APPLICABILITY_MAPPINGS,
@@ -174,7 +175,7 @@ export const REGULATORY_HISTORICAL_GROUNDING_POLICIES: readonly RegulatoryHistor
 
 export function validateHistoricalGroundingPolicies(): string[] {
   const errors: string[] = [];
-  const mappings = new Map(
+  const mappings = new Map<string, RegulatoryApplicabilityMapping>(
     REGULATORY_BENCHMARK_APPLICABILITY_MAPPINGS.map((mapping) => [
       mapping.mappingId,
       mapping,
@@ -196,7 +197,7 @@ export function validateHistoricalGroundingPolicies(): string[] {
       errors.push(`historical policy references unknown mapping: ${policy.mappingId}`);
       continue;
     }
-    const declared = new Set(
+    const declared = new Set<string>(
       mapping.sourceComparisons.map((comparison) => comparison.sourceId)
     );
     const policySources = policy.sourcePolicies.map((source) => source.sourceId);
