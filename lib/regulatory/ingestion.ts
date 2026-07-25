@@ -50,8 +50,12 @@ export interface FetchRegulatorySourceOptions {
   timeoutMs?: number;
 }
 
-interface ApprovedFetchResult {
+interface TimedFetchResult {
   response: Response;
+  finish: () => void;
+}
+
+interface ApprovedFetchResult extends TimedFetchResult {
   requestedUrl: string;
   finalUrl: string;
   redirectChain: RegulatoryRedirectHop[];
@@ -174,6 +178,28 @@ export function resolveRegulatoryRetrievalUrl(
   return source.canonicalUrl;
 }
 
+function isExpectedRequestedUrl(
+  source: RegulatorySourceCatalogEntry,
+  requestedUrl: string
+): boolean {
+  if (requestedUrl === source.canonicalUrl) return true;
+  const canonical = new URL(source.canonicalUrl);
+  if (!canonical.hostname.endsWith("ecfr.gov")) return false;
+
+  try {
+    const requested = new URL(requestedUrl);
+    const match = requested.pathname.match(
+      /^\/api\/versioner\/v1\/full\/(current|\d{4}-\d{2}-\d{2})\/title-(\d+)\.xml$/
+    );
+    if (!match) return false;
+    const asOfDate = match[1];
+    validateAsOfDate(asOfDate);
+    return requested.toString() === resolveRegulatoryRetrievalUrl(source, asOfDate);
+  } catch {
+    return false;
+  }
+}
+
 function contentFormatFor(contentType: string, finalUrl: string): RegulatoryContentFormat {
   const mime = contentType.split(";", 1)[0].trim().toLowerCase();
   if (mime === "text/html" || mime === "application/xhtml+xml") return "html";
@@ -206,11 +232,22 @@ async function fetchOne(
   fetchImpl: typeof fetch,
   url: string,
   timeoutMs: number
-): Promise<Response> {
+): Promise<TimedFetchResult> {
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new Error(`Invalid regulatory fetch timeout: ${timeoutMs}`);
+  }
+
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    clearTimeout(timer);
+  };
+
   try {
-    return await fetchImpl(url, {
+    const response = await fetchImpl(url, {
       headers: {
         Accept: "text/html, application/xhtml+xml, application/xml, text/xml, application/json, text/plain;q=0.9",
         "User-Agent": "SubShield-Regulatory-Ingestion/1.0 (official-source snapshot service)",
@@ -218,8 +255,10 @@ async function fetchOne(
       redirect: "manual",
       signal: controller.signal,
     });
-  } finally {
-    clearTimeout(timeout);
+    return { response, finish };
+  } catch (error) {
+    finish();
+    throw error;
   }
 }
 
@@ -235,8 +274,10 @@ async function fetchApprovedUrl(
   const redirectChain: RegulatoryRedirectHop[] = [];
 
   for (let redirectCount = 0; redirectCount <= options.maxRedirects; redirectCount++) {
-    const response = await fetchOne(options.fetchImpl, currentUrl, options.timeoutMs);
+    const timed = await fetchOne(options.fetchImpl, currentUrl, options.timeoutMs);
+    const response = timed.response;
     if (response.status >= 300 && response.status < 400) {
+      timed.finish();
       if (redirectCount === options.maxRedirects) {
         throw new Error(`Regulatory source exceeded ${options.maxRedirects} approved redirects`);
       }
@@ -252,11 +293,13 @@ async function fetchApprovedUrl(
     }
 
     if (!response.ok) {
+      timed.finish();
       throw new Error(`Regulatory source returned HTTP ${response.status}: ${currentUrl}`);
     }
 
     return {
       response,
+      finish: timed.finish,
       requestedUrl,
       finalUrl: currentUrl,
       redirectChain,
@@ -324,10 +367,16 @@ export async function fetchApprovedRegulatorySource(
     timeoutMs: options.timeoutMs ?? DEFAULT_REGULATORY_FETCH_TIMEOUT_MS,
   });
 
-  const bytes = await readBoundedBody(
-    fetchResult.response,
-    options.maxResponseBytes ?? DEFAULT_REGULATORY_MAX_RESPONSE_BYTES
-  );
+  let bytes: Uint8Array;
+  try {
+    bytes = await readBoundedBody(
+      fetchResult.response,
+      options.maxResponseBytes ?? DEFAULT_REGULATORY_MAX_RESPONSE_BYTES
+    );
+  } finally {
+    fetchResult.finish();
+  }
+
   const rawBody = new TextDecoder("utf-8").decode(bytes);
   const contentType = fetchResult.response.headers.get("content-type") ?? "";
   const contentFormat = contentFormatFor(contentType, fetchResult.finalUrl);
@@ -431,6 +480,24 @@ export function hasValidSnapshotChecksum(snapshot: RegulatorySourceSnapshot): bo
   return snapshot.checksum === sha256(snapshot.text);
 }
 
+function hasValidRedirectProvenance(snapshot: RegulatorySourceSnapshot): boolean {
+  const chain = snapshot.retrieval.redirectChain;
+  if (chain.length === 0) return snapshot.retrieval.finalUrl === snapshot.retrieval.requestedUrl;
+  if (chain[0].fromUrl !== snapshot.retrieval.requestedUrl) return false;
+  if (chain.at(-1)?.toUrl !== snapshot.retrieval.finalUrl) return false;
+
+  return chain.every((hop, index) => {
+    const nextHop = chain[index + 1];
+    return (
+      isApprovedOfficialUrl(hop.fromUrl) &&
+      isApprovedOfficialUrl(hop.toUrl) &&
+      hop.status >= 300 &&
+      hop.status < 400 &&
+      (!nextHop || nextHop.fromUrl === hop.toUrl)
+    );
+  });
+}
+
 export function getRegulatorySnapshotValidationErrors(
   snapshot: RegulatorySourceSnapshot
 ): string[] {
@@ -440,9 +507,13 @@ export function getRegulatorySnapshotValidationErrors(
   if (source && snapshot.canonicalUrl !== source.canonicalUrl) {
     errors.push("canonical URL does not match the approved source catalog");
   }
+  if (source && !isExpectedRequestedUrl(source, snapshot.retrieval.requestedUrl)) {
+    errors.push("requested URL does not match the approved catalog retrieval route");
+  }
   if (!isApprovedOfficialUrl(snapshot.canonicalUrl)) errors.push("canonical URL is not approved");
   if (!isApprovedOfficialUrl(snapshot.retrieval.requestedUrl)) errors.push("requested URL is not approved");
   if (!isApprovedOfficialUrl(snapshot.retrieval.finalUrl)) errors.push("final URL is not approved");
+  if (!hasValidRedirectProvenance(snapshot)) errors.push("redirect provenance is invalid");
   if (snapshot.retrieval.status < 200 || snapshot.retrieval.status >= 300) {
     errors.push(`retrieval status is not successful: ${snapshot.retrieval.status}`);
   }
@@ -457,16 +528,6 @@ export function getRegulatorySnapshotValidationErrors(
   if (snapshot.text.length < 40) errors.push("normalized source text is suspiciously short");
   if (!Number.isInteger(snapshot.retrieval.rawByteLength) || snapshot.retrieval.rawByteLength < 0) {
     errors.push("raw byte length is invalid");
-  }
-  for (const hop of snapshot.retrieval.redirectChain) {
-    if (!isApprovedOfficialUrl(hop.fromUrl) || !isApprovedOfficialUrl(hop.toUrl)) {
-      errors.push("redirect provenance contains an unapproved URL");
-      break;
-    }
-    if (hop.status < 300 || hop.status >= 400) {
-      errors.push("redirect provenance contains a non-redirect status");
-      break;
-    }
   }
   if (snapshot.reviewStatus === "approved" && (!snapshot.reviewedBy || !snapshot.reviewedAt)) {
     errors.push("approved snapshot lacks reviewer provenance");
