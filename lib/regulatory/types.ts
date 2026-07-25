@@ -71,6 +71,26 @@ export interface RegulatorySourceCatalogEntry {
   currentVerifiedVersion?: VerifiedSourceVersion;
 }
 
+export type RegulatoryContentFormat = "html" | "xml" | "json" | "text";
+
+export interface RegulatoryRedirectHop {
+  fromUrl: string;
+  toUrl: string;
+  status: number;
+}
+
+export interface RegulatoryRetrievalReceipt {
+  requestedUrl: string;
+  finalUrl: string;
+  status: number;
+  contentType: string;
+  rawByteLength: number;
+  retrievedAt: string;
+  redirectChain: RegulatoryRedirectHop[];
+  etag?: string;
+  lastModified?: string;
+}
+
 export interface RegulatorySourceSnapshot {
   snapshotId: string;
   sourceId: string;
@@ -83,6 +103,10 @@ export interface RegulatorySourceSnapshot {
   expirationOrSupersededDate?: string;
   retrievedAt: string;
   checksum: string;
+  rawChecksum: string;
+  normalizationVersion: string;
+  contentFormat: RegulatoryContentFormat;
+  retrieval: RegulatoryRetrievalReceipt;
   historicalStatus: RegulatoryHistoricalStatus;
   text: string;
   applicabilityMetadata: Record<string, unknown>;
@@ -91,6 +115,40 @@ export interface RegulatorySourceSnapshot {
   reviewStatus: "pending" | "approved" | "rejected";
   reviewedBy?: string;
   reviewedAt?: string;
+}
+
+export type RegulatorySnapshotChangeStatus =
+  | "first-snapshot"
+  | "unchanged"
+  | "content-changed";
+
+export interface RegulatorySnapshotComparison {
+  status: RegulatorySnapshotChangeStatus;
+  previousSnapshotId?: string;
+  previousChecksum?: string;
+  nextSnapshotId: string;
+  nextChecksum: string;
+  previousLineCount?: number;
+  nextLineCount: number;
+  firstDifferentLine?: number;
+}
+
+export interface RegulatorySnapshotManifestEntry {
+  snapshotId: string;
+  path: string;
+  checksum: string;
+  rawChecksum: string;
+  retrievedAt: string;
+  reviewStatus: RegulatorySourceSnapshot["reviewStatus"];
+  versionIdentifier?: string;
+}
+
+export interface RegulatorySnapshotManifest {
+  schemaVersion: 1;
+  sourceId: string;
+  latestObservedSnapshotId?: string;
+  latestApprovedSnapshotId?: string;
+  snapshots: RegulatorySnapshotManifestEntry[];
 }
 
 export interface RegulatoryCitation {
