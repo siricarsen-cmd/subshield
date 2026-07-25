@@ -80,6 +80,8 @@ const MONTHS: Readonly<Record<string, number>> = {
   dec: 12,
 };
 
+const MAX_DATE_DISTANCE_AFTER_ANCHOR = 96;
+
 const DATE_RULES: readonly DateRule[] = [
   {
     basis: "modification-effective",
@@ -209,29 +211,36 @@ export function extractContractDateEvidence(
     }
 
     for (const rule of DATE_RULES) {
-      rule.anchor.lastIndex = 0;
-      const anchorMatch = rule.anchor.exec(window);
-      if (!anchorMatch || anchorMatch.index === undefined) continue;
-      const anchorEnd = anchorMatch.index + anchorMatch[0].length;
-      const date = dates.find(
-        (candidate) => candidate.normalizedDate && candidate.start >= anchorEnd
-      );
-      if (!date?.normalizedDate) continue;
-      if (!quoteExistsInDocument(window, normalizedDocument)) continue;
+      const flags = rule.anchor.flags.includes("g")
+        ? rule.anchor.flags
+        : `${rule.anchor.flags}g`;
+      const anchorPattern = new RegExp(rule.anchor.source, flags);
+      for (const anchorMatch of window.matchAll(anchorPattern)) {
+        if (anchorMatch.index === undefined) continue;
+        const anchorEnd = anchorMatch.index + anchorMatch[0].length;
+        const date = dates.find(
+          (candidate) =>
+            candidate.normalizedDate &&
+            candidate.start >= anchorEnd &&
+            candidate.start - anchorEnd <= MAX_DATE_DISTANCE_AFTER_ANCHOR
+        );
+        if (!date?.normalizedDate) continue;
+        if (!quoteExistsInDocument(window, normalizedDocument)) continue;
 
-      const candidate: ContractDateEvidenceCandidate = {
-        basis: rule.basis,
-        normalizedDate: date.normalizedDate,
-        dateText: date.dateText,
-        foundText: window,
-        anchorText: anchorMatch[0],
-        sourceIndex: normalizedDocument.indexOf(window),
-        confidence: "high",
-      };
-      const key = candidateKey(candidate);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      candidates.push(candidate);
+        const candidate: ContractDateEvidenceCandidate = {
+          basis: rule.basis,
+          normalizedDate: date.normalizedDate,
+          dateText: date.dateText,
+          foundText: window,
+          anchorText: anchorMatch[0],
+          sourceIndex: normalizedDocument.indexOf(window),
+          confidence: "high",
+        };
+        const key = candidateKey(candidate);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        candidates.push(candidate);
+      }
     }
   }
 
@@ -289,7 +298,9 @@ export function resolveContractDateEvidence(
   }
 
   const selected = [...candidates].sort(
-    (left, right) => left.foundText.length - right.foundText.length || left.sourceIndex - right.sourceIndex
+    (left, right) =>
+      left.foundText.length - right.foundText.length ||
+      left.sourceIndex - right.sourceIndex
   )[0];
   if (!quoteExistsInDocument(selected.foundText, normalizedDocument)) {
     return {
