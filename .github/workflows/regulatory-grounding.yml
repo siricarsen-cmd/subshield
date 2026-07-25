@@ -97,6 +97,35 @@ jobs:
           echo "Regulatory citation-package status: ${status:-missing}"
           test "$status" = "0"
 
+      - name: Run full regulatory source coverage
+        id: coverage
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          npm run test:regulatory:coverage > regulatory-source-coverage-output.txt 2>&1
+          status=$?
+          cat regulatory-source-coverage-output.txt
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Upload regulatory source coverage output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regulatory-source-coverage-output-${{ github.run_id }}
+          path: regulatory-source-coverage-output.txt
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce source-coverage result
+        if: always()
+        shell: bash
+        run: |
+          status="${{ steps.coverage.outputs.status }}"
+          echo "Regulatory source-coverage status: ${status:-missing}"
+          test "$status" = "0"
+
       - name: Preserve analyzer accuracy benchmarks
         run: npm run test:accuracy
 
