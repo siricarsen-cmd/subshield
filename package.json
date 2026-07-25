@@ -10,7 +10,7 @@
     "test:accuracy:qa-c": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/analyzer/__tests__/qa-c-cyber-coverage-grounding.test.mjs",
     "test:accuracy:core": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/analyzer/__tests__/qa-core-accuracy-benchmark.test.mjs",
     "test:accuracy": "npm run test:accuracy:core && npm run test:accuracy:qa-c",
-    "test:regulatory:catalog": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/source-catalog.test.mjs",
+    "test:regulatory:catalog": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/source-catalog.test.mjs && npm run test:regulatory:registry",
     "test:regulatory:registry": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/registry-integrity.test.mjs",
     "test:regulatory:ingestion": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/ingestion.test.mjs",
     "test:regulatory:applicability": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/applicability-mapping.test.mjs",
@@ -20,7 +20,7 @@
     "test:regulatory:dates": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/contract-date-evidence.test.mjs && node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/contract-date-performance-boundary.test.mjs",
     "test:regulatory:orchestration": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/historical-grounding-orchestration.test.mjs",
     "test:regulatory:regeneration": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/historical-citation-regeneration.test.mjs",
-    "test:regulatory": "npm run test:regulatory:catalog && npm run test:regulatory:registry && npm run test:regulatory:ingestion && npm run test:regulatory:applicability && npm run test:regulatory:citations && npm run test:regulatory:coverage && npm run test:regulatory:history && npm run test:regulatory:dates && npm run test:regulatory:orchestration && npm run test:regulatory:regeneration",
+    "test:regulatory": "npm run test:regulatory:catalog && npm run test:regulatory:ingestion && npm run test:regulatory:applicability && npm run test:regulatory:citations && npm run test:regulatory:coverage && npm run test:regulatory:history && npm run test:regulatory:dates && npm run test:regulatory:orchestration && npm run test:regulatory:regeneration",
     "regulatory:ingest": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/cli/ingest-source.ts"
   },
   "dependencies": {
