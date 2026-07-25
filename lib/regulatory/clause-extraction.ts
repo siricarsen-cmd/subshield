@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 
-import { canUseSnapshotForClientCitation } from "./ingestion";
+import {
+  canUseSnapshotForClientCitation,
+  getRegulatorySnapshotValidationErrors,
+} from "./ingestion";
 import type { RegulatoryCitation, RegulatorySourceSnapshot } from "./types";
 
 export interface RegulatoryExcerptRequest {
@@ -69,7 +72,7 @@ function includesAnchor(text: string, anchor: string): boolean {
   return whitespaceFlexiblePattern(anchor).test(text);
 }
 
-export function extractApprovedRegulatoryCitation(
+function extractRegulatoryCitation(
   snapshot: RegulatorySourceSnapshot,
   request: RegulatoryExcerptRequest
 ): ExtractedRegulatoryCitation {
@@ -77,9 +80,6 @@ export function extractApprovedRegulatoryCitation(
     throw new Error(
       `Regulatory excerpt source mismatch: expected ${request.sourceId}, observed ${snapshot.sourceId}`
     );
-  }
-  if (!canUseSnapshotForClientCitation(snapshot)) {
-    throw new Error(`Regulatory snapshot is not approved for citation: ${snapshot.snapshotId}`);
   }
   if (!request.locator.trim()) throw new Error("Regulatory excerpt locator must not be blank");
   if (!request.startAnchor.trim()) throw new Error("Regulatory excerpt start anchor must not be blank");
@@ -138,4 +138,35 @@ export function extractApprovedRegulatoryCitation(
     extractionRequiredAnchors: [...new Set(requiredAnchors)],
     extractionMaxCharacters: maxCharacters,
   };
+}
+
+export function extractApprovedRegulatoryCitation(
+  snapshot: RegulatorySourceSnapshot,
+  request: RegulatoryExcerptRequest
+): ExtractedRegulatoryCitation {
+  if (!canUseSnapshotForClientCitation(snapshot)) {
+    throw new Error(`Regulatory snapshot is not approved for citation: ${snapshot.snapshotId}`);
+  }
+  return extractRegulatoryCitation(snapshot, request);
+}
+
+/**
+ * Deterministic benchmark/update-review preview for a validated pending or
+ * approved snapshot. Preview output is never client-citation eligible by
+ * itself and does not change the snapshot's review state.
+ */
+export function extractRegulatoryCitationPreview(
+  snapshot: RegulatorySourceSnapshot,
+  request: RegulatoryExcerptRequest
+): ExtractedRegulatoryCitation {
+  if (snapshot.reviewStatus === "rejected") {
+    throw new Error(`Rejected regulatory snapshot cannot be previewed: ${snapshot.snapshotId}`);
+  }
+  const validationErrors = getRegulatorySnapshotValidationErrors(snapshot);
+  if (validationErrors.length > 0) {
+    throw new Error(
+      `Regulatory snapshot preview failed validation: ${validationErrors.join("; ")}`
+    );
+  }
+  return extractRegulatoryCitation(snapshot, request);
 }
