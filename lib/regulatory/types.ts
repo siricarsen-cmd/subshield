@@ -143,12 +143,22 @@ export interface RegulatorySnapshotManifestEntry {
   versionIdentifier?: string;
 }
 
+export interface RegulatoryRetrievalObservation {
+  observationId: string;
+  normalizedSnapshotId: string;
+  checksum: string;
+  rawChecksum: string;
+  normalizationVersion: string;
+  retrieval: RegulatoryRetrievalReceipt;
+}
+
 export interface RegulatorySnapshotManifest {
   schemaVersion: 1;
   sourceId: string;
   latestObservedSnapshotId?: string;
   latestApprovedSnapshotId?: string;
   snapshots: RegulatorySnapshotManifestEntry[];
+  observations: RegulatoryRetrievalObservation[];
 }
 
 export interface RegulatoryCitation {
