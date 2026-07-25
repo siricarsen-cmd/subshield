@@ -46,9 +46,15 @@ for (const sourceId of uniqueSourceIds) {
       status: stored.status,
       changeStatus: stored.comparison.status,
       checksum: snapshot.checksum,
+      rawChecksum: snapshot.rawChecksum,
       snapshotId: snapshot.snapshotId,
+      normalizedSnapshotId:
+        stored.status === "observed"
+          ? stored.comparison.previousSnapshotId
+          : snapshot.snapshotId,
       snapshotPath: stored.snapshotPath,
       manifestPath: stored.manifestPath,
+      observationCount: stored.manifest.observations.length,
       reviewStatus: snapshot.reviewStatus,
     });
   } catch (error) {
