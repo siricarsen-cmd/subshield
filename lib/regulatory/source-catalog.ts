@@ -421,7 +421,7 @@ export const REGULATORY_SOURCE_CATALOG = [
     jurisdiction: "federal",
     issuingAuthority: "U.S. Department of Defense",
     canonicalTitle: "32 CFR Part 170 — Cybersecurity Maturity Model Certification Program",
-    canonicalUrl: "https://www.ecfr.gov/current/title-32/subtitle-A/chapter-I/subchapter-D/part-170",
+    canonicalUrl: "https://www.ecfr.gov/current/title-32/subtitle-A/chapter-I/subchapter-G/part-170",
     sourceType: "program-rule",
     updateCadence: "daily",
     versionStrategy: "eCFR current-through date plus retained Federal Register provenance",
