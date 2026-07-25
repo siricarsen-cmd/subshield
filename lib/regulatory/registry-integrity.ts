@@ -126,10 +126,20 @@ function getEntry<T>(
   return registry.get(id);
 }
 
+function listEntries<T>(
+  registry: ReadonlyMap<string, RegulatoryRegistryEntry<T>>
+): readonly RegulatoryRegistryEntry<T>[] {
+  return [...registry.values()];
+}
+
 export function getRegisteredRegulatoryMapping(
   mappingId: string
 ): RegulatoryRegistryEntry<RegulatoryApplicabilityMapping> | undefined {
   return getEntry(MAPPING_REGISTRY, mappingId);
+}
+
+export function listRegisteredRegulatoryMappings(): readonly RegulatoryRegistryEntry<RegulatoryApplicabilityMapping>[] {
+  return listEntries(MAPPING_REGISTRY);
 }
 
 export function getRegisteredHistoricalGroundingPolicy(
@@ -138,10 +148,18 @@ export function getRegisteredHistoricalGroundingPolicy(
   return getEntry(POLICY_REGISTRY, mappingId);
 }
 
+export function listRegisteredHistoricalGroundingPolicies(): readonly RegulatoryRegistryEntry<RegulatoryHistoricalGroundingPolicy>[] {
+  return listEntries(POLICY_REGISTRY);
+}
+
 export function getRegisteredCitationTemplate(
   mappingId: string
 ): RegulatoryRegistryEntry<RegulatoryCitationPackage> | undefined {
   return getEntry(CITATION_TEMPLATE_REGISTRY, mappingId);
+}
+
+export function listRegisteredCitationTemplates(): readonly RegulatoryRegistryEntry<RegulatoryCitationPackage>[] {
+  return listEntries(CITATION_TEMPLATE_REGISTRY);
 }
 
 export function compareWithRegisteredRegulatoryValue(
