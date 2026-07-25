@@ -16,6 +16,10 @@ import {
   validateRegulatoryRegistryIntegrity,
 } from "./registry-integrity";
 import type { RegulatorySourceSnapshot } from "./types";
+import {
+  isVerifiedStoredRegulatoryUpdatePair,
+  type VerifiedStoredRegulatoryUpdatePair,
+} from "./verified-stored-update-pair";
 
 export type RegulatoryUpdateDifferenceClassification =
   | "unchanged"
@@ -29,6 +33,10 @@ export type RegulatoryUpdateIntakeStatus =
   | "observation-only"
   | "proposal-prepared"
   | "manual-review-required";
+
+export type RegulatoryUpdateTrustSource =
+  | "benchmark-approved-evidence"
+  | "verified-stored-pair";
 
 export interface RegulatoryLineDifference {
   previousStartLine: number;
@@ -101,6 +109,7 @@ export interface RegulatoryUpdateChangeProposal {
   baselineSnapshotId: string;
   candidateSnapshotId: string;
   sourceReviewStatus: RegulatorySourceSnapshot["reviewStatus"];
+  trustSource: RegulatoryUpdateTrustSource;
   candidateRetainedAsApprovedEvidence: boolean;
   readiness:
     | "awaiting-snapshot-approval"
@@ -135,6 +144,12 @@ export interface RegulatoryUpdateIntakeResult {
 interface TemplateTransitionBuildResult {
   transitions: RegulatoryCitationTemplateTransitionDraft[];
   errors: string[];
+}
+
+interface RegulatoryUpdateTrustContext {
+  trustSource: RegulatoryUpdateTrustSource;
+  baselineTrusted: boolean;
+  candidateRetainedAsApprovedEvidence: boolean;
 }
 
 const METADATA_FIELDS: Array<keyof RegulatorySourceSnapshot> = [
@@ -193,6 +208,18 @@ function matchesRetainedApprovedEvidence(snapshot: RegulatorySourceSnapshot): bo
   );
 }
 
+function benchmarkTrustContext(
+  request: RegulatoryUpdateIntakeRequest
+): RegulatoryUpdateTrustContext {
+  return {
+    trustSource: "benchmark-approved-evidence",
+    baselineTrusted: matchesRetainedApprovedEvidence(request.baseline),
+    candidateRetainedAsApprovedEvidence: matchesRetainedApprovedEvidence(
+      request.candidate
+    ),
+  };
+}
+
 function changedFieldNames(
   previous: Record<string, unknown>,
   next: Record<string, unknown>,
@@ -222,7 +249,10 @@ function boundedExcerpt(
   ];
 }
 
-function lineDifference(previousText: string, nextText: string): RegulatoryLineDifference | undefined {
+function lineDifference(
+  previousText: string,
+  nextText: string
+): RegulatoryLineDifference | undefined {
   if (previousText === nextText) return undefined;
   const previousLines = previousText.split("\n");
   const nextLines = nextText.split("\n");
@@ -262,7 +292,11 @@ function lineDifference(previousText: string, nextText: string): RegulatoryLineD
       previousStartLine,
       Math.max(previousStartLine, previousEndLine)
     ),
-    nextExcerpt: boundedExcerpt(nextLines, nextStartLine, Math.max(nextStartLine, nextEndLine)),
+    nextExcerpt: boundedExcerpt(
+      nextLines,
+      nextStartLine,
+      Math.max(nextStartLine, nextEndLine)
+    ),
   };
 }
 
@@ -371,34 +405,36 @@ function buildRegistryImpacts(
     const citations = templateEntry.value.citations.filter(
       (citation) => citation.sourceId === candidate.sourceId
     );
-    const citationImpacts: RegulatoryCitationPreviewImpact[] = citations.map((citation) => {
-      try {
-        const nextCitation = extractRegulatoryCitationPreview(candidate, {
-          sourceId: citation.sourceId,
-          locator: citation.locator,
-          startAnchor: citation.extractionStartAnchor,
-          endAnchor: citation.extractionEndAnchor,
-          requiredAnchors: [...citation.extractionRequiredAnchors],
-          maxCharacters: citation.extractionMaxCharacters,
-        });
-        return {
-          locator: citation.locator,
-          status: "stable" as const,
-          changedFields: citationChangedFields(citation, nextCitation),
-          previousExcerptChecksum: citation.excerptChecksum,
-          nextExcerptChecksum: nextCitation.excerptChecksum,
-          nextCitation,
-        };
-      } catch (error) {
-        return {
-          locator: citation.locator,
-          status: "anchor-drift" as const,
-          changedFields: [],
-          previousExcerptChecksum: citation.excerptChecksum,
-          error: error instanceof Error ? error.message : String(error),
-        };
+    const citationImpacts: RegulatoryCitationPreviewImpact[] = citations.map(
+      (citation) => {
+        try {
+          const nextCitation = extractRegulatoryCitationPreview(candidate, {
+            sourceId: citation.sourceId,
+            locator: citation.locator,
+            startAnchor: citation.extractionStartAnchor,
+            endAnchor: citation.extractionEndAnchor,
+            requiredAnchors: [...citation.extractionRequiredAnchors],
+            maxCharacters: citation.extractionMaxCharacters,
+          });
+          return {
+            locator: citation.locator,
+            status: "stable" as const,
+            changedFields: citationChangedFields(citation, nextCitation),
+            previousExcerptChecksum: citation.excerptChecksum,
+            nextExcerptChecksum: nextCitation.excerptChecksum,
+            nextCitation,
+          };
+        } catch (error) {
+          return {
+            locator: citation.locator,
+            status: "anchor-drift" as const,
+            changedFields: [],
+            previousExcerptChecksum: citation.excerptChecksum,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
       }
-    });
+    );
 
     impacts.push({
       mappingId: mappingEntry.id,
@@ -407,7 +443,8 @@ function buildRegistryImpacts(
       citationTemplateFingerprint: templateEntry.fingerprint,
       citationImpacts,
       anchorDrift:
-        citations.length === 0 || citationImpacts.some((impact) => impact.status === "anchor-drift"),
+        citations.length === 0 ||
+        citationImpacts.some((impact) => impact.status === "anchor-drift"),
     });
   }
 
@@ -433,7 +470,9 @@ function buildTemplateTransitions(
         .filter(
           (citationImpact): citationImpact is RegulatoryCitationPreviewImpact & {
             nextCitation: ExtractedRegulatoryCitation;
-          } => citationImpact.status === "stable" && Boolean(citationImpact.nextCitation)
+          } =>
+            citationImpact.status === "stable" &&
+            Boolean(citationImpact.nextCitation)
         )
         .map((citationImpact) => [citationImpact.locator, citationImpact.nextCitation])
     );
@@ -454,7 +493,8 @@ function buildTemplateTransitions(
     if (packageErrors.length > 0) {
       errors.push(
         ...packageErrors.map(
-          (error) => `${impact.mappingId}: proposed citation template is invalid: ${error}`
+          (error) =>
+            `${impact.mappingId}: proposed citation template is invalid: ${error}`
         )
       );
       continue;
@@ -489,10 +529,17 @@ function buildTemplateTransitions(
   return { transitions, errors: unique(errors) };
 }
 
-function validateRequest(request: RegulatoryUpdateIntakeRequest): string[] {
+function validateRequest(
+  request: RegulatoryUpdateIntakeRequest,
+  trust: RegulatoryUpdateTrustContext
+): string[] {
   const errors: string[] = [...validateRegulatoryRegistryIntegrity()];
-  if (!request.requestedBy.trim()) errors.push("Update-intake requester must not be blank");
-  if (!isIsoInstant(request.createdAt)) errors.push("Update-intake createdAt must be an ISO timestamp");
+  if (!request.requestedBy.trim()) {
+    errors.push("Update-intake requester must not be blank");
+  }
+  if (!isIsoInstant(request.createdAt)) {
+    errors.push("Update-intake createdAt must be an ISO timestamp");
+  }
   if (request.baseline.sourceId !== request.candidate.sourceId) {
     errors.push(
       `Update candidate source mismatch: baseline ${request.baseline.sourceId}, candidate ${request.candidate.sourceId}`
@@ -506,11 +553,20 @@ function validateRequest(request: RegulatoryUpdateIntakeRequest): string[] {
   }
   if (request.baseline.reviewStatus !== "approved") {
     errors.push("Update baseline must be an approved retained snapshot");
-  } else if (!matchesRetainedApprovedEvidence(request.baseline)) {
-    errors.push("Update baseline does not match the immutable retained approved-evidence registry");
+  } else if (!trust.baselineTrusted) {
+    errors.push(
+      trust.trustSource === "verified-stored-pair"
+        ? "Update baseline is not verified by the controlled snapshot store"
+        : "Update baseline does not match the immutable retained approved-evidence registry"
+    );
   }
-  if (request.candidate.reviewStatus === "rejected") {
-    errors.push("Rejected regulatory snapshots cannot enter update intake");
+  if (
+    request.candidate.reviewStatus !== "pending" &&
+    request.candidate.reviewStatus !== "approved"
+  ) {
+    errors.push(
+      `Unsupported regulatory update candidate review status: ${String(request.candidate.reviewStatus)}`
+    );
   }
   if (!CURRENT_UPDATE_STATUSES.has(request.candidate.historicalStatus)) {
     errors.push(
@@ -540,20 +596,34 @@ function validateRequest(request: RegulatoryUpdateIntakeRequest): string[] {
   ) {
     errors.push("Update candidate must be retrieved after the approved baseline");
   }
-  if (Number.isFinite(candidateTime) && Number.isFinite(createdTime) && createdTime < candidateTime) {
+  if (
+    Number.isFinite(candidateTime) &&
+    Number.isFinite(createdTime) &&
+    createdTime < candidateTime
+  ) {
     errors.push("Update intake cannot be created before the candidate was retrieved");
   }
-  if (request.candidate.reviewStatus === "approved" && request.candidate.reviewedAt) {
-    const reviewedTime = new Date(request.candidate.reviewedAt).getTime();
-    if (
-      !Number.isFinite(reviewedTime) ||
-      reviewedTime < candidateTime ||
-      reviewedTime > createdTime
-    ) {
-      errors.push(
-        "Approved candidate review timestamp must follow retrieval and not exceed intake creation"
-      );
+  if (request.candidate.reviewStatus === "approved") {
+    if (!request.candidate.reviewedAt) {
+      errors.push("Approved candidate requires a review timestamp");
+    } else {
+      const reviewedTime = new Date(request.candidate.reviewedAt).getTime();
+      if (
+        !Number.isFinite(reviewedTime) ||
+        reviewedTime < candidateTime ||
+        reviewedTime > createdTime
+      ) {
+        errors.push(
+          "Approved candidate review timestamp must follow retrieval and not exceed intake creation"
+        );
+      }
     }
+  }
+  if (
+    trust.candidateRetainedAsApprovedEvidence &&
+    request.candidate.reviewStatus !== "approved"
+  ) {
+    errors.push("A pending update candidate cannot be retained as approved evidence");
   }
   return unique(errors);
 }
@@ -575,10 +645,11 @@ function emptyDifference(
   };
 }
 
-export function prepareRegulatoryUpdateIntake(
-  request: RegulatoryUpdateIntakeRequest
+function prepareRegulatoryUpdateIntakeCore(
+  request: RegulatoryUpdateIntakeRequest,
+  trust: RegulatoryUpdateTrustContext
 ): RegulatoryUpdateIntakeResult {
-  const refusalReasons = validateRequest(request);
+  const refusalReasons = validateRequest(request, trust);
   if (refusalReasons.length > 0) {
     return {
       status: "refused",
@@ -593,7 +664,10 @@ export function prepareRegulatoryUpdateIntake(
     };
   }
 
-  const difference = compareRegulatoryUpdateCandidate(request.baseline, request.candidate);
+  const difference = compareRegulatoryUpdateCandidate(
+    request.baseline,
+    request.candidate
+  );
   const impacts = buildRegistryImpacts(request.candidate);
 
   if (difference.classification === "unchanged") {
@@ -631,9 +705,8 @@ export function prepareRegulatoryUpdateIntake(
     ? { transitions: [], errors: [] }
     : buildTemplateTransitions(request.candidate, impacts);
   const manualReviewRequired = anchorDrift || transitionBuild.errors.length > 0;
-  const candidateRetainedAsApprovedEvidence = matchesRetainedApprovedEvidence(
-    request.candidate
-  );
+  const candidateRetainedAsApprovedEvidence =
+    trust.candidateRetainedAsApprovedEvidence;
   const readiness = manualReviewRequired
     ? "manual-redesign-required"
     : request.candidate.reviewStatus !== "approved"
@@ -649,6 +722,7 @@ export function prepareRegulatoryUpdateIntake(
     baselineSnapshotId: request.baseline.snapshotId,
     candidateSnapshotId: request.candidate.snapshotId,
     sourceReviewStatus: request.candidate.reviewStatus,
+    trustSource: trust.trustSource,
     candidateRetainedAsApprovedEvidence,
     readiness,
     transitions: transitionBuild.transitions,
@@ -718,4 +792,36 @@ export function prepareRegulatoryUpdateIntake(
     ],
     customerFacingStatus: "benchmark-only",
   };
+}
+
+export function prepareRegulatoryUpdateIntake(
+  request: RegulatoryUpdateIntakeRequest
+): RegulatoryUpdateIntakeResult {
+  return prepareRegulatoryUpdateIntakeCore(request, benchmarkTrustContext(request));
+}
+
+export function prepareVerifiedStoredRegulatoryUpdateIntake(
+  pair: VerifiedStoredRegulatoryUpdatePair,
+  requestedBy: string,
+  createdAt: string
+): RegulatoryUpdateIntakeResult {
+  if (!isVerifiedStoredRegulatoryUpdatePair(pair)) {
+    throw new Error(
+      "Verified stored regulatory update intake requires an opaque pair loaded from the controlled snapshot store"
+    );
+  }
+  return prepareRegulatoryUpdateIntakeCore(
+    {
+      baseline: pair.baseline as RegulatorySourceSnapshot,
+      candidate: pair.candidate as RegulatorySourceSnapshot,
+      requestedBy,
+      createdAt,
+    },
+    {
+      trustSource: "verified-stored-pair",
+      baselineTrusted: true,
+      candidateRetainedAsApprovedEvidence:
+        pair.candidateRetainedAsApprovedEvidence,
+    }
+  );
 }
