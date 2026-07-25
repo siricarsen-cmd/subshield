@@ -1,6 +1,4 @@
-import {
-  fingerprintRegulatoryRegistryValue,
-} from "./registry-integrity";
+import { fingerprintRegulatoryRegistryValue } from "./registry-integrity";
 import {
   loadRegulatorySnapshotManifest,
   loadStoredRegulatorySnapshot,
@@ -90,7 +88,9 @@ function latestObservation(
   )[0];
 }
 
-function retrievalFingerprint(receipt: RegulatoryRetrievalObservation["retrieval"]): string {
+function retrievalFingerprint(
+  receipt: RegulatoryRetrievalObservation["retrieval"]
+): string {
   return fingerprintRegulatoryRegistryValue({
     requestedUrl: receipt.requestedUrl,
     finalUrl: receipt.finalUrl,
@@ -154,8 +154,9 @@ async function noPairObservationResult(
     throw originalError;
   }
   const entry = manifest.snapshots.find((candidate) => candidate.snapshotId === snapshotId);
+  if (!entry) throw originalError;
   const observation = latestObservation(manifest);
-  if (!entry || !observation || observation.normalizedSnapshotId !== snapshotId) {
+  if (observation && observation.normalizedSnapshotId !== snapshotId) {
     throw originalError;
   }
   const approvedSnapshot = await loadStoredRegulatorySnapshot(
@@ -165,18 +166,20 @@ async function noPairObservationResult(
   );
   if (approvedSnapshot.reviewStatus !== "approved") throw originalError;
 
-  const observationTime = new Date(observation.retrieval.retrievedAt).getTime();
+  const latestEvidenceTime = new Date(
+    observation?.retrieval.retrievedAt ?? approvedSnapshot.retrievedAt
+  ).getTime();
   const createdTime = new Date(request.createdAt).getTime();
-  if (!Number.isFinite(observationTime) || createdTime < observationTime) {
+  if (!Number.isFinite(latestEvidenceTime) || createdTime < latestEvidenceTime) {
     return deepFreeze({
       status: "intake-refused",
       sourceId: request.sourceId,
       baselineSnapshotId: snapshotId,
       candidateSnapshotId: snapshotId,
-      candidateObservationId: observation.observationId,
+      candidateObservationId: observation?.observationId,
       intakeStatus: "refused",
       differenceClassification: "unchanged",
-      refusalReasons: ["Update intake cannot be created before the latest retrieval observation"],
+      refusalReasons: ["Update intake cannot be created before the latest controlled retrieval evidence"],
       reviewNotes: ["No review packet was created."],
       reviewStatus: "not-created",
       applicationStatus: "not-applied",
@@ -184,17 +187,20 @@ async function noPairObservationResult(
     });
   }
 
-  const rawChanged = observation.rawChecksum !== entry.rawChecksum;
-  const transportChanged =
-    retrievalFingerprint(observation.retrieval) !==
-    retrievalFingerprint(approvedSnapshot.retrieval);
+  const rawChanged = observation
+    ? observation.rawChecksum !== entry.rawChecksum
+    : false;
+  const transportChanged = observation
+    ? retrievalFingerprint(observation.retrieval) !==
+      retrievalFingerprint(approvedSnapshot.retrieval)
+    : false;
   const differenceClassification: RegulatoryUpdateDifferenceClassification =
     rawChanged || transportChanged ? "transport-only" : "unchanged";
   const observationVerificationChecksum = fingerprintRegulatoryRegistryValue({
     sourceId: request.sourceId,
     manifest,
     snapshotFingerprint: fingerprintRegulatoryRegistryValue(approvedSnapshot),
-    observation,
+    observation: observation ?? null,
   });
 
   return deepFreeze({
@@ -202,16 +208,18 @@ async function noPairObservationResult(
     sourceId: request.sourceId,
     baselineSnapshotId: snapshotId,
     candidateSnapshotId: snapshotId,
-    candidateObservationId: observation.observationId,
+    candidateObservationId: observation?.observationId,
     observationVerificationChecksum,
     intakeStatus:
       differenceClassification === "unchanged" ? "no-change" : "observation-only",
     differenceClassification,
     refusalReasons: [],
     reviewNotes: [
-      differenceClassification === "unchanged"
-        ? "The latest controlled retrieval is identical to the approved stored snapshot."
-        : "The latest controlled retrieval changes only raw or transport provenance; normalized regulatory text remains tied to the approved snapshot.",
+      observation
+        ? differenceClassification === "unchanged"
+          ? "The latest controlled retrieval observation is identical to the approved stored snapshot."
+          : "The latest controlled retrieval changes only raw or transport provenance; normalized regulatory text remains tied to the approved snapshot."
+        : "No distinct stored candidate or new retrieval observation exists beyond the approved snapshot.",
       "No regulatory review packet was created.",
     ],
     reviewStatus: "not-created",
