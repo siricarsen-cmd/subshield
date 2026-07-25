@@ -1,4 +1,8 @@
-import type { RegulatoryCitationPackage } from "./citation-package";
+import { getApprovedRegulatoryEvidenceSnapshot } from "./approved-evidence-registry";
+import {
+  validateRegulatoryCitationPackage,
+  type RegulatoryCitationPackage,
+} from "./citation-package";
 import {
   extractRegulatoryCitationPreview,
   type ExtractedRegulatoryCitation,
@@ -9,6 +13,7 @@ import {
   getRegisteredCitationTemplate,
   getRegisteredHistoricalGroundingPolicy,
   listRegisteredRegulatoryMappings,
+  validateRegulatoryRegistryIntegrity,
 } from "./registry-integrity";
 import type { RegulatorySourceSnapshot } from "./types";
 
@@ -96,8 +101,10 @@ export interface RegulatoryUpdateChangeProposal {
   baselineSnapshotId: string;
   candidateSnapshotId: string;
   sourceReviewStatus: RegulatorySourceSnapshot["reviewStatus"];
+  candidateRetainedAsApprovedEvidence: boolean;
   readiness:
     | "awaiting-snapshot-approval"
+    | "awaiting-approved-evidence-registration"
     | "ready-for-controlled-change-set-draft"
     | "manual-redesign-required";
   transitions: RegulatoryCitationTemplateTransitionDraft[];
@@ -125,6 +132,11 @@ export interface RegulatoryUpdateIntakeResult {
   customerFacingStatus: "benchmark-only";
 }
 
+interface TemplateTransitionBuildResult {
+  transitions: RegulatoryCitationTemplateTransitionDraft[];
+  errors: string[];
+}
+
 const METADATA_FIELDS: Array<keyof RegulatorySourceSnapshot> = [
   "citation",
   "canonicalTitle",
@@ -137,6 +149,12 @@ const METADATA_FIELDS: Array<keyof RegulatorySourceSnapshot> = [
   "contentFormat",
   "normalizationVersion",
 ];
+
+const CURRENT_UPDATE_STATUSES = new Set<RegulatorySourceSnapshot["historicalStatus"]>([
+  "current",
+  "interim",
+  "corrected",
+]);
 
 function deepClone<T>(value: T): T {
   if (Array.isArray(value)) return value.map((item) => deepClone(item)) as T;
@@ -161,6 +179,18 @@ function unique(values: readonly string[]): string[] {
 
 function sameValue(left: unknown, right: unknown): boolean {
   return fingerprintRegulatoryRegistryValue(left) === fingerprintRegulatoryRegistryValue(right);
+}
+
+function matchesRetainedApprovedEvidence(snapshot: RegulatorySourceSnapshot): boolean {
+  const retained = getApprovedRegulatoryEvidenceSnapshot(
+    snapshot.sourceId,
+    snapshot.snapshotId
+  );
+  return Boolean(
+    retained &&
+      fingerprintRegulatoryRegistryValue(retained) ===
+        fingerprintRegulatoryRegistryValue(snapshot)
+  );
 }
 
 function changedFieldNames(
@@ -387,13 +417,17 @@ function buildRegistryImpacts(
 function buildTemplateTransitions(
   candidate: RegulatorySourceSnapshot,
   impacts: readonly RegulatoryRegistryUpdateImpact[]
-): RegulatoryCitationTemplateTransitionDraft[] {
+): TemplateTransitionBuildResult {
   const transitions: RegulatoryCitationTemplateTransitionDraft[] = [];
+  const errors: string[] = [];
 
   for (const impact of impacts) {
     if (impact.anchorDrift) continue;
     const templateEntry = getRegisteredCitationTemplate(impact.mappingId);
-    if (!templateEntry) continue;
+    if (!templateEntry) {
+      errors.push(`${impact.mappingId}: registered citation template is unavailable`);
+      continue;
+    }
     const previewsByLocator = new Map(
       impact.citationImpacts
         .filter(
@@ -415,6 +449,16 @@ function buildTemplateTransitions(
       .map((citationImpact) => citationImpact.locator);
     const afterFingerprint = fingerprintRegulatoryRegistryValue(afterValue);
     if (afterFingerprint === templateEntry.fingerprint) continue;
+
+    const packageErrors = validateRegulatoryCitationPackage(afterValue);
+    if (packageErrors.length > 0) {
+      errors.push(
+        ...packageErrors.map(
+          (error) => `${impact.mappingId}: proposed citation template is invalid: ${error}`
+        )
+      );
+      continue;
+    }
 
     transitions.push({
       kind: "citation-template",
@@ -442,11 +486,11 @@ function buildTemplateTransitions(
     });
   }
 
-  return transitions;
+  return { transitions, errors: unique(errors) };
 }
 
 function validateRequest(request: RegulatoryUpdateIntakeRequest): string[] {
-  const errors: string[] = [];
+  const errors: string[] = [...validateRegulatoryRegistryIntegrity()];
   if (!request.requestedBy.trim()) errors.push("Update-intake requester must not be blank");
   if (!isIsoInstant(request.createdAt)) errors.push("Update-intake createdAt must be an ISO timestamp");
   if (request.baseline.sourceId !== request.candidate.sourceId) {
@@ -457,14 +501,29 @@ function validateRequest(request: RegulatoryUpdateIntakeRequest): string[] {
   if (request.baseline.snapshotId === request.candidate.snapshotId) {
     errors.push("Update candidate must have a distinct snapshot ID");
   }
+  if (!request.candidate.snapshotId.startsWith(`${request.candidate.sourceId}:`)) {
+    errors.push("Update candidate snapshot ID must begin with its source ID");
+  }
   if (request.baseline.reviewStatus !== "approved") {
     errors.push("Update baseline must be an approved retained snapshot");
+  } else if (!matchesRetainedApprovedEvidence(request.baseline)) {
+    errors.push("Update baseline does not match the immutable retained approved-evidence registry");
   }
   if (request.candidate.reviewStatus === "rejected") {
     errors.push("Rejected regulatory snapshots cannot enter update intake");
   }
-  if (request.candidate.historicalStatus === "proposed") {
-    errors.push("Proposed regulatory text cannot update the current controlled registry");
+  if (!CURRENT_UPDATE_STATUSES.has(request.candidate.historicalStatus)) {
+    errors.push(
+      `Historical status ${request.candidate.historicalStatus} cannot update the current controlled registry`
+    );
+  }
+  if (
+    request.candidate.reviewStatus === "pending" &&
+    (request.candidate.reviewedBy !== undefined ||
+      request.candidate.reviewedAt !== undefined ||
+      request.candidate.reviewNotes !== undefined)
+  ) {
+    errors.push("Pending update candidates must not contain final reviewer provenance");
   }
   const baselineErrors = getRegulatorySnapshotValidationErrors(request.baseline);
   const candidateErrors = getRegulatorySnapshotValidationErrors(request.candidate);
@@ -473,12 +532,28 @@ function validateRequest(request: RegulatoryUpdateIntakeRequest): string[] {
 
   const baselineTime = new Date(request.baseline.retrievedAt).getTime();
   const candidateTime = new Date(request.candidate.retrievedAt).getTime();
+  const createdTime = new Date(request.createdAt).getTime();
   if (
     !Number.isFinite(baselineTime) ||
     !Number.isFinite(candidateTime) ||
     candidateTime <= baselineTime
   ) {
     errors.push("Update candidate must be retrieved after the approved baseline");
+  }
+  if (Number.isFinite(candidateTime) && Number.isFinite(createdTime) && createdTime < candidateTime) {
+    errors.push("Update intake cannot be created before the candidate was retrieved");
+  }
+  if (request.candidate.reviewStatus === "approved" && request.candidate.reviewedAt) {
+    const reviewedTime = new Date(request.candidate.reviewedAt).getTime();
+    if (
+      !Number.isFinite(reviewedTime) ||
+      reviewedTime < candidateTime ||
+      reviewedTime > createdTime
+    ) {
+      errors.push(
+        "Approved candidate review timestamp must follow retrieval and not exceed intake creation"
+      );
+    }
   }
   return unique(errors);
 }
@@ -552,12 +627,20 @@ export function prepareRegulatoryUpdateIntake(
   }
 
   const anchorDrift = impacts.some((impact) => impact.anchorDrift);
-  const transitions = anchorDrift ? [] : buildTemplateTransitions(request.candidate, impacts);
-  const readiness = anchorDrift
+  const transitionBuild = anchorDrift
+    ? { transitions: [], errors: [] }
+    : buildTemplateTransitions(request.candidate, impacts);
+  const manualReviewRequired = anchorDrift || transitionBuild.errors.length > 0;
+  const candidateRetainedAsApprovedEvidence = matchesRetainedApprovedEvidence(
+    request.candidate
+  );
+  const readiness = manualReviewRequired
     ? "manual-redesign-required"
-    : request.candidate.reviewStatus === "approved"
-      ? "ready-for-controlled-change-set-draft"
-      : "awaiting-snapshot-approval";
+    : request.candidate.reviewStatus !== "approved"
+      ? "awaiting-snapshot-approval"
+      : !candidateRetainedAsApprovedEvidence
+        ? "awaiting-approved-evidence-registration"
+        : "ready-for-controlled-change-set-draft";
   const proposal: RegulatoryUpdateChangeProposal = {
     proposalId: `regulatory-update:${request.candidate.sourceId}:${request.candidate.snapshotId}`,
     createdAt: request.createdAt,
@@ -566,45 +649,47 @@ export function prepareRegulatoryUpdateIntake(
     baselineSnapshotId: request.baseline.snapshotId,
     candidateSnapshotId: request.candidate.snapshotId,
     sourceReviewStatus: request.candidate.reviewStatus,
+    candidateRetainedAsApprovedEvidence,
     readiness,
-    transitions,
+    transitions: transitionBuild.transitions,
     registryKindsRequiringHumanReview: ["mapping", "historical-policy"],
     reviewQuestions: [
       "Does the official-source change alter the existing applicability conclusion or only its citation passage?",
       "Does the effective date or version history require a governing-date policy change?",
       "Are additional positive, negative, historical, or cross-format benchmark fixtures required?",
-      "Has an independent reviewer approved the source snapshot and every proposed registry transition?",
+      "Has an independent reviewer approved and retained the source snapshot and every proposed registry transition?",
     ],
     applicationStatus: "not-applied",
     customerFacingStatus: "benchmark-only",
   };
 
-  if (anchorDrift) {
+  if (manualReviewRequired) {
     return {
       status: "manual-review-required",
       sourceId: request.candidate.sourceId,
       difference,
       impacts,
       proposal,
-      refusalReasons: unique(
-        impacts.flatMap((impact) =>
+      refusalReasons: unique([
+        ...transitionBuild.errors,
+        ...impacts.flatMap((impact) =>
           impact.citationImpacts
             .filter((citationImpact) => citationImpact.status === "anchor-drift")
             .map(
               (citationImpact) =>
                 `${impact.mappingId}/${citationImpact.locator}: ${citationImpact.error ?? "registered citation anchor drift"}`
             )
-        )
-      ),
+        ),
+      ]),
       reviewNotes: [
-        "At least one registered citation could not be deterministically regenerated from the update candidate.",
-        "No citation-template transition was generated; a reviewer must redesign and reapprove the affected anchors.",
+        "At least one registered citation could not be deterministically regenerated or produced an invalid proposed template.",
+        "No usable citation-template transition was released; a reviewer must redesign and reapprove the affected extraction or package.",
       ],
       customerFacingStatus: "benchmark-only",
     };
   }
 
-  if (impacts.length === 0 || transitions.length === 0) {
+  if (impacts.length === 0 || transitionBuild.transitions.length === 0) {
     return {
       status: "observation-only",
       sourceId: request.candidate.sourceId,
@@ -629,7 +714,7 @@ export function prepareRegulatoryUpdateIntake(
     refusalReasons: [],
     reviewNotes: [
       "A benchmark-only citation-template transition draft was prepared from deterministic extraction.",
-      "The proposal is not applied and cannot become customer-facing without snapshot approval, controlled change-set validation, complete benchmarks, and independent review.",
+      "The proposal is not applied and cannot become customer-facing without approved-evidence retention, controlled change-set validation, complete benchmarks, and independent review.",
     ],
     customerFacingStatus: "benchmark-only",
   };
