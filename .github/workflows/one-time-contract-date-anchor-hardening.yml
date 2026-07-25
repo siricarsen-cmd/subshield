@@ -1,0 +1,56 @@
+name: One-time contract date anchor hardening
+
+on:
+  push:
+    branches:
+      - feat/regulatory-contract-date-evidence
+
+permissions:
+  contents: write
+
+jobs:
+  harden-date-anchors:
+    if: ${{ !contains(github.event.head_commit.message, '[date-anchors-hardened]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/regulatory-contract-date-evidence
+          fetch-depth: 0
+
+      - name: Tighten solicitation and execution anchors
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/regulatory/contract-date-evidence.ts')
+          text = path.read_text(encoding='utf-8')
+          replacements = [
+              (
+                  r'/\bsolicitation\b.{0,48}\b(?:issue(?:d|\s+date)?|date\s+issued|release(?:d|\s+date)?|date)\b/i',
+                  r'/(?:\bsolicitation\b.{0,48}\b(?:issued|issue\s+date|date\s+issued|released|release\s+date)\b|^solicitation\s+date\s*:)/i',
+              ),
+              (
+                  r'/^(?:(?:subcontract|agreement|contract)\s+)?(?:effective\s+date|execution\s+date|date\s+of\s+execution)\b/i',
+                  r'/^(?:(?:document|subcontract|agreement|contract)\s+)?(?:effective\s+date|execution\s+date|date\s+of\s+execution)\s*:/i',
+              ),
+          ]
+          for old, new in replacements:
+              if text.count(old) != 1:
+                  raise SystemExit(f'Expected one match for {old!r}, observed {text.count(old)}')
+              text = text.replace(old, new)
+          path.write_text(text, encoding='utf-8')
+          Path('.github/workflows/one-time-contract-date-anchor-hardening.yml').unlink()
+          PY
+
+      - name: Commit hardened date anchors
+        shell: bash
+        run: |
+          git config user.name "subshield-automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add lib/regulatory/contract-date-evidence.ts .github/workflows/one-time-contract-date-anchor-hardening.yml
+          git commit -m "fix: harden contract date anchors [date-anchors-hardened]"
+          git push origin HEAD:feat/regulatory-contract-date-evidence
