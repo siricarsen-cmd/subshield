@@ -36,14 +36,17 @@ A substantive or metadata-related review packet was created. The packet remains:
 
 ### `no-review-packet`
 
-The candidate was valid, but no packet was warranted. This includes:
+No packet was warranted. This includes:
 
-- identical later retrievals; and
-- transport/markup-only changes.
+- an exact duplicate retrieval that the snapshot store intentionally discards without creating another snapshot or observation;
+- an unchanged retained retrieval observation; and
+- transport/markup-only observations whose normalized official text remains tied to the approved snapshot.
+
+The result retains a compact manifest/snapshot/observation verification checksum. It does not invent a second candidate snapshot when the controlled store determined that none exists.
 
 ### `intake-refused`
 
-The stored pair was valid, but the update intake failed a normal request or source-control rule, such as missing requester provenance. No packet is created.
+The stored pair or no-change state was valid, but the command request or update intake failed a normal control such as missing requester provenance or invalid timestamp order. No packet is created.
 
 Failures that prevent stored-pair verification—such as missing approved history, rejected candidates, rollback attempts, malformed manifests, or corrupted snapshot files—throw before intake and cannot create a packet.
 
@@ -79,15 +82,24 @@ data/regulatory-snapshots
 data/regulatory-update-reviews
 ```
 
-The CLI prints a compact JSON result. An `intake-refused` result uses exit code 2; storage, verification, or runtime errors use exit code 1.
+CLI parsing is strict:
+
+- every option requires its own following value;
+- another `--option` cannot be consumed as that value;
+- unknown options are refused;
+- positional arguments are refused;
+- duplicate options are refused; and
+- blank required values or blank configured roots are refused.
+
+The CLI prints a compact JSON result. An `intake-refused` result uses exit code 2; storage, verification, parsing, or runtime errors use exit code 1.
 
 ## Data minimization
 
 The command result contains:
 
 - source ID;
-- baseline and candidate snapshot IDs;
-- opaque-pair verification checksum;
+- baseline and candidate snapshot IDs, or the approved snapshot identity when no distinct candidate exists;
+- opaque-pair or controlled-observation verification checksum;
 - intake and difference classifications;
 - proposal readiness;
 - packet path and checksum when stored;
@@ -105,8 +117,9 @@ The benchmark proves that:
 - packet output excludes full source text;
 - an identical rerun cannot overwrite the packet;
 - candidate approval creates a distinct change-set-draft-ready pending packet;
-- intake refusal creates no packet; and
-- an unchanged later retrieval creates no packet.
+- intake refusal creates no packet;
+- an exact duplicate retrieval state creates no packet without inventing an observation; and
+- missing, unknown, duplicate, positional, and flag-as-value CLI inputs are refused.
 
 ## Workflow boundary
 
