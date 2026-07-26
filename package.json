@@ -11,10 +11,11 @@
     "test:accuracy:core": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/analyzer/__tests__/qa-core-accuracy-benchmark.test.mjs",
     "test:accuracy": "npm run test:accuracy:core && npm run test:accuracy:qa-c",
     "test:regulatory:catalog": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/source-catalog.test.mjs && npm run test:regulatory:registry",
-    "test:regulatory:registry": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/registry-integrity.test.mjs && node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/registry-change-control.test.mjs && npm run test:regulatory:update-intake && npm run test:regulatory:update-packets",
+    "test:regulatory:registry": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/registry-integrity.test.mjs && node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/registry-change-control.test.mjs && npm run test:regulatory:update-intake && npm run test:regulatory:update-packets && npm run test:regulatory:update-command",
     "test:regulatory:update-intake": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/update-intake.test.mjs && npm run test:regulatory:stored-intake",
     "test:regulatory:stored-intake": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/stored-update-intake.test.mjs",
     "test:regulatory:update-packets": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/update-review-packet.test.mjs",
+    "test:regulatory:update-command": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/update-review-command.test.mjs && node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/update-review-cli-arguments.test.mjs",
     "test:regulatory:ingestion": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/ingestion.test.mjs && npm run test:regulatory:stored-pairs",
     "test:regulatory:stored-pairs": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/verified-stored-update-pair.test.mjs",
     "test:regulatory:applicability": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/applicability-mapping.test.mjs",
@@ -25,7 +26,8 @@
     "test:regulatory:orchestration": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/historical-grounding-orchestration.test.mjs",
     "test:regulatory:regeneration": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/historical-citation-regeneration.test.mjs",
     "test:regulatory": "npm run test:regulatory:catalog && npm run test:regulatory:ingestion && npm run test:regulatory:applicability && npm run test:regulatory:citations && npm run test:regulatory:coverage && npm run test:regulatory:history && npm run test:regulatory:dates && npm run test:regulatory:orchestration && npm run test:regulatory:regeneration",
-    "regulatory:ingest": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/cli/ingest-source.ts"
+    "regulatory:ingest": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/cli/ingest-source.ts",
+    "regulatory:prepare-update-review": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/cli/prepare-update-review.ts"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.80",
