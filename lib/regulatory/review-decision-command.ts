@@ -24,6 +24,7 @@ export interface RecordRegulatorySnapshotReviewResult {
   reviewedAt: string;
   reviewNoteCount: number;
   verifiedAnchorCount: number;
+  verifiedAnchorFingerprints: string[];
   versionIdentifier?: string;
   effectiveDate?: string;
   snapshotFingerprint: string;
@@ -105,12 +106,16 @@ export async function recordRegulatorySnapshotReviewDecision(
     }
   }
 
+  const verifiedAnchors = request.requiredTextAnchors.map((anchor) => anchor.trim());
+  const anchorProvenanceNotes = verifiedAnchors.map(
+    (anchor, index) => `Verified source anchor ${index + 1}: ${anchor}`
+  );
   const reviewed = reviewRegulatorySnapshot(snapshot, {
     decision: request.decision,
     reviewedBy: request.reviewedBy,
     reviewedAt: request.reviewedAt,
-    reviewNotes: [...request.reviewNotes],
-    requiredTextAnchors: [...request.requiredTextAnchors],
+    reviewNotes: [...request.reviewNotes, ...anchorProvenanceNotes],
+    requiredTextAnchors: verifiedAnchors,
     verifiedVersionIdentifier: request.verifiedVersionIdentifier,
     verifiedEffectiveDate: request.verifiedEffectiveDate,
   });
@@ -122,8 +127,15 @@ export async function recordRegulatorySnapshotReviewDecision(
     decision: persisted.status,
     reviewedBy: persisted.snapshot.reviewedBy as string,
     reviewedAt: persisted.snapshot.reviewedAt as string,
-    reviewNoteCount: persisted.snapshot.reviewNotes?.length ?? 0,
-    verifiedAnchorCount: request.requiredTextAnchors.length,
+    reviewNoteCount: request.reviewNotes.length,
+    verifiedAnchorCount: verifiedAnchors.length,
+    verifiedAnchorFingerprints: verifiedAnchors.map((anchor) =>
+      fingerprintRegulatoryRegistryValue({
+        sourceId: persisted.snapshot.sourceId,
+        snapshotId: persisted.snapshot.snapshotId,
+        anchor,
+      })
+    ),
     versionIdentifier: persisted.snapshot.versionIdentifier,
     effectiveDate: persisted.snapshot.effectiveDate,
     snapshotFingerprint: fingerprintRegulatoryRegistryValue(persisted.snapshot),
