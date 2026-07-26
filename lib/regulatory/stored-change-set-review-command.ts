@@ -22,6 +22,7 @@ export interface RecordStoredRegulatoryChangeSetReviewRequest {
   draftRelativePath: string;
   decision: StoredRegulatoryChangeSetReviewDecision;
   reviewedBy: string;
+  reviewerPrincipal: string;
   reviewedAt: string;
   reviewNotes: string[];
   reviewedKinds: StoredRegulatoryChangeSetReviewKind[];
@@ -36,6 +37,7 @@ export interface RecordStoredRegulatoryChangeSetReviewResult {
   candidateSnapshotId: string;
   decision: StoredRegulatoryChangeSetReviewDecision;
   reviewedBy: string;
+  reviewerPrincipal: string;
   reviewedAt: string;
   reviewedKinds: StoredRegulatoryChangeSetReviewKind[];
   reviewRecordRelativePath: string;
@@ -88,6 +90,7 @@ export async function recordStoredRegulatoryChangeSetReviewDecision(
     {
       decision: request.decision,
       reviewedBy: request.reviewedBy,
+      reviewerPrincipal: request.reviewerPrincipal,
       reviewedAt: request.reviewedAt,
       reviewNotes: [...request.reviewNotes],
       reviewedKinds: [...request.reviewedKinds],
@@ -103,6 +106,7 @@ export async function recordStoredRegulatoryChangeSetReviewDecision(
     candidateSnapshotId: record.candidateSnapshotId,
     decision: record.decision,
     reviewedBy: record.reviewedBy,
+    reviewerPrincipal: record.reviewerPrincipal,
     reviewedAt: record.reviewedAt,
     reviewedKinds: [...record.reviewedKinds],
     reviewRecordRelativePath: stored.relativePath,
