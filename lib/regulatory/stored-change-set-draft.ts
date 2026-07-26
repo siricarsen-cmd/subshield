@@ -101,10 +101,16 @@ function nonblankList(values: unknown): values is string[] {
   );
 }
 
+function nonCitationPackageFingerprint(value: RegulatoryCitationPackage): string {
+  const { citations: _ignored, ...rest } = value;
+  return fingerprintJson(rest);
+}
+
 function sourceSet(value: RegulatoryCitationPackage): string {
-  return [...new Set(value.citations.map((citation) => citation.sourceId))]
+  const sourceIds = [...new Set(value.citations.map((citation) => citation.sourceId))]
     .sort((left, right) => left.localeCompare(right))
     .join("|");
+  return `${sourceIds}::${nonCitationPackageFingerprint(value)}`;
 }
 
 function draftPayload(
@@ -178,7 +184,7 @@ function verifyCitationTransition(
   errors.push(...validateRegulatoryCitationPackage(afterValue));
   if (sourceSet(afterValue) !== sourceSet(currentValue)) {
     errors.push(
-      `${afterValue.mappingId}: source-list changes require coordinated mapping and historical-policy review`
+      `${afterValue.mappingId}: source-list or non-citation package changes require coordinated mapping and historical-policy review`
     );
   }
 
@@ -427,7 +433,9 @@ export function validateVerifiedStoredRegulatoryChangeSetDraft(
       errors.push(`${label}: after-value identity mismatch`);
     }
     if (sourceSet(current.value as RegulatoryCitationPackage) !== sourceSet(afterValue)) {
-      errors.push(`${label}: source-list changes require coordinated registry review`);
+      errors.push(
+        `${label}: source-list or non-citation package changes require coordinated registry review`
+      );
     }
     errors.push(...validateRegulatoryCitationPackage(afterValue).map((error) => `${label}: ${error}`));
     if (!change.reason?.trim()) errors.push(`${label}: reason must not be blank`);
