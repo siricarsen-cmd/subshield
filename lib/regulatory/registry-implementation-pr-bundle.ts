@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 
 import {
@@ -49,7 +50,6 @@ const ALLOWED_TARGETS = new Set([
 const ID_FIELD_BY_KIND = {
   mapping: "mappingId",
   "historical-policy": "mappingId",
-  "citation-template": "mappingId",
 } as const;
 
 const IMPLEMENTATION_BUNDLES = new WeakSet<object>();
@@ -193,17 +193,96 @@ function renderValue(value: unknown, indentation: string): string {
     .join("\n");
 }
 
+function packageIdAt(source: string, marker: number, mappingId: string): string {
+  const prefix = source.slice(Math.max(0, marker - 500), marker);
+  const matches = [...prefix.matchAll(/\bpackageId\s*:\s*["']([^"']+)["']/g)];
+  const packageId = matches.at(-1)?.[1];
+  if (!packageId || !packageId.startsWith(`${mappingId}-`)) {
+    throw new Error(`Implementation citation request packageId was not found for ${mappingId}`);
+  }
+  return packageId;
+}
+
+function findCitationRequestRange(source: string, mappingId: string): [number, number] {
+  const escaped = mappingId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const association = new RegExp(
+    `\\bmapping\\s*:\\s*mappingById\\s*\\([^)]*?,\\s*["']${escaped}["']\\s*\\)`,
+    "g"
+  );
+  const matches = [...source.matchAll(association)];
+  if (matches.length !== 1 || matches[0].index === undefined) {
+    throw new Error(
+      `Implementation citation request must contain exactly one mappingById association for ${mappingId}; observed ${matches.length}`
+    );
+  }
+  return findObjectRange(source, "packageId", packageIdAt(source, matches[0].index, mappingId));
+}
+
+function renderCitationRequest(value: unknown, sourceObject: string, indentation: string): string {
+  const citationPackage = jsonClone(value) as {
+    packageId?: unknown;
+    mappingId?: unknown;
+    citations?: Array<Record<string, unknown>>;
+  };
+  if (
+    typeof citationPackage.packageId !== "string" ||
+    typeof citationPackage.mappingId !== "string" ||
+    !Array.isArray(citationPackage.citations)
+  ) {
+    throw new Error("Implementation citation-template proposed value is malformed");
+  }
+  const mappingCall = sourceObject.match(/\bmapping\s*:\s*(mappingById\s*\([\s\S]*?\))/)?.[1];
+  if (!mappingCall) {
+    throw new Error(`Implementation citation request mapping is malformed: ${citationPackage.mappingId}`);
+  }
+  const request = {
+    packageId: citationPackage.packageId,
+    mapping: "__MAPPING_CALL__",
+    excerpts: citationPackage.citations.map((citation) => ({
+      sourceId: citation.sourceId,
+      locator: citation.locator,
+      startAnchor: citation.extractionStartAnchor,
+      endAnchor: citation.extractionEndAnchor,
+      requiredAnchors: citation.extractionRequiredAnchors,
+      ...(citation.extractionMaxCharacters === 3500
+        ? {}
+        : { maxCharacters: citation.extractionMaxCharacters }),
+    })),
+  };
+  return renderValue(request, indentation).replace('"__MAPPING_CALL__"', mappingCall);
+}
+
+function readReviewedBaseFile(baseCommitSha: string, targetFile: string): string {
+  if (!/^[a-f0-9]{40}$/i.test(baseCommitSha)) {
+    throw new Error("Implementation plan base commit is invalid");
+  }
+  try {
+    return execFileSync("git", ["show", `${baseCommitSha}:${targetFile}`], {
+      encoding: "utf8",
+      maxBuffer: 10 * 1024 * 1024,
+    });
+  } catch {
+    throw new Error(`Reviewed base file is unavailable from Git: ${baseCommitSha}:${targetFile}`);
+  }
+}
+
 function applyStepsToFile(
   source: string,
   steps: RegulatoryRegistryImplementationPlan["steps"]
 ): string {
   const replacements = steps.map((step) => {
-    const field = ID_FIELD_BY_KIND[step.kind];
-    const [start, end] = findObjectRange(source, field, step.id);
+    const [start, end] =
+      step.kind === "citation-template"
+        ? findCitationRequestRange(source, step.id)
+        : findObjectRange(source, ID_FIELD_BY_KIND[step.kind], step.id);
+    const sourceObject = source.slice(start, end);
     return {
       start,
       end,
-      content: renderValue(step.proposedValue, indentationAt(source, start)),
+      content:
+        step.kind === "citation-template"
+          ? renderCitationRequest(step.proposedValue, sourceObject, indentationAt(source, start))
+          : renderValue(step.proposedValue, indentationAt(source, start)),
       id: step.id,
     };
   });
@@ -265,6 +344,10 @@ export function buildRegulatoryImplementationPullRequestBundle(
   for (const [targetFile, steps] of [...stepsByPath.entries()].sort(([a], [b]) => a.localeCompare(b))) {
     const source = filesByPath.get(targetFile);
     if (source === undefined) throw new Error(`Missing authorized implementation file: ${targetFile}`);
+    const reviewedBase = readReviewedBaseFile(plan.baseCommitSha, targetFile);
+    if (source !== reviewedBase) {
+      throw new Error(`Implementation file does not match reviewed Git base: ${targetFile}`);
+    }
     const content = applyStepsToFile(source, steps);
     if (content === source) throw new Error(`Implementation produced no file change: ${targetFile}`);
     changes.push({
