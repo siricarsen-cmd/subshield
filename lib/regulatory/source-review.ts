@@ -71,8 +71,9 @@ export function reviewRegulatorySnapshot(
   }
 
   const normalizedText = normalized(snapshot.text);
-  for (const anchor of review.requiredTextAnchors) {
-    if (!anchor.trim() || !normalizedText.includes(normalized(anchor))) {
+  const reviewAnchors = review.requiredTextAnchors.map((anchor) => anchor.trim());
+  for (const anchor of reviewAnchors) {
+    if (!anchor || !normalizedText.includes(normalized(anchor))) {
       throw new Error(`Required regulatory source anchor is missing: ${anchor}`);
     }
   }
@@ -110,6 +111,7 @@ export function reviewRegulatorySnapshot(
     reviewedBy: review.reviewedBy.trim(),
     reviewedAt: review.reviewedAt,
     reviewNotes,
+    reviewAnchors,
     provenanceNotes: [
       ...snapshot.provenanceNotes,
       ...reviewNotes.map((note) => `Review: ${note}`),
