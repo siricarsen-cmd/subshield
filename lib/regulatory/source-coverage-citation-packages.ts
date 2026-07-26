@@ -6,6 +6,7 @@ import {
 import { REGULATORY_BENCHMARK_CITATION_PACKAGES } from "./benchmark-citation-packages";
 import {
   buildRegulatoryCitationPackage,
+  validateRegulatoryCitationPackage,
   type RegulatoryCitationPackage,
   type RegulatoryCitationPackageRequest,
 } from "./citation-package";
@@ -16,6 +17,41 @@ const ALL_APPROVED_SOURCE_EXCERPT_FIXTURES = {
   ...APPROVED_SOURCE_EXCERPT_FIXTURES,
   ...APPROVED_SUPPLEMENTAL_SOURCE_EXCERPT_FIXTURES,
 };
+
+/**
+ * Complete citation packages approved for direct use by mapping ID. Implementation
+ * bundles edit only this bounded surface; requests and approved fixtures remain the
+ * deterministic fallback for every mapping without an override.
+ */
+export const APPROVED_COVERAGE_PACKAGE_OVERRIDES: Readonly<
+  Record<string, RegulatoryCitationPackage>
+> = {};
+
+function validatedCoverageOverrides(): ReadonlyMap<string, RegulatoryCitationPackage> {
+  const packages = new Map<string, RegulatoryCitationPackage>();
+  const packageIds = new Set<string>();
+  for (const [mappingId, citationPackage] of Object.entries(
+    APPROVED_COVERAGE_PACKAGE_OVERRIDES
+  )) {
+    const errors = validateRegulatoryCitationPackage(citationPackage);
+    if (
+      citationPackage.mappingId !== mappingId ||
+      citationPackage.packageId !== `${mappingId}-complete-source-coverage` ||
+      citationPackage.customerFacingStatus !== "benchmark-only" ||
+      errors.length > 0
+    ) {
+      throw new Error(
+        `Invalid approved coverage-package override for ${mappingId}: ${errors.join("; ")}`
+      );
+    }
+    if (packages.has(mappingId) || packageIds.has(citationPackage.packageId)) {
+      throw new Error(`Duplicate approved coverage-package override identity: ${mappingId}`);
+    }
+    packages.set(mappingId, citationPackage);
+    packageIds.add(citationPackage.packageId);
+  }
+  return packages;
+}
 
 function mappingById(
   mappings: readonly RegulatoryApplicabilityMapping[],
@@ -291,8 +327,12 @@ const COVERAGE_REQUESTS: RegulatoryCitationPackageRequest[] = [
   },
 ];
 
+const coverageOverrides = validatedCoverageOverrides();
+
 export const REGULATORY_SOURCE_COVERAGE_COMPLETION_PACKAGES = COVERAGE_REQUESTS.map(
-  (request) => buildRegulatoryCitationPackage(request, ALL_APPROVED_SOURCE_EXCERPT_FIXTURES)
+  (request) =>
+    coverageOverrides.get(request.mapping.mappingId) ??
+    buildRegulatoryCitationPackage(request, ALL_APPROVED_SOURCE_EXCERPT_FIXTURES)
 );
 
 const completionByMappingId = new Map(
