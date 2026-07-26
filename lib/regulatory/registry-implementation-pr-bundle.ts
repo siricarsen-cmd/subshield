@@ -652,6 +652,10 @@ function buildPullRequestBody(plan: RegulatoryRegistryImplementationPlan): strin
 export function buildRegulatoryImplementationPullRequestMetadata(
   plan: RegulatoryRegistryImplementationPlan
 ): RegulatoryImplementationPullRequestMetadata {
+  const planErrors = validateRegulatoryRegistryImplementationPlan(plan);
+  if (planErrors.length > 0) {
+    throw new Error(`Implementation PR bundle plan is invalid: ${planErrors.join("; ")}`);
+  }
   return {
     bundleId: `regulatory-implementation-pr:${plan.sourceId}:${plan.planChecksum}`,
     commitMessage: `feat(regulatory): implement approved ${plan.sourceId} registry update`,
