@@ -1,3 +1,4 @@
+import { loadRegulatorySnapshotManifest } from "./snapshot-store";
 import { prepareStoredRegulatoryUpdateReview } from "./update-review-command";
 
 export type RegulatoryIngestionRecordStatus =
@@ -142,11 +143,35 @@ function validateIngestionDocument(document: RegulatoryIngestionResultDocument):
     if (!record.changeStatus) {
       throw new Error(`Successful regulatory ingestion record lacks changeStatus: ${record.sourceId}`);
     }
-    if (!record.snapshotId?.trim() || !record.normalizedSnapshotId?.trim()) {
-      throw new Error(`Successful regulatory ingestion record lacks snapshot identity: ${record.sourceId}`);
+    if (
+      !record.snapshotId?.trim() ||
+      !record.normalizedSnapshotId?.trim() ||
+      !record.checksum?.trim() ||
+      !record.rawChecksum?.trim()
+    ) {
+      throw new Error(`Successful regulatory ingestion record lacks evidence identity: ${record.sourceId}`);
+    }
+    if (
+      !record.snapshotId.startsWith(`${record.sourceId}:`) ||
+      !record.normalizedSnapshotId.startsWith(`${record.sourceId}:`)
+    ) {
+      throw new Error(`Regulatory ingestion snapshot identity does not match source: ${record.sourceId}`);
     }
     if (record.reviewStatus !== "pending") {
       throw new Error(`New regulatory ingestion evidence must remain pending: ${record.sourceId}`);
+    }
+    if (
+      record.status === "stored" &&
+      record.changeStatus !== "first-snapshot" &&
+      record.changeStatus !== "content-changed"
+    ) {
+      throw new Error(`Stored regulatory evidence has an invalid change status: ${record.sourceId}`);
+    }
+    if (
+      (record.status === "observed" || record.status === "unchanged") &&
+      record.changeStatus !== "unchanged"
+    ) {
+      throw new Error(`Deduplicated regulatory evidence must be unchanged: ${record.sourceId}`);
     }
   }
   if (observedFailures !== document.failures) {
@@ -174,6 +199,74 @@ function isMissingApprovedBaseline(error: unknown): boolean {
   return /No earlier approved stored regulatory baseline exists|No observed stored regulatory candidate exists/i.test(
     message
   );
+}
+
+async function verifiedNoChangeItem(
+  snapshotRoot: string,
+  record: RegulatoryIngestionResultRecord
+): Promise<RegulatoryIngestionReviewItem> {
+  const common = baseItem(record);
+  const normalizedSnapshotId = record.normalizedSnapshotId as string;
+  const manifest = await loadRegulatorySnapshotManifest(snapshotRoot, record.sourceId);
+  if (manifest.latestObservedSnapshotId !== normalizedSnapshotId) {
+    throw new Error(
+      `Deduplicated regulatory ingestion does not target the latest observed snapshot: ${record.sourceId}`
+    );
+  }
+  const entry = manifest.snapshots.find(
+    (candidate) => candidate.snapshotId === normalizedSnapshotId
+  );
+  if (!entry || entry.checksum !== record.checksum) {
+    throw new Error(
+      `Deduplicated regulatory ingestion does not match retained normalized evidence: ${record.sourceId}`
+    );
+  }
+
+  if (record.status === "observed") {
+    const observation = manifest.observations[manifest.observations.length - 1];
+    if (
+      !observation ||
+      observation.normalizedSnapshotId !== normalizedSnapshotId ||
+      observation.checksum !== record.checksum ||
+      observation.rawChecksum !== record.rawChecksum
+    ) {
+      throw new Error(
+        `Observed regulatory retrieval does not match the latest controlled observation: ${record.sourceId}`
+      );
+    }
+    return {
+      ...common,
+      status: "no-review-packet",
+      intakeStatus: "observation-only",
+      differenceClassification: "transport-only",
+      refusalReasons: [],
+      reviewNotes: [
+        "The current retrieval changes only raw or transport provenance for the retained normalized snapshot.",
+        "No new regulatory review packet was created and any earlier pending packet remains unchanged.",
+      ],
+    };
+  }
+
+  const latestObservation = [...manifest.observations]
+    .reverse()
+    .find((candidate) => candidate.normalizedSnapshotId === normalizedSnapshotId);
+  const latestRawChecksum = latestObservation?.rawChecksum ?? entry.rawChecksum;
+  if (latestRawChecksum !== record.rawChecksum) {
+    throw new Error(
+      `Unchanged regulatory retrieval does not match the latest controlled retrieval evidence: ${record.sourceId}`
+    );
+  }
+  return {
+    ...common,
+    status: "no-review-packet",
+    intakeStatus: "no-change",
+    differenceClassification: "unchanged",
+    refusalReasons: [],
+    reviewNotes: [
+      "The current retrieval matches the latest controlled normalized and transport evidence.",
+      "No new regulatory review packet was created and any earlier pending packet remains unchanged.",
+    ],
+  };
 }
 
 export async function prepareRegulatoryIngestionReviewBatch(
@@ -213,6 +306,11 @@ export async function prepareRegulatoryIngestionReviewBatch(
       continue;
     }
 
+    if (record.changeStatus === "unchanged") {
+      items.push(await verifiedNoChangeItem(request.snapshotRoot, record));
+      continue;
+    }
+
     try {
       const review = await prepareStoredRegulatoryUpdateReview({
         snapshotRoot: request.snapshotRoot,
@@ -220,10 +318,7 @@ export async function prepareRegulatoryIngestionReviewBatch(
         sourceId: record.sourceId,
         requestedBy: request.requestedBy,
         createdAt: request.createdAt,
-        candidateSnapshotId:
-          record.status === "stored" && record.changeStatus === "content-changed"
-            ? record.snapshotId
-            : undefined,
+        candidateSnapshotId: record.snapshotId,
       });
       items.push({
         ...common,
