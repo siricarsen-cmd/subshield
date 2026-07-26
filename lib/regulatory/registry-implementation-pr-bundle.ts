@@ -224,19 +224,60 @@ function packageIdAt(source: string, marker: number, mappingId: string): string 
   return packageId;
 }
 
-function findCitationRequestRange(source: string, mappingId: string): [number, number] {
+function validateCitationTargetSource(source: string, mappingId: string): void {
+  const registered = getRegisteredCitationTemplate(mappingId);
+  if (!registered) {
+    throw new Error(`Implementation citation target is not registered: ${mappingId}`);
+  }
   const escaped = mappingId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const association = new RegExp(
     `\\bmapping\\s*:\\s*mappingById\\s*\\([^)]*?,\\s*["']${escaped}["']\\s*\\)`,
     "g"
   );
-  const matches = [...source.matchAll(association)];
-  if (matches.length !== 1 || matches[0].index === undefined) {
+  const associationMatches = [...source.matchAll(association)];
+  const escapedPackageId = registered.value.packageId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const packagePattern = new RegExp(
+    `\\bpackageId\\s*:\\s*["']${escapedPackageId}["']`,
+    "g"
+  );
+  const packageMatches = [...source.matchAll(packagePattern)];
+  const requiresCoverageRequest =
+    registered.value.packageId === `${mappingId}-complete-source-coverage`;
+
+  if (associationMatches.length > 1 || packageMatches.length > 1) {
     throw new Error(
-      `Implementation citation request must contain exactly one mappingById association for ${mappingId}; observed ${matches.length}`
+      `Implementation citation target must be unique for ${mappingId}; observed ${associationMatches.length} mapping associations and ${packageMatches.length} package identities`
     );
   }
-  return findObjectRange(source, "packageId", packageIdAt(source, matches[0].index, mappingId));
+  if (requiresCoverageRequest) {
+    if (
+      associationMatches.length !== 1 ||
+      packageMatches.length !== 1 ||
+      associationMatches[0].index === undefined ||
+      packageMatches[0].index === undefined
+    ) {
+      throw new Error(
+        `Implementation citation request must contain exactly one canonical association and package for ${mappingId}`
+      );
+    }
+    const packageId = packageIdAt(source, associationMatches[0].index, mappingId);
+    if (packageId !== registered.value.packageId) {
+      throw new Error(`Implementation citation request package identity is invalid for ${mappingId}`);
+    }
+    const [start, end] = findObjectRange(source, "packageId", packageId);
+    if (
+      associationMatches[0].index < start ||
+      associationMatches[0].index >= end ||
+      packageMatches[0].index < start ||
+      packageMatches[0].index >= end
+    ) {
+      throw new Error(`Implementation citation request association is outside its package for ${mappingId}`);
+    }
+  } else if (associationMatches.length !== 0 || packageMatches.length !== 0) {
+    throw new Error(
+      `Implementation baseline citation target has an unexpected coverage-request identity: ${mappingId}`
+    );
+  }
 }
 
 function findBalancedRange(
@@ -318,6 +359,7 @@ function assertCitationOverride(
   mappingId: string,
   proposedFingerprint?: string
 ): RegulatoryCitationPackage {
+  const registered = getRegisteredCitationTemplate(mappingId);
   const citationPackage = jsonClone(value) as RegulatoryCitationPackage;
   let errors: string[];
   try {
@@ -326,8 +368,9 @@ function assertCitationOverride(
     errors = ["citation package schema is malformed"];
   }
   if (
+    !registered ||
     citationPackage.mappingId !== mappingId ||
-    citationPackage.packageId !== `${mappingId}-complete-source-coverage` ||
+    citationPackage.packageId !== registered.value.packageId ||
     citationPackage.customerFacingStatus !== "benchmark-only" ||
     errors.length > 0 ||
     (proposedFingerprint && canonicalFingerprint(citationPackage) !== proposedFingerprint)
@@ -343,7 +386,7 @@ function renderCitationOverrides(
   source: string,
   steps: RegulatoryRegistryImplementationPlan["steps"]
 ): { start: number; end: number; content: string; id: string } {
-  for (const step of steps) findCitationRequestRange(source, step.id);
+  for (const step of steps) validateCitationTargetSource(source, step.id);
   const range = findAssignedObjectRange(source, COVERAGE_OVERRIDE_REGISTRY);
   const overrides = parseJsonObject<Record<string, RegulatoryCitationPackage>>(
     source,
