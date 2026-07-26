@@ -26,11 +26,13 @@ Only these canonical registry files are allowed:
 
 The input file set must exactly equal the authorized target-file set. Extra files, missing files, duplicate paths, analyzer files, payment code, authentication code, database code, and deployment files are refused.
 
+Each input is also byte-compared with the file blob read independently from the local Git object database at `plan.baseCommitSha:path`. A caller-provided checksum is not trusted. Pre-edited content, including unrelated comments or whitespace, and unavailable or mismatched base commits are refused before any replacement is applied.
+
 ## Deterministic replacement
 
 For each approved registry step, the generator:
 
-1. identifies the exact registry object by its registered ID;
+1. identifies the exact registry object by its registered ID; citation-template steps locate the canonical `COVERAGE_REQUESTS` object by its unique `packageId` and `mappingById(..., mappingId)` association rather than a derived runtime `mappingId` field;
 2. requires exactly one matching object;
 3. finds the complete object boundary using a string/comment-aware brace scanner;
 4. renders only the approved JSON-serializable proposed value;
@@ -71,6 +73,7 @@ The focused benchmark proves that:
 - only the exact authorized file set is accepted;
 - each changed file has reproducible before/after checksums;
 - missing or renamed registry objects block replacement;
+- unrelated edits and mismatched reviewed-base contents block construction;
 - caller-added files are refused; and
 - serialized content mutation invalidates bundle provenance.
 
