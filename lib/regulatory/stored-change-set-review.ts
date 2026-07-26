@@ -101,16 +101,19 @@ const REVIEW_KINDS: readonly StoredRegulatoryChangeSetReviewKind[] = [
 ];
 const REVIEW_KIND_SET = new Set<string>(REVIEW_KINDS);
 const SOURCE_ID_RE = /^[a-z0-9][a-z0-9-]*$/;
-const REVIEW_FILENAME_RE = /^\d{4}-\d{2}-\d{2}-[a-f0-9]{16}-review\.json$/;
+const REVIEW_FILENAME_RE = /^[a-f0-9]{16}-review\.json$/;
 const SHA256_RE = /^sha256:[a-f0-9]{64}$/;
 const COMMIT_SHA_RE = /^[a-f0-9]{40}$/;
 const AUTOMATION_REVIEWER_RE = /(?:bot|automation|github[ -]?actions|workflow|monitor|preparer)/i;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
+const HUMAN_REVIEWED_RECORDS = new WeakSet<object>();
 const REVERIFIED_REVIEWS = new WeakSet<object>();
 
 function jsonClone<T>(value: T): T {
   const serialized = JSON.stringify(value);
-  if (serialized === undefined) throw new Error("Stored change-set review value is not JSON serializable");
+  if (serialized === undefined) {
+    throw new Error("Stored change-set review value is not JSON serializable");
+  }
   return JSON.parse(serialized) as T;
 }
 
@@ -244,8 +247,8 @@ function buildReleaseRecord(
 
 function validateReleaseRecordAgainstDraft(
   record: StoredRegulatoryChangeSetReviewRecord,
-  draft?: VerifiedStoredRegulatoryChangeSetDraft,
-  errors: string[] = []
+  draft: VerifiedStoredRegulatoryChangeSetDraft | undefined,
+  errors: string[]
 ): void {
   if (record.decision === "rejected") {
     if (record.releaseRecord !== undefined || record.releaseRecordFingerprint !== undefined) {
@@ -289,17 +292,15 @@ function validateReleaseRecordAgainstDraft(
   for (let index = 0; index < draft.changes.length; index++) {
     const change = draft.changes[index];
     const transition = release.transitions[index];
+    const expectedSourceIds = uniqueNonblank(
+      change.officialEvidence.map((evidence) => evidence.sourceId)
+    ).sort((left, right) => left.localeCompare(right));
     if (
       transition.kind !== change.kind ||
       transition.id !== change.id ||
       transition.beforeFingerprint !== change.beforeFingerprint ||
       transition.afterFingerprint !== change.afterFingerprint ||
-      fingerprintJson(transition.officialSourceIds) !==
-        fingerprintJson(
-          uniqueNonblank(change.officialEvidence.map((evidence) => evidence.sourceId)).sort(
-            (left, right) => left.localeCompare(right)
-          )
-        ) ||
+      fingerprintJson(transition.officialSourceIds) !== fingerprintJson(expectedSourceIds) ||
       transition.reason !== change.reason ||
       fingerprintJson(transition.benchmarkImpact) !== fingerprintJson(change.benchmarkImpact) ||
       fingerprintJson(transition.regressionPlan) !== fingerprintJson(change.regressionPlan)
@@ -423,6 +424,9 @@ export function buildStoredRegulatoryChangeSetReviewRecord(
     if (releaseCreatedAt < reviewedAt) {
       throw new Error("Stored change-set release record cannot predate approval");
     }
+    if (releaseCreatedAt > Date.now() + MAX_CLOCK_SKEW_MS) {
+      throw new Error("Stored change-set release timestamp cannot be in the future");
+    }
     releaseRecord = buildReleaseRecord(draft, request);
     releaseRecordFingerprint = fingerprintJson(releaseRecord);
   } else if (request.benchmarkValidation || request.releaseCreatedAt) {
@@ -469,7 +473,9 @@ export function buildStoredRegulatoryChangeSetReviewRecord(
   if (errors.length > 0) {
     throw new Error(`Built stored change-set review record failed validation: ${errors.join("; ")}`);
   }
-  return deepFreeze(record);
+  const frozen = deepFreeze(record);
+  HUMAN_REVIEWED_RECORDS.add(frozen as object);
+  return frozen;
 }
 
 export function validateStoredRegulatoryChangeSetReviewRecord(
@@ -638,6 +644,11 @@ export function reverifyStoredRegulatoryChangeSetReviewRecord(
   packet: RegulatoryUpdateReviewPacket,
   pair: VerifiedStoredRegulatoryUpdatePair
 ): Readonly<ReverifiedStoredRegulatoryChangeSetReviewReceipt> {
+  if (!HUMAN_REVIEWED_RECORDS.has(record as object)) {
+    throw new Error(
+      "Stored change-set review authorization requires the original in-process human decision record; serialized or loaded records cannot recreate trust"
+    );
+  }
   const draftReceipt = reverifyStoredRegulatoryChangeSetDraft(draft, packet, pair);
   const errors = validateStoredRegulatoryChangeSetReviewRecord(record, draft);
   if (errors.length > 0) {
@@ -650,26 +661,6 @@ export function reverifyStoredRegulatoryChangeSetReviewRecord(
     record.sourceReviewedBy !== pair.candidate.reviewedBy
   ) {
     throw new Error("Stored change-set review record provenance does not match current evidence");
-  }
-  const rebuilt = buildStoredRegulatoryChangeSetReviewRecord(
-    draft,
-    packet,
-    pair,
-    draftReceipt,
-    {
-      decision: record.decision,
-      reviewedBy: record.reviewedBy,
-      reviewedAt: record.reviewedAt,
-      reviewNotes: [...record.reviewNotes],
-      reviewedKinds: [...record.reviewedKinds],
-      benchmarkValidation: record.benchmarkValidation
-        ? jsonClone(record.benchmarkValidation)
-        : undefined,
-      releaseCreatedAt: record.releaseRecord?.createdAt,
-    }
-  );
-  if (fingerprintJson(rebuilt) !== fingerprintJson(record)) {
-    throw new Error("Stored change-set review record does not reproduce from current verified evidence");
   }
   const withoutChecksum = {
     verificationVersion: 1 as const,
@@ -732,8 +723,7 @@ function resolveContainedReviewPath(
 
 function relativeReviewPath(record: StoredRegulatoryChangeSetReviewRecord): string {
   const suffix = record.draftChecksum.replace(/^sha256:/, "").slice(0, 16);
-  const date = record.reviewedAt.slice(0, 10);
-  return path.posix.join(record.sourceId, `${date}-${suffix}-review.json`);
+  return path.posix.join(record.sourceId, `${suffix}-review.json`);
 }
 
 export async function storeStoredRegulatoryChangeSetReviewRecord(
