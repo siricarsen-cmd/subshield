@@ -33,6 +33,7 @@ export interface RegulatoryIngestionResultDocument {
 export type RegulatoryIngestionReviewItemStatus =
   | "packet-stored"
   | "no-review-packet"
+  | "intake-refused"
   | "initial-snapshot-pending-review"
   | "manual-baseline-review-required"
   | "ingestion-failed";
