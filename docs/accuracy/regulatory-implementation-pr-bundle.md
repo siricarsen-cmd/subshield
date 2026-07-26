@@ -32,7 +32,7 @@ Each input is also byte-compared with the file blob read independently from the 
 
 For each approved registry step, the generator:
 
-1. identifies the exact registry object by its registered ID; citation-template steps require the unique canonical `COVERAGE_REQUESTS` association and insert or replace the mapping-keyed complete package in `APPROVED_COVERAGE_PACKAGE_OVERRIDES`, while historical-policy steps locate exactly one string/comment-aware, balanced `createPolicy(mappingId, ...)` call;
+1. identifies the exact registry object by its registered ID; citation-template steps verify the target against the complete final citation-package registry, preserve the canonical `COVERAGE_REQUESTS` association when the target is a completion package, and insert or replace the mapping-keyed complete package in `APPROVED_COVERAGE_PACKAGE_OVERRIDES`, while historical-policy steps locate exactly one string/comment-aware, balanced `createPolicy(mappingId, ...)` call;
 2. requires exactly one matching object or controlled override registry;
 3. finds the complete object boundary using string/comment-aware balanced scanning;
 4. renders only the approved JSON-serializable proposed value;
@@ -43,7 +43,7 @@ Missing IDs, duplicate IDs, overlapping ranges, malformed objects, no-op files, 
 
 Historical policies are rendered back into the editable `createPolicy(mappingId, sourcePolicies)` representation. Source policies use explicit JSON-compatible objects, preserving the runtime mapping identity, policy identity, benchmark-only status, date bases, and rationales without depending on the optional `executionSource(...)` shorthand.
 
-Citation overrides contain the complete bounded, approved `RegulatoryCitationPackage`, including exact excerpts, source identity, extraction anchors, snapshot identity, checksum provenance, and every package field included in the approved transition. An empty override registry changes no runtime package: each unchanged mapping continues through the canonical `COVERAGE_REQUESTS` plus approved-fixture build path. Override identities, benchmark-only status, package schema, and mapping/package IDs are validated before use.
+Citation overrides contain the complete bounded, approved `RegulatoryCitationPackage`, including exact excerpts, source identity, extraction anchors, snapshot identity, checksum provenance, and every package field included in the approved transition. The override layer is applied after the benchmark-only and source-coverage packages are combined, so it supports both packages built directly from `REGULATORY_BENCHMARK_CITATION_PACKAGES` and packages built from `COVERAGE_REQUESTS`. An empty override registry changes no runtime package. Override identities must match the exact default mapping and package identities in the complete final registry, and benchmark-only status, package schema, duplicate identities, and unknown mappings are validated before use.
 
 After rendering, bundle construction and plan-bound validation independently reconstruct every emitted mapping, historical policy, and citation override and require its canonical fingerprint to reproduce the approved `proposedFingerprint`. Recomputed file and bundle checksums cannot make semantically incorrect generated code trusted.
 
@@ -88,6 +88,8 @@ The focused benchmark proves that:
 - unrelated edits and mismatched reviewed-base contents block construction;
 - an exact older Git blob with stale canonical targets blocks construction;
 - emitted citation overrides preserve the approved snapshot ID, checksum, excerpt, and proposed fingerprint;
+- both source-coverage packages and baseline-only benchmark citation packages can produce exact full-registry overrides;
+- unknown citation mappings and mismatched default package identities are refused;
 - request-only edits, stale or missing direct overrides, and checksum-recomputed override tampering are refused;
 - allowed-but-unplanned files and registry IDs are refused;
 - unrelated content plus caller-selected before checksums cannot survive exact regeneration;
