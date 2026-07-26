@@ -47,6 +47,12 @@ Citation overrides contain the complete bounded, approved `RegulatoryCitationPac
 
 After rendering, bundle construction and plan-bound validation independently reconstruct every emitted mapping, historical policy, and citation override and require its canonical fingerprint to reproduce the approved `proposedFingerprint`. Recomputed file and bundle checksums cannot make semantically incorrect generated code trusted.
 
+## Exact plan-bound audit validation
+
+Plan-bound validation does not trust serialized file bodies, caller-selected before checksums, or a reproducible bundle checksum. It independently reloads every authorized file from `plan.baseCommitSha:path`, groups only the plan's exact transitions for that file, reapplies the production renderer, and regenerates the complete expected file array. The supplied bundle must exactly match the regenerated path order, before and after checksums, changed registry IDs, and full file contents. Extra allowed files, unplanned overrides, unrelated byte changes, missing files, duplicate transitions, or reordered output are refused.
+
+The bundle ID, commit message, pull-request title, and pull-request body are also regenerated from the plan through the same deterministic metadata builder used by construction. A checksum-consistent clone cannot remove the no-merge warning, add deployment instructions, or alter other human-facing review metadata. Audit validation can perform these checks without recreating the original live-plan capability; only initial bundle construction requires that live authorization.
+
 ## Pull-request record
 
 The generated record includes:
@@ -55,7 +61,7 @@ The generated record includes:
 - exact base commit reviewed by the human reviewer;
 - exact plan and review checksums;
 - authorized registry identities and fingerprints;
-- commit title and pull-request title/body;
+- deterministic commit title and pull-request title/body;
 - the full required validation command list; and
 - explicit statements that merge and deployment are not authorized.
 
@@ -83,6 +89,9 @@ The focused benchmark proves that:
 - an exact older Git blob with stale canonical targets blocks construction;
 - emitted citation overrides preserve the approved snapshot ID, checksum, excerpt, and proposed fingerprint;
 - request-only edits, stale or missing direct overrides, and checksum-recomputed override tampering are refused;
+- allowed-but-unplanned files and registry IDs are refused;
+- unrelated content plus caller-selected before checksums cannot survive exact regeneration;
+- checksum-consistent changes to bundle identity, commit message, PR title, or no-merge PR body are refused;
 - caller-added files are refused; and
 - serialized content mutation invalidates bundle provenance.
 
