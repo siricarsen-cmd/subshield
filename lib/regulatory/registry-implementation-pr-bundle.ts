@@ -15,6 +15,10 @@ import {
   type RegulatoryRegistryKind,
 } from "./registry-integrity";
 import type { RegulatoryHistoricalGroundingPolicy } from "./historical-grounding-policy";
+import {
+  validateRegulatoryCitationPackage,
+  type RegulatoryCitationPackage,
+} from "./citation-package";
 
 export interface RegulatoryImplementationFileInput {
   path: string;
@@ -60,6 +64,7 @@ const ID_FIELD_BY_KIND = {
 } as const;
 
 const IMPLEMENTATION_BUNDLES = new WeakSet<object>();
+const COVERAGE_OVERRIDE_REGISTRY = "APPROVED_COVERAGE_PACKAGE_OVERRIDES";
 
 function sha256(value: string): string {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
@@ -259,6 +264,132 @@ function renderCitationRequest(value: unknown, sourceObject: string, indentation
   return renderValue(request, indentation).replace('"__MAPPING_CALL__"', mappingCall);
 }
 
+function findBalancedRange(
+  source: string,
+  start: number,
+  openCharacter: string,
+  closeCharacter: string,
+  label: string
+): [number, number] {
+  let depth = 0;
+  let quote: string | undefined;
+  let escapedCharacter = false;
+  let lineComment = false;
+  let blockComment = false;
+  for (let index = start; index < source.length; index++) {
+    const character = source[index];
+    const next = source[index + 1];
+    if (lineComment) {
+      if (character === "\n") lineComment = false;
+      continue;
+    }
+    if (blockComment) {
+      if (character === "*" && next === "/") {
+        blockComment = false;
+        index++;
+      }
+      continue;
+    }
+    if (quote) {
+      if (escapedCharacter) escapedCharacter = false;
+      else if (character === "\\") escapedCharacter = true;
+      else if (character === quote) quote = undefined;
+      continue;
+    }
+    if (character === "/" && next === "/") {
+      lineComment = true;
+      index++;
+      continue;
+    }
+    if (character === "/" && next === "*") {
+      blockComment = true;
+      index++;
+      continue;
+    }
+    if (character === '"' || character === "'" || character === "`") quote = character;
+    else if (character === openCharacter) depth++;
+    else if (character === closeCharacter && --depth === 0) return [start, index + 1];
+  }
+  throw new Error(`Implementation ${label} range is malformed`);
+}
+
+function findAssignedObjectRange(source: string, identifier: string): [number, number] {
+  const matches = [
+    ...source.matchAll(new RegExp(`\\bexport\\s+const\\s+${identifier}\\b`, "g")),
+  ];
+  if (matches.length !== 1 || matches[0].index === undefined) {
+    throw new Error(`Implementation target must contain exactly one ${identifier} registry`);
+  }
+  const assignment = source.indexOf("=", matches[0].index);
+  const start = source.indexOf("{", assignment);
+  if (assignment < 0 || start < 0) {
+    throw new Error(`Implementation ${identifier} registry is malformed`);
+  }
+  return findBalancedRange(source, start, "{", "}", identifier);
+}
+
+function parseJsonObject<T>(source: string, range: [number, number], label: string): T {
+  try {
+    const value = JSON.parse(source.slice(...range)) as T;
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
+    return value;
+  } catch {
+    throw new Error(`Implementation ${label} must be a JSON-compatible object`);
+  }
+}
+
+function assertCitationOverride(
+  value: unknown,
+  mappingId: string,
+  proposedFingerprint?: string
+): RegulatoryCitationPackage {
+  const citationPackage = jsonClone(value) as RegulatoryCitationPackage;
+  let errors: string[];
+  try {
+    errors = validateRegulatoryCitationPackage(citationPackage);
+  } catch {
+    errors = ["citation package schema is malformed"];
+  }
+  if (
+    citationPackage.mappingId !== mappingId ||
+    citationPackage.packageId !== `${mappingId}-complete-source-coverage` ||
+    citationPackage.customerFacingStatus !== "benchmark-only" ||
+    errors.length > 0 ||
+    (proposedFingerprint && canonicalFingerprint(citationPackage) !== proposedFingerprint)
+  ) {
+    throw new Error(
+      `Implementation citation override is invalid for ${mappingId}: ${errors.join("; ")}`
+    );
+  }
+  return citationPackage;
+}
+
+function renderCitationOverrides(
+  source: string,
+  steps: RegulatoryRegistryImplementationPlan["steps"]
+): { start: number; end: number; content: string; id: string } {
+  for (const step of steps) findCitationRequestRange(source, step.id);
+  const range = findAssignedObjectRange(source, COVERAGE_OVERRIDE_REGISTRY);
+  const overrides = parseJsonObject<Record<string, RegulatoryCitationPackage>>(
+    source,
+    range,
+    COVERAGE_OVERRIDE_REGISTRY
+  );
+  for (const step of steps) {
+    const proposed = assertCitationOverride(step.proposedValue, step.id, step.proposedFingerprint);
+    if (overrides[step.id] && canonicalFingerprint(overrides[step.id]) === step.proposedFingerprint) {
+      throw new Error(`Implementation citation override is a no-op for ${step.id}`);
+    }
+    overrides[step.id] = proposed;
+  }
+  return {
+    start: range[0],
+    end: range[1],
+    content: renderValue(overrides, indentationAt(source, range[0])),
+    id: steps.map((step) => step.id).join(","),
+  };
+}
+
 function findCallRanges(source: string, functionName: string): Array<[number, number]> {
   const ranges: Array<[number, number]> = [];
   let quote: string | undefined;
@@ -407,26 +538,25 @@ export function applyRegulatoryImplementationStepsToFile(
   source: string,
   steps: RegulatoryRegistryImplementationPlan["steps"]
 ): string {
-  const replacements = steps.map((step) => {
-    const [start, end] =
-      step.kind === "citation-template"
-        ? findCitationRequestRange(source, step.id)
-        : step.kind === "historical-policy"
+  const citationSteps = steps.filter((step) => step.kind === "citation-template");
+  const replacements = steps
+    .filter((step) => step.kind !== "citation-template")
+    .map((step) => {
+      const [start, end] =
+        step.kind === "historical-policy"
           ? findHistoricalPolicyRange(source, step.id)
-          : findObjectRange(source, ID_FIELD_BY_KIND[step.kind], step.id);
-    const sourceObject = source.slice(start, end);
-    return {
-      start,
-      end,
-      content:
-        step.kind === "citation-template"
-          ? renderCitationRequest(step.proposedValue, sourceObject, indentationAt(source, start))
-          : step.kind === "historical-policy"
+          : findObjectRange(source, ID_FIELD_BY_KIND.mapping, step.id);
+      return {
+        start,
+        end,
+        content:
+          step.kind === "historical-policy"
             ? renderHistoricalPolicy(step.proposedValue, indentationAt(source, start))
             : renderValue(step.proposedValue, indentationAt(source, start)),
-      id: step.id,
-    };
-  });
+        id: step.id,
+      };
+    });
+  if (citationSteps.length > 0) replacements.push(renderCitationOverrides(source, citationSteps));
   const sorted = [...replacements].sort((left, right) => right.start - left.start);
   for (let index = 1; index < sorted.length; index++) {
     if (sorted[index - 1].start < sorted[index].end) {
@@ -440,6 +570,54 @@ export function applyRegulatoryImplementationStepsToFile(
     )}`;
   }
   return result;
+}
+
+function extractHistoricalPolicy(
+  source: string,
+  mappingId: string
+): RegulatoryHistoricalGroundingPolicy {
+  const [start, end] = findHistoricalPolicyRange(source, mappingId);
+  const call = source.slice(start, end);
+  const comma = call.indexOf(",");
+  const arrayStart = call.indexOf("[", comma);
+  if (comma < 0 || arrayStart < 0) {
+    throw new Error(`Emitted createPolicy call is malformed: ${mappingId}`);
+  }
+  const range = findBalancedRange(call, arrayStart, "[", "]", `createPolicy/${mappingId}`);
+  let sourcePolicies: RegulatoryHistoricalGroundingPolicy["sourcePolicies"];
+  try {
+    sourcePolicies = JSON.parse(call.slice(...range));
+  } catch {
+    throw new Error(`Emitted createPolicy source policies are malformed: ${mappingId}`);
+  }
+  return {
+    policyId: `${mappingId}-historical-date-policy-v1`,
+    mappingId,
+    sourcePolicies,
+    customerFacingStatus: "benchmark-only",
+  };
+}
+
+function extractEmittedRegistryValue(
+  source: string,
+  step: RegulatoryRegistryImplementationPlan["steps"][number]
+): unknown {
+  if (step.kind === "citation-template") {
+    const overrides = parseJsonObject<Record<string, RegulatoryCitationPackage>>(
+      source,
+      findAssignedObjectRange(source, COVERAGE_OVERRIDE_REGISTRY),
+      COVERAGE_OVERRIDE_REGISTRY
+    );
+    const value = overrides[step.id];
+    if (!value) throw new Error(`Emitted citation override is missing: ${step.id}`);
+    return assertCitationOverride(value, step.id);
+  }
+  if (step.kind === "historical-policy") return extractHistoricalPolicy(source, step.id);
+  return parseJsonObject(
+    source,
+    findObjectRange(source, ID_FIELD_BY_KIND.mapping, step.id),
+    `mapping/${step.id}`
+  );
 }
 
 function buildPullRequestBody(plan: RegulatoryRegistryImplementationPlan): string {
@@ -503,6 +681,14 @@ export function buildRegulatoryImplementationPullRequestBundle(
     }
     const content = applyRegulatoryImplementationStepsToFile(source, steps);
     if (content === source) throw new Error(`Implementation produced no file change: ${targetFile}`);
+    for (const step of steps) {
+      const emitted = extractEmittedRegistryValue(content, step);
+      if (canonicalFingerprint(emitted) !== step.proposedFingerprint) {
+        throw new Error(
+          `Implementation emitted registry fingerprint does not match plan: ${step.kind}/${step.id}`
+        );
+      }
+    }
     changes.push({
       path: targetFile,
       beforeChecksum: sha256(source),
@@ -588,6 +774,24 @@ export function validateRegulatoryImplementationPullRequestBundle(
       canonicalFingerprint(bundle.prohibitedActions) !== canonicalFingerprint(plan.prohibitedActions)
     ) {
       errors.push("Implementation PR bundle does not match its authorized plan");
+    }
+    const filesByPath = new Map(bundle.files.map((file) => [file.path, file]));
+    for (const step of plan.steps) {
+      const file = filesByPath.get(step.targetFile);
+      if (!file || !file.changedRegistryIds.includes(step.id)) {
+        errors.push(`Implementation PR bundle omits its planned registry value: ${step.kind}/${step.id}`);
+        continue;
+      }
+      try {
+        const emitted = extractEmittedRegistryValue(file.content, step);
+        if (canonicalFingerprint(emitted) !== step.proposedFingerprint) {
+          errors.push(
+            `Implementation PR bundle emitted registry fingerprint does not match plan: ${step.kind}/${step.id}`
+          );
+        }
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : String(error));
+      }
     }
   }
   const serialized = JSON.stringify(bundle);
