@@ -116,7 +116,6 @@ export interface RegulatorySourceSnapshot {
   reviewedBy?: string;
   reviewedAt?: string;
   reviewNotes?: string[];
-  reviewAnchors?: string[];
 }
 
 export type RegulatorySnapshotChangeStatus =
@@ -146,7 +145,6 @@ export interface RegulatorySnapshotManifestEntry {
   reviewedBy?: string;
   reviewedAt?: string;
   reviewNotes?: string[];
-  reviewAnchors?: string[];
 }
 
 export interface RegulatoryRetrievalObservation {
