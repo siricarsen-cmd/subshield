@@ -53,6 +53,13 @@ export interface RegulatoryImplementationPullRequestBundle {
   bundleChecksum: string;
 }
 
+export interface RegulatoryImplementationPullRequestMetadata {
+  bundleId: string;
+  commitMessage: string;
+  pullRequestTitle: string;
+  pullRequestBody: string;
+}
+
 const ALLOWED_TARGETS = new Set([
   "lib/regulatory/benchmark-applicability-mappings.ts",
   "lib/regulatory/historical-grounding-policy.ts",
@@ -72,7 +79,9 @@ function sha256(value: string): string {
 
 function jsonClone<T>(value: T): T {
   const serialized = JSON.stringify(value);
-  if (serialized === undefined) throw new Error("Implementation bundle value is not JSON serializable");
+  if (serialized === undefined) {
+    throw new Error("Implementation bundle value is not JSON serializable");
+  }
   return JSON.parse(serialized) as T;
 }
 
@@ -228,40 +237,6 @@ function findCitationRequestRange(source: string, mappingId: string): [number, n
     );
   }
   return findObjectRange(source, "packageId", packageIdAt(source, matches[0].index, mappingId));
-}
-
-function renderCitationRequest(value: unknown, sourceObject: string, indentation: string): string {
-  const citationPackage = jsonClone(value) as {
-    packageId?: unknown;
-    mappingId?: unknown;
-    citations?: Array<Record<string, unknown>>;
-  };
-  if (
-    typeof citationPackage.packageId !== "string" ||
-    typeof citationPackage.mappingId !== "string" ||
-    !Array.isArray(citationPackage.citations)
-  ) {
-    throw new Error("Implementation citation-template proposed value is malformed");
-  }
-  const mappingCall = sourceObject.match(/\bmapping\s*:\s*(mappingById\s*\([\s\S]*?\))/)?.[1];
-  if (!mappingCall) {
-    throw new Error(`Implementation citation request mapping is malformed: ${citationPackage.mappingId}`);
-  }
-  const request = {
-    packageId: citationPackage.packageId,
-    mapping: "__MAPPING_CALL__",
-    excerpts: citationPackage.citations.map((citation) => ({
-      sourceId: citation.sourceId,
-      locator: citation.locator,
-      startAnchor: citation.extractionStartAnchor,
-      endAnchor: citation.extractionEndAnchor,
-      requiredAnchors: citation.extractionRequiredAnchors,
-      ...(citation.extractionMaxCharacters === 3500
-        ? {}
-        : { maxCharacters: citation.extractionMaxCharacters }),
-    })),
-  };
-  return renderValue(request, indentation).replace('"__MAPPING_CALL__"', mappingCall);
 }
 
 function findBalancedRange(
@@ -631,6 +606,70 @@ function buildPullRequestBody(plan: RegulatoryRegistryImplementationPlan): strin
   return `## Controlled regulatory registry implementation\n\nThis pull request implements one independently reviewed regulatory change-set plan. It does not authorize merge or deployment.\n\n## Authorized changes\n\n${steps}\n\n## Required validation\n\n${checks}\n\n## Boundaries\n\n- Customer-facing status remains **benchmark-only** until deliberate merge authorization.\n- Do not alter analyzer, authentication, payment, database, email, or deployment code.\n- Do not merge if any fingerprint, official evidence, benchmark, or required check has drifted.\n\nPlan: \`${plan.planId}\`\nPlan checksum: \`${plan.planChecksum}\`\nHuman review record: \`${plan.reviewRecordChecksum}\``;
 }
 
+export function buildRegulatoryImplementationPullRequestMetadata(
+  plan: RegulatoryRegistryImplementationPlan
+): RegulatoryImplementationPullRequestMetadata {
+  return {
+    bundleId: `regulatory-implementation-pr:${plan.sourceId}:${plan.planChecksum}`,
+    commitMessage: `feat(regulatory): implement approved ${plan.sourceId} registry update`,
+    pullRequestTitle: `Implement approved ${plan.sourceId} regulatory registry update`,
+    pullRequestBody: buildPullRequestBody(plan),
+  };
+}
+
+function groupImplementationStepsByPath(
+  plan: RegulatoryRegistryImplementationPlan
+): Map<string, RegulatoryRegistryImplementationPlan["steps"]> {
+  const stepsByPath = new Map<string, RegulatoryRegistryImplementationPlan["steps"]>();
+  const transitionIdentities = new Set<string>();
+  for (const step of plan.steps) {
+    if (!ALLOWED_TARGETS.has(step.targetFile)) {
+      throw new Error(`Implementation plan targets a prohibited file: ${step.targetFile}`);
+    }
+    const transitionIdentity = `${step.kind}:${step.id}`;
+    if (transitionIdentities.has(transitionIdentity)) {
+      throw new Error(`Duplicate implementation registry transition: ${transitionIdentity}`);
+    }
+    transitionIdentities.add(transitionIdentity);
+    const grouped = stepsByPath.get(step.targetFile) ?? [];
+    if (grouped.some((candidate) => candidate.id === step.id)) {
+      throw new Error(`Duplicate implementation registry ID for ${step.targetFile}: ${step.id}`);
+    }
+    stepsByPath.set(step.targetFile, [...grouped, step]);
+  }
+  return stepsByPath;
+}
+
+function regenerateImplementationFileChanges(
+  plan: RegulatoryRegistryImplementationPlan
+): RegulatoryImplementationFileChange[] {
+  const stepsByPath = groupImplementationStepsByPath(plan);
+  return [...stepsByPath.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([targetFile, steps]) => {
+      const source = readReviewedBaseFile(plan.baseCommitSha, targetFile);
+      const content = applyRegulatoryImplementationStepsToFile(source, steps);
+      if (content === source) {
+        throw new Error(`Implementation produced no file change: ${targetFile}`);
+      }
+      for (const step of steps) {
+        const emitted = extractEmittedRegistryValue(content, step);
+        if (canonicalFingerprint(emitted) !== step.proposedFingerprint) {
+          throw new Error(
+            `Implementation emitted registry fingerprint does not match plan: ${step.kind}/${step.id}`
+          );
+        }
+      }
+      return {
+        path: targetFile,
+        beforeChecksum: sha256(source),
+        afterChecksum: sha256(content),
+        changedRegistryIds: steps.map((step) => step.id).sort(),
+        content,
+      };
+    });
+}
+
 export function buildRegulatoryImplementationPullRequestBundle(
   plan: RegulatoryRegistryImplementationPlan,
   files: readonly RegulatoryImplementationFileInput[]
@@ -644,25 +683,23 @@ export function buildRegulatoryImplementationPullRequestBundle(
   }
   const filesByPath = new Map<string, string>();
   for (const file of files) {
-    if (filesByPath.has(file.path)) throw new Error(`Duplicate implementation file input: ${file.path}`);
+    if (filesByPath.has(file.path)) {
+      throw new Error(`Duplicate implementation file input: ${file.path}`);
+    }
     filesByPath.set(file.path, file.content);
   }
-  const stepsByPath = new Map<string, RegulatoryRegistryImplementationPlan["steps"]>();
-  for (const step of plan.steps) {
-    if (!ALLOWED_TARGETS.has(step.targetFile)) {
-      throw new Error(`Implementation plan targets a prohibited file: ${step.targetFile}`);
-    }
-    const grouped = stepsByPath.get(step.targetFile) ?? [];
-    stepsByPath.set(step.targetFile, [...grouped, step]);
-  }
+  const stepsByPath = groupImplementationStepsByPath(plan);
   if (filesByPath.size !== stepsByPath.size) {
     throw new Error("Implementation file inputs must exactly match the authorized target-file set");
   }
 
-  const changes: RegulatoryImplementationFileChange[] = [];
-  for (const [targetFile, steps] of [...stepsByPath.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+  for (const [targetFile, steps] of [...stepsByPath.entries()].sort(([a], [b]) =>
+    a.localeCompare(b)
+  )) {
     const source = filesByPath.get(targetFile);
-    if (source === undefined) throw new Error(`Missing authorized implementation file: ${targetFile}`);
+    if (source === undefined) {
+      throw new Error(`Missing authorized implementation file: ${targetFile}`);
+    }
     const reviewedBase = readReviewedBaseFile(plan.baseCommitSha, targetFile);
     if (source !== reviewedBase) {
       throw new Error(`Implementation file does not match reviewed Git base: ${targetFile}`);
@@ -679,36 +716,17 @@ export function buildRegulatoryImplementationPullRequestBundle(
         );
       }
     }
-    const content = applyRegulatoryImplementationStepsToFile(source, steps);
-    if (content === source) throw new Error(`Implementation produced no file change: ${targetFile}`);
-    for (const step of steps) {
-      const emitted = extractEmittedRegistryValue(content, step);
-      if (canonicalFingerprint(emitted) !== step.proposedFingerprint) {
-        throw new Error(
-          `Implementation emitted registry fingerprint does not match plan: ${step.kind}/${step.id}`
-        );
-      }
-    }
-    changes.push({
-      path: targetFile,
-      beforeChecksum: sha256(source),
-      afterChecksum: sha256(content),
-      changedRegistryIds: steps.map((step) => step.id).sort(),
-      content,
-    });
   }
 
+  const metadata = buildRegulatoryImplementationPullRequestMetadata(plan);
   const payload: Omit<RegulatoryImplementationPullRequestBundle, "bundleChecksum"> = {
     schemaVersion: 1,
-    bundleId: `regulatory-implementation-pr:${plan.sourceId}:${plan.planChecksum}`,
+    ...metadata,
     planId: plan.planId,
     planChecksum: plan.planChecksum,
     baseCommitSha: plan.baseCommitSha,
     targetBranch: plan.targetBranch,
-    commitMessage: `feat(regulatory): implement approved ${plan.sourceId} registry update`,
-    pullRequestTitle: `Implement approved ${plan.sourceId} regulatory registry update`,
-    pullRequestBody: buildPullRequestBody(plan),
-    files: changes,
+    files: regenerateImplementationFileChanges(plan),
     requiredChecks: [...plan.requiredChecks],
     prohibitedActions: [...plan.prohibitedActions],
     authorizationStatus: "live-plan-required",
@@ -721,7 +739,9 @@ export function buildRegulatoryImplementationPullRequestBundle(
     bundleChecksum: checksumForBundle(payload),
   };
   const errors = validateRegulatoryImplementationPullRequestBundle(bundle, plan);
-  if (errors.length > 0) throw new Error(`Built implementation PR bundle failed validation: ${errors.join("; ")}`);
+  if (errors.length > 0) {
+    throw new Error(`Built implementation PR bundle failed validation: ${errors.join("; ")}`);
+  }
   const frozen = deepFreeze(bundle);
   IMPLEMENTATION_BUNDLES.add(frozen as object);
   return frozen;
@@ -732,7 +752,9 @@ export function validateRegulatoryImplementationPullRequestBundle(
   plan?: RegulatoryRegistryImplementationPlan
 ): string[] {
   const errors: string[] = [];
-  if (bundle.schemaVersion !== 1) errors.push("Implementation PR bundle schema version is invalid");
+  if (bundle.schemaVersion !== 1) {
+    errors.push("Implementation PR bundle schema version is invalid");
+  }
   if (!bundle.bundleId.startsWith("regulatory-implementation-pr:")) {
     errors.push("Implementation PR bundle ID is invalid");
   }
@@ -743,13 +765,19 @@ export function validateRegulatoryImplementationPullRequestBundle(
       errors.push(`Implementation PR bundle file path is invalid or duplicated: ${file.path}`);
     }
     paths.add(file.path);
-    if (!/^sha256:[a-f0-9]{64}$/.test(file.beforeChecksum) || !/^sha256:[a-f0-9]{64}$/.test(file.afterChecksum)) {
+    if (
+      !/^sha256:[a-f0-9]{64}$/.test(file.beforeChecksum) ||
+      !/^sha256:[a-f0-9]{64}$/.test(file.afterChecksum)
+    ) {
       errors.push(`Implementation PR bundle file checksum is invalid: ${file.path}`);
     }
     if (file.beforeChecksum === file.afterChecksum || file.afterChecksum !== sha256(file.content)) {
       errors.push(`Implementation PR bundle file content does not match its checksum: ${file.path}`);
     }
-    if (file.changedRegistryIds.length === 0 || new Set(file.changedRegistryIds).size !== file.changedRegistryIds.length) {
+    if (
+      file.changedRegistryIds.length === 0 ||
+      new Set(file.changedRegistryIds).size !== file.changedRegistryIds.length
+    ) {
       errors.push(`Implementation PR bundle registry IDs are invalid: ${file.path}`);
     }
   }
@@ -765,33 +793,50 @@ export function validateRegulatoryImplementationPullRequestBundle(
     errors.push("Implementation PR bundle checksum does not reproduce");
   }
   if (plan) {
-    if (
-      bundle.planId !== plan.planId ||
-      bundle.planChecksum !== plan.planChecksum ||
-      bundle.baseCommitSha !== plan.baseCommitSha ||
-      bundle.targetBranch !== plan.targetBranch ||
-      canonicalFingerprint(bundle.requiredChecks) !== canonicalFingerprint(plan.requiredChecks) ||
-      canonicalFingerprint(bundle.prohibitedActions) !== canonicalFingerprint(plan.prohibitedActions)
-    ) {
-      errors.push("Implementation PR bundle does not match its authorized plan");
-    }
-    const filesByPath = new Map(bundle.files.map((file) => [file.path, file]));
-    for (const step of plan.steps) {
-      const file = filesByPath.get(step.targetFile);
-      if (!file || !file.changedRegistryIds.includes(step.id)) {
-        errors.push(`Implementation PR bundle omits its planned registry value: ${step.kind}/${step.id}`);
-        continue;
+    try {
+      const metadata = buildRegulatoryImplementationPullRequestMetadata(plan);
+      if (
+        bundle.bundleId !== metadata.bundleId ||
+        bundle.commitMessage !== metadata.commitMessage ||
+        bundle.pullRequestTitle !== metadata.pullRequestTitle ||
+        bundle.pullRequestBody !== metadata.pullRequestBody
+      ) {
+        errors.push("Implementation PR bundle metadata does not reproduce from its authorized plan");
       }
-      try {
+      if (
+        bundle.planId !== plan.planId ||
+        bundle.planChecksum !== plan.planChecksum ||
+        bundle.baseCommitSha !== plan.baseCommitSha ||
+        bundle.targetBranch !== plan.targetBranch ||
+        canonicalFingerprint(bundle.requiredChecks) !== canonicalFingerprint(plan.requiredChecks) ||
+        canonicalFingerprint(bundle.prohibitedActions) !== canonicalFingerprint(plan.prohibitedActions)
+      ) {
+        errors.push("Implementation PR bundle does not match its authorized plan");
+      }
+      const expectedFiles = regenerateImplementationFileChanges(plan);
+      if (canonicalFingerprint(bundle.files) !== canonicalFingerprint(expectedFiles)) {
+        errors.push(
+          "Implementation PR bundle files do not exactly reproduce the authorized plan from its reviewed Git base"
+        );
+      }
+      const filesByPath = new Map(bundle.files.map((file) => [file.path, file]));
+      for (const step of plan.steps) {
+        const file = filesByPath.get(step.targetFile);
+        if (!file || !file.changedRegistryIds.includes(step.id)) {
+          errors.push(
+            `Implementation PR bundle omits its planned registry value: ${step.kind}/${step.id}`
+          );
+          continue;
+        }
         const emitted = extractEmittedRegistryValue(file.content, step);
         if (canonicalFingerprint(emitted) !== step.proposedFingerprint) {
           errors.push(
             `Implementation PR bundle emitted registry fingerprint does not match plan: ${step.kind}/${step.id}`
           );
         }
-      } catch (error) {
-        errors.push(error instanceof Error ? error.message : String(error));
       }
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
     }
   }
   const serialized = JSON.stringify(bundle);
