@@ -18,7 +18,7 @@ A decision requires all of the following in one process:
 2. the immutable stored change-set draft;
 3. the opaque verified stored baseline/candidate pair;
 4. a fresh opaque draft-reverification receipt;
-5. an identified independent human reviewer;
+5. an identified independent human reviewer and stable reviewer principal;
 6. substantive review notes; and
 7. explicit review of the required registry-impact kinds.
 
@@ -30,6 +30,8 @@ The change-set reviewer must be different from:
 
 - the human who approved the official-source snapshot; and
 - the person or process that prepared the change-set draft.
+
+Display labels and stable principals are stored separately. The readable display label may include a role suffix, but the principal must match the label's identity portion and must not contain a role suffix. Separation of duties compares normalized principals, not the complete display strings. Therefore, `Morgan Ellis, source reviewer` and `Morgan Ellis, registry reviewer` are treated as the same person.
 
 Automation, bots, workflows, monitors, and preparers cannot be named as the approving reviewer.
 
@@ -47,14 +49,14 @@ The attestation is deliberately labeled `reviewer-attested-not-machine-verified`
 
 ## Rejection requirements
 
-A rejection requires an identified independent reviewer, substantive notes, and at least one reviewed registry-impact kind. Rejections cannot contain release timestamps or benchmark approval evidence.
+A rejection requires an identified independent reviewer, stable principal, substantive notes, and at least one reviewed registry-impact kind. Rejections cannot contain release timestamps or benchmark approval evidence.
 
 ## Release-record boundary
 
 An approved decision creates a separate immutable release record containing:
 
 - the draft and source identities;
-- reviewer provenance;
+- reviewer display and principal provenance;
 - before and after registry fingerprints;
 - official source IDs;
 - benchmark impact and regression plans; and
@@ -66,7 +68,7 @@ The release record does not contain a complete official-source body and cannot a
 
 Decision records use create-only storage. The canonical path is bound to the draft checksum rather than the review date, so a later approval or conflicting rejection cannot create a second final decision for the same draft.
 
-Loaded records validate their canonical path, checksum, decision envelope, release record, separation-of-duties provenance, benchmark attestation, and data-minimization boundary.
+Loaded records validate their canonical path, checksum, decision envelope, release record, stable-principal separation-of-duties provenance, benchmark attestation, and data-minimization boundary.
 
 Serialized review records are audit artifacts, not trust credentials. The original in-process human decision object may issue one module-local opaque authorization receipt. Cloning, serializing, storing, or loading the decision destroys that authorization capability permanently.
 
@@ -82,7 +84,8 @@ npm run regulatory:review-change-set-draft -- \
   --packet-path <source-relative-packet-path> \
   --draft-path <source-relative-draft-path> \
   --decision approved|rejected \
-  --reviewed-by <identified-human-reviewer> \
+  --reviewed-by <identified-human-display-label> \
+  --reviewer-principal <stable-human-principal> \
   --reviewed-at <exact-ISO-timestamp> \
   --note <substantive-note> \
   --review-kind mapping|historical-policy|citation-template
@@ -108,7 +111,7 @@ Optional controlled roots and result output:
 --result-file <create-only-path>
 ```
 
-The parser rejects unknown options, missing values, blank values, duplicate single-value options, duplicate review kinds, unsupported review kinds, and rejection attempts that include approval-only evidence.
+The parser rejects unknown options, missing values, blank values, duplicate single-value options, duplicate review kinds, unsupported review kinds, and rejection attempts that include approval-only evidence. The decision validator rejects a principal that does not reproduce from the reviewer display label.
 
 ## Current limitation
 
