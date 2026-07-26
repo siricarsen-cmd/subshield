@@ -36,6 +36,11 @@ export interface RegulatoryImplementationRepositoryState {
   defaultBranch: string;
 }
 
+export interface RegulatoryImplementationCommitRecord {
+  parentCommitShas: string[];
+  message: string;
+}
+
 export interface RegulatoryImplementationCheckResult {
   command: string;
   commitSha: string;
@@ -68,6 +73,7 @@ export interface RegulatoryImplementationRepositoryAdapter {
   writeFile(branch: string, path: string, content: string): Promise<void>;
   listChangedFiles(branch: string): Promise<readonly string[]>;
   createCommit(branch: string, message: string): Promise<string>;
+  inspectCommit(commitSha: string): Promise<RegulatoryImplementationCommitRecord>;
   listCommitChangedFiles(commitSha: string, baseCommitSha: string): Promise<readonly string[]>;
   readFileFromCommit(commitSha: string, path: string): Promise<string>;
   runCheck(command: string, commitSha: string): Promise<RegulatoryImplementationCheckResult>;
@@ -80,10 +86,10 @@ export interface RegulatoryImplementationRepositoryAdapter {
     body: string;
     autoMergeEnabled: false;
   }): Promise<RegulatoryImplementationPullRequestRecord>;
+  readTrustedClock(): Promise<string>;
 }
 
 export interface ExecuteRegulatoryImplementationRequest {
-  executedAt: string;
   executedBy: string;
 }
 
@@ -138,6 +144,7 @@ export type RegulatoryImplementationExecutionResult = Readonly<
           checks: RegulatoryImplementationCheckResult[];
           errors: string[];
         }
+      | { status: "receipt-failed"; checks: RegulatoryImplementationCheckResult[]; errors: string[] }
       | { status: "success"; receipt: Readonly<RegulatoryImplementationExecutionReceipt> }
     )
 >;
@@ -183,6 +190,18 @@ function boundary<T extends object>(value: T): Readonly<T & ExecutionBoundary> {
   return deepFreeze({ ...value, ...EXECUTION_BOUNDARY });
 }
 
+function expectedPullRequestUrl(number: number): string {
+  return `https://github.com/${EXPECTED_REPOSITORY}/pull/${number}`;
+}
+
+function pullRequestIdentityIsExact(record: RegulatoryImplementationPullRequestRecord): boolean {
+  return (
+    Number.isSafeInteger(record.number) &&
+    record.number > 0 &&
+    record.url === expectedPullRequestUrl(record.number)
+  );
+}
+
 function receiptPayload(
   receipt:
     | Omit<RegulatoryImplementationExecutionReceipt, "receiptChecksum">
@@ -212,8 +231,13 @@ export function validateRegulatoryImplementationExecutionReceipt(
   if (receipt.repositoryFullName !== EXPECTED_REPOSITORY) {
     errors.push("Implementation execution receipt repository is invalid");
   }
-  if (!COMMIT_SHA_RE.test(receipt.baseCommitSha) || !COMMIT_SHA_RE.test(receipt.commitSha)) {
-    errors.push("Implementation execution receipt commit identity is invalid");
+  if (
+    !CHECKSUM_RE.test(receipt.planChecksum) ||
+    !CHECKSUM_RE.test(receipt.bundleChecksum) ||
+    !COMMIT_SHA_RE.test(receipt.baseCommitSha) ||
+    !COMMIT_SHA_RE.test(receipt.commitSha)
+  ) {
+    errors.push("Implementation execution receipt provenance identity is invalid");
   }
   const paths = receipt.files.map((file) => file.path);
   if (
@@ -241,8 +265,17 @@ export function validateRegulatoryImplementationExecutionReceipt(
     errors.push("Implementation execution receipt check evidence is invalid");
   }
   if (
-    receipt.pullRequest.number <= 0 ||
-    !receipt.pullRequest.url.trim() ||
+    !pullRequestIdentityIsExact({
+      number: receipt.pullRequest.number,
+      url: receipt.pullRequest.url,
+      baseBranch: receipt.pullRequest.baseBranch,
+      headBranch: receipt.pullRequest.headBranch,
+      headCommitSha: receipt.pullRequest.headCommitSha,
+      title: receipt.pullRequest.title,
+      body: "",
+      autoMergeEnabled: receipt.pullRequest.autoMergeEnabled,
+    }) ||
+    !CHECKSUM_RE.test(receipt.pullRequest.bodyFingerprint) ||
     receipt.pullRequest.baseBranch !== EXPECTED_DEFAULT_BRANCH ||
     receipt.pullRequest.headBranch !== receipt.targetBranch ||
     receipt.pullRequest.headCommitSha !== receipt.commitSha ||
@@ -298,12 +331,6 @@ async function preflight(
   }
   errors.push(...validateRegulatoryRegistryImplementationPlan(plan));
   errors.push(...validateRegulatoryImplementationPullRequestBundle(bundle, plan));
-
-  try {
-    exactInstant(request.executedAt, "Implementation execution executedAt");
-  } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error));
-  }
   if (!request.executedBy.trim()) errors.push("Implementation execution executor must not be blank");
 
   try {
@@ -432,6 +459,16 @@ export async function executeRegulatoryImplementationPullRequest(
       await adapter.listCommitChangedFiles(commitSha, plan.baseCommitSha),
       bundle.files
     );
+    const commit = await adapter.inspectCommit(commitSha);
+    if (
+      commit.parentCommitShas.length !== 1 ||
+      commit.parentCommitShas[0] !== plan.baseCommitSha
+    ) {
+      errors.push("Executor commit parent does not equal the reviewed base commit");
+    }
+    if (commit.message !== bundle.commitMessage) {
+      errors.push("Executor commit message does not reproduce the bundle");
+    }
     for (const file of bundle.files) {
       const committedContent = await adapter.readFileFromCommit(commitSha, file.path);
       if (committedContent !== file.content || sha256(committedContent) !== file.afterChecksum) {
@@ -495,6 +532,7 @@ export async function executeRegulatoryImplementationPullRequest(
       autoMergeEnabled: false,
     });
     if (
+      !pullRequestIdentityIsExact(pullRequest) ||
       pullRequest.baseBranch !== EXPECTED_DEFAULT_BRANCH ||
       pullRequest.headBranch !== plan.targetBranch ||
       pullRequest.headCommitSha !== commitSha ||
@@ -502,11 +540,23 @@ export async function executeRegulatoryImplementationPullRequest(
       pullRequest.body !== bundle.pullRequestBody ||
       pullRequest.autoMergeEnabled !== false
     ) {
-      throw new Error("Executor pull-request metadata does not reproduce the bundle");
+      throw new Error("Executor pull-request identity or metadata does not reproduce the bundle");
     }
   } catch (error) {
     return boundary({
       status: "pull-request-failed" as const,
+      checks,
+      errors: [error instanceof Error ? error.message : String(error)],
+    });
+  }
+
+  let executedAt: string;
+  try {
+    executedAt = await adapter.readTrustedClock();
+    exactInstant(executedAt, "Implementation execution trusted clock");
+  } catch (error) {
+    return boundary({
+      status: "receipt-failed" as const,
       checks,
       errors: [error instanceof Error ? error.message : String(error)],
     });
@@ -539,7 +589,7 @@ export async function executeRegulatoryImplementationPullRequest(
       bodyFingerprint: fingerprint(pullRequest.body),
       autoMergeEnabled: false,
     },
-    executedAt: request.executedAt,
+    executedAt,
     executedBy: request.executedBy.replace(/\s+/g, " ").trim(),
     authorizationStatus: "audit-evidence-only",
     ...EXECUTION_BOUNDARY,
@@ -551,7 +601,7 @@ export async function executeRegulatoryImplementationPullRequest(
   const receiptErrors = validateRegulatoryImplementationExecutionReceipt(receipt);
   if (receiptErrors.length > 0) {
     return boundary({
-      status: "pull-request-failed" as const,
+      status: "receipt-failed" as const,
       checks,
       errors: receiptErrors,
     });
