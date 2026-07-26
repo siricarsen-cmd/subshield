@@ -1,12 +1,20 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 import {
   isLiveAuthorizedRegulatoryRegistryImplementationPlan,
   validateRegulatoryRegistryImplementationPlan,
   type RegulatoryRegistryImplementationPlan,
 } from "./registry-implementation-plan";
-import { fingerprintRegulatoryRegistryValue } from "./registry-integrity";
+import {
+  fingerprintRegulatoryRegistryValue,
+  getRegisteredCitationTemplate,
+  getRegisteredHistoricalGroundingPolicy,
+  getRegisteredRegulatoryMapping,
+  type RegulatoryRegistryKind,
+} from "./registry-integrity";
+import type { RegulatoryHistoricalGroundingPolicy } from "./historical-grounding-policy";
 
 export interface RegulatoryImplementationFileInput {
   path: string;
@@ -49,7 +57,6 @@ const ALLOWED_TARGETS = new Set([
 
 const ID_FIELD_BY_KIND = {
   mapping: "mappingId",
-  "historical-policy": "mappingId",
 } as const;
 
 const IMPLEMENTATION_BUNDLES = new WeakSet<object>();
@@ -252,6 +259,135 @@ function renderCitationRequest(value: unknown, sourceObject: string, indentation
   return renderValue(request, indentation).replace('"__MAPPING_CALL__"', mappingCall);
 }
 
+function findCallRanges(source: string, functionName: string): Array<[number, number]> {
+  const ranges: Array<[number, number]> = [];
+  let quote: string | undefined;
+  let escapedCharacter = false;
+  let lineComment = false;
+  let blockComment = false;
+  for (let index = 0; index < source.length; index++) {
+    const character = source[index];
+    const next = source[index + 1];
+    if (lineComment) {
+      if (character === "\n") lineComment = false;
+      continue;
+    }
+    if (blockComment) {
+      if (character === "*" && next === "/") {
+        blockComment = false;
+        index++;
+      }
+      continue;
+    }
+    if (quote) {
+      if (escapedCharacter) escapedCharacter = false;
+      else if (character === "\\") escapedCharacter = true;
+      else if (character === quote) quote = undefined;
+      continue;
+    }
+    if (character === "/" && next === "/") {
+      lineComment = true;
+      index++;
+      continue;
+    }
+    if (character === "/" && next === "*") {
+      blockComment = true;
+      index++;
+      continue;
+    }
+    if (character === '"' || character === "'" || character === "`") {
+      quote = character;
+      continue;
+    }
+    if (!source.startsWith(functionName, index)) continue;
+    const before = source[index - 1];
+    const after = source[index + functionName.length];
+    if ((before && /[\w$]/.test(before)) || (after && /[\w$]/.test(after))) continue;
+    let open = index + functionName.length;
+    while (/\s/.test(source[open] ?? "")) open++;
+    if (source[open] !== "(") continue;
+
+    let depth = 0;
+    let nestedQuote: string | undefined;
+    let nestedEscape = false;
+    let nestedLineComment = false;
+    let nestedBlockComment = false;
+    for (let cursor = open; cursor < source.length; cursor++) {
+      const current = source[cursor];
+      const following = source[cursor + 1];
+      if (nestedLineComment) {
+        if (current === "\n") nestedLineComment = false;
+        continue;
+      }
+      if (nestedBlockComment) {
+        if (current === "*" && following === "/") {
+          nestedBlockComment = false;
+          cursor++;
+        }
+        continue;
+      }
+      if (nestedQuote) {
+        if (nestedEscape) nestedEscape = false;
+        else if (current === "\\") nestedEscape = true;
+        else if (current === nestedQuote) nestedQuote = undefined;
+        continue;
+      }
+      if (current === "/" && following === "/") {
+        nestedLineComment = true;
+        cursor++;
+      } else if (current === "/" && following === "*") {
+        nestedBlockComment = true;
+        cursor++;
+      } else if (current === '"' || current === "'" || current === "`") {
+        nestedQuote = current;
+      } else if (current === "(") depth++;
+      else if (current === ")" && --depth === 0) {
+        ranges.push([index, cursor + 1]);
+        index = cursor;
+        break;
+      }
+    }
+    if (depth !== 0) throw new Error(`Implementation ${functionName} call is malformed`);
+  }
+  return ranges;
+}
+
+function findHistoricalPolicyRange(source: string, mappingId: string): [number, number] {
+  const matches = findCallRanges(source, "createPolicy").filter(([start, end]) => {
+    const call = source.slice(start, end);
+    const firstArgument = call.match(/^createPolicy\s*\(\s*(["'])([^"']+)\1\s*,/);
+    return firstArgument?.[2] === mappingId;
+  });
+  if (matches.length !== 1) {
+    throw new Error(
+      `Implementation target must contain exactly one createPolicy call for ${mappingId}; observed ${matches.length}`
+    );
+  }
+  return matches[0];
+}
+
+function renderHistoricalPolicy(value: unknown, indentation: string): string {
+  const policy = jsonClone(value) as Partial<RegulatoryHistoricalGroundingPolicy>;
+  if (
+    typeof policy.mappingId !== "string" ||
+    policy.policyId !== `${policy.mappingId}-historical-date-policy-v1` ||
+    policy.customerFacingStatus !== "benchmark-only" ||
+    !Array.isArray(policy.sourcePolicies)
+  ) {
+    throw new Error("Implementation historical-policy proposed value is malformed");
+  }
+  const policies = renderValue(policy.sourcePolicies, `${indentation}  `);
+  return `createPolicy(${JSON.stringify(policy.mappingId)}, ${policies})`;
+}
+
+function currentRegistryFingerprint(kind: RegulatoryRegistryKind, id: string): string | undefined {
+  return kind === "mapping"
+    ? getRegisteredRegulatoryMapping(id)?.fingerprint
+    : kind === "historical-policy"
+      ? getRegisteredHistoricalGroundingPolicy(id)?.fingerprint
+      : getRegisteredCitationTemplate(id)?.fingerprint;
+}
+
 function readReviewedBaseFile(baseCommitSha: string, targetFile: string): string {
   if (!/^[a-f0-9]{40}$/i.test(baseCommitSha)) {
     throw new Error("Implementation plan base commit is invalid");
@@ -266,7 +402,8 @@ function readReviewedBaseFile(baseCommitSha: string, targetFile: string): string
   }
 }
 
-function applyStepsToFile(
+/** Pure deterministic renderer shared by bundle construction and focused canonical-shape tests. */
+export function applyRegulatoryImplementationStepsToFile(
   source: string,
   steps: RegulatoryRegistryImplementationPlan["steps"]
 ): string {
@@ -274,7 +411,9 @@ function applyStepsToFile(
     const [start, end] =
       step.kind === "citation-template"
         ? findCitationRequestRange(source, step.id)
-        : findObjectRange(source, ID_FIELD_BY_KIND[step.kind], step.id);
+        : step.kind === "historical-policy"
+          ? findHistoricalPolicyRange(source, step.id)
+          : findObjectRange(source, ID_FIELD_BY_KIND[step.kind], step.id);
     const sourceObject = source.slice(start, end);
     return {
       start,
@@ -282,7 +421,9 @@ function applyStepsToFile(
       content:
         step.kind === "citation-template"
           ? renderCitationRequest(step.proposedValue, sourceObject, indentationAt(source, start))
-          : renderValue(step.proposedValue, indentationAt(source, start)),
+          : step.kind === "historical-policy"
+            ? renderHistoricalPolicy(step.proposedValue, indentationAt(source, start))
+            : renderValue(step.proposedValue, indentationAt(source, start)),
       id: step.id,
     };
   });
@@ -348,7 +489,19 @@ export function buildRegulatoryImplementationPullRequestBundle(
     if (source !== reviewedBase) {
       throw new Error(`Implementation file does not match reviewed Git base: ${targetFile}`);
     }
-    const content = applyStepsToFile(source, steps);
+    const canonicalSource = readFileSync(targetFile, "utf8");
+    if (reviewedBase !== canonicalSource) {
+      throw new Error(`Reviewed Git base does not match the current canonical registry file: ${targetFile}`);
+    }
+    for (const step of steps) {
+      const observedFingerprint = currentRegistryFingerprint(step.kind, step.id);
+      if (observedFingerprint !== step.currentFingerprint) {
+        throw new Error(
+          `Reviewed Git base target does not match approved current fingerprint: ${step.kind}/${step.id}`
+        );
+      }
+    }
+    const content = applyRegulatoryImplementationStepsToFile(source, steps);
     if (content === source) throw new Error(`Implementation produced no file change: ${targetFile}`);
     changes.push({
       path: targetFile,
