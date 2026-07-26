@@ -1,3 +1,4 @@
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
@@ -11,6 +12,7 @@ const { values } = parseArgs({
   options: {
     "as-of": { type: "string" },
     "output-dir": { type: "string" },
+    "result-file": { type: "string" },
     "source-id": { type: "string", multiple: true },
     starter: { type: "boolean", default: false },
   },
@@ -32,6 +34,9 @@ const outputRoot = path.resolve(
   process.cwd(),
   values["output-dir"] ?? "data/regulatory-snapshots"
 );
+const resultFile = values["result-file"]
+  ? path.resolve(process.cwd(), values["result-file"])
+  : undefined;
 const results: Array<Record<string, unknown>> = [];
 let failures = 0;
 
@@ -41,6 +46,10 @@ for (const sourceId of uniqueSourceIds) {
       asOfDate: values["as-of"] ?? "current",
     });
     const stored = await storeRegulatorySnapshot(outputRoot, snapshot);
+    const normalizedSnapshotId =
+      stored.status === "observed" || stored.status === "unchanged"
+        ? stored.comparison.previousSnapshotId
+        : snapshot.snapshotId;
     results.push({
       sourceId,
       status: stored.status,
@@ -48,10 +57,7 @@ for (const sourceId of uniqueSourceIds) {
       checksum: snapshot.checksum,
       rawChecksum: snapshot.rawChecksum,
       snapshotId: snapshot.snapshotId,
-      normalizedSnapshotId:
-        stored.status === "observed"
-          ? stored.comparison.previousSnapshotId
-          : snapshot.snapshotId,
+      normalizedSnapshotId,
       snapshotPath: stored.snapshotPath,
       manifestPath: stored.manifestPath,
       observationCount: stored.manifest.observations.length,
@@ -67,17 +73,17 @@ for (const sourceId of uniqueSourceIds) {
   }
 }
 
-console.log(
-  JSON.stringify(
-    {
-      outputRoot,
-      sourceCount: uniqueSourceIds.length,
-      failures,
-      results,
-    },
-    null,
-    2
-  )
-);
+const output = {
+  outputRoot,
+  sourceCount: uniqueSourceIds.length,
+  failures,
+  results,
+};
+const serialized = `${JSON.stringify(output, null, 2)}\n`;
+if (resultFile) {
+  await mkdir(path.dirname(resultFile), { recursive: true });
+  await writeFile(resultFile, serialized, { encoding: "utf8", flag: "wx" });
+}
+process.stdout.write(serialized);
 
 if (failures > 0) process.exitCode = 1;
