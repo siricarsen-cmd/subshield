@@ -15,13 +15,21 @@ import { fingerprintRegulatoryRegistryValue } from "./registry-integrity";
 
 const EXPECTED_REPOSITORY = "siricarsen-cmd/subshield";
 const EXPECTED_DEFAULT_BRANCH = "main";
-const SHA_RE = /^[a-f0-9]{40}$/;
+const COMMIT_SHA_RE = /^[a-f0-9]{40}$/;
+const CHECKSUM_RE = /^sha256:[a-f0-9]{64}$/;
 const ALLOWED_TARGETS = new Set([
   "lib/regulatory/benchmark-applicability-mappings.ts",
   "lib/regulatory/historical-grounding-policy.ts",
   "lib/regulatory/source-coverage-citation-packages.ts",
 ]);
 const LIVE_EXECUTION_RECEIPTS = new WeakSet<object>();
+const EXECUTION_BOUNDARY = {
+  applicationStatus: "not-applied",
+  customerFacingStatus: "benchmark-only",
+  mergeStatus: "not-authorized",
+} as const;
+
+type ExecutionBoundary = typeof EXECUTION_BOUNDARY;
 
 export interface RegulatoryImplementationRepositoryState {
   repositoryFullName: string;
@@ -47,8 +55,8 @@ export interface RegulatoryImplementationPullRequestRecord {
 
 /**
  * Deliberately narrow repository boundary. It contains no merge, deployment,
- * release, secret, environment, customer-record, database, payment,
- * authentication, or email operation.
+ * release, tag, secret, environment, customer-record, database, payment,
+ * authentication, email, or unrelated repository operation.
  */
 export interface RegulatoryImplementationRepositoryAdapter {
   inspectRepository(): Promise<RegulatoryImplementationRepositoryState>;
@@ -85,7 +93,7 @@ export interface RegulatoryImplementationExecutionReceiptFile {
   afterChecksum: string;
 }
 
-export interface RegulatoryImplementationExecutionReceipt {
+export interface RegulatoryImplementationExecutionReceipt extends ExecutionBoundary {
   schemaVersion: 1;
   receiptId: string;
   repositoryFullName: string;
@@ -111,59 +119,28 @@ export interface RegulatoryImplementationExecutionReceipt {
   executedAt: string;
   executedBy: string;
   authorizationStatus: "audit-evidence-only";
-  applicationStatus: "not-applied";
-  customerFacingStatus: "benchmark-only";
-  mergeStatus: "not-authorized";
   receiptChecksum: string;
 }
 
-export type RegulatoryImplementationExecutionResult =
-  | Readonly<{
-      status: "preflight-refused";
-      errors: string[];
-      applicationStatus: "not-applied";
-      customerFacingStatus: "benchmark-only";
-      mergeStatus: "not-authorized";
-    }>
-  | Readonly<{
-      status: "execution-failed";
-      stage: "branch" | "write" | "worktree-verification" | "commit" | "commit-verification";
-      errors: string[];
-      applicationStatus: "not-applied";
-      customerFacingStatus: "benchmark-only";
-      mergeStatus: "not-authorized";
-    }>
-  | Readonly<{
-      status: "check-failed";
-      checks: RegulatoryImplementationCheckResult[];
-      errors: string[];
-      applicationStatus: "not-applied";
-      customerFacingStatus: "benchmark-only";
-      mergeStatus: "not-authorized";
-    }>
-  | Readonly<{
-      status: "push-failed";
-      checks: RegulatoryImplementationCheckResult[];
-      errors: string[];
-      applicationStatus: "not-applied";
-      customerFacingStatus: "benchmark-only";
-      mergeStatus: "not-authorized";
-    }>
-  | Readonly<{
-      status: "pull-request-failed";
-      checks: RegulatoryImplementationCheckResult[];
-      errors: string[];
-      applicationStatus: "not-applied";
-      customerFacingStatus: "benchmark-only";
-      mergeStatus: "not-authorized";
-    }>
-  | Readonly<{
-      status: "success";
-      receipt: Readonly<RegulatoryImplementationExecutionReceipt>;
-      applicationStatus: "not-applied";
-      customerFacingStatus: "benchmark-only";
-      mergeStatus: "not-authorized";
-    }>;
+export type RegulatoryImplementationExecutionResult = Readonly<
+  ExecutionBoundary &
+    (
+      | { status: "preflight-refused"; errors: string[] }
+      | {
+          status: "execution-failed";
+          stage: "branch" | "write" | "worktree-verification" | "commit" | "commit-verification";
+          errors: string[];
+        }
+      | { status: "check-failed"; checks: RegulatoryImplementationCheckResult[]; errors: string[] }
+      | { status: "push-failed"; checks: RegulatoryImplementationCheckResult[]; errors: string[] }
+      | {
+          status: "pull-request-failed";
+          checks: RegulatoryImplementationCheckResult[];
+          errors: string[];
+        }
+      | { status: "success"; receipt: Readonly<RegulatoryImplementationExecutionReceipt> }
+    )
+>;
 
 function jsonClone<T>(value: T): T {
   const serialized = JSON.stringify(value);
@@ -194,21 +171,16 @@ function exactInstant(value: string, label: string): void {
   }
 }
 
-function sortedUnique(values: readonly string[]): string[] {
-  return [...new Set(values)].sort((left, right) => left.localeCompare(right));
+function sorted(values: readonly string[]): string[] {
+  return [...values].sort((left, right) => left.localeCompare(right));
 }
 
 function sameStrings(left: readonly string[], right: readonly string[]): boolean {
   return fingerprint([...left]) === fingerprint([...right]);
 }
 
-function resultBoundary<T extends object>(value: T): Readonly<T> {
-  return deepFreeze({
-    ...value,
-    applicationStatus: "not-applied" as const,
-    customerFacingStatus: "benchmark-only" as const,
-    mergeStatus: "not-authorized" as const,
-  });
+function boundary<T extends object>(value: T): Readonly<T & ExecutionBoundary> {
+  return deepFreeze({ ...value, ...EXECUTION_BOUNDARY });
 }
 
 function receiptPayload(
@@ -221,7 +193,7 @@ function receiptPayload(
   return jsonClone(payload);
 }
 
-function receiptChecksum(
+function checksumForReceipt(
   receipt:
     | Omit<RegulatoryImplementationExecutionReceipt, "receiptChecksum">
     | RegulatoryImplementationExecutionReceipt
@@ -240,16 +212,18 @@ export function validateRegulatoryImplementationExecutionReceipt(
   if (receipt.repositoryFullName !== EXPECTED_REPOSITORY) {
     errors.push("Implementation execution receipt repository is invalid");
   }
-  if (!SHA_RE.test(receipt.baseCommitSha) || !SHA_RE.test(receipt.commitSha)) {
+  if (!COMMIT_SHA_RE.test(receipt.baseCommitSha) || !COMMIT_SHA_RE.test(receipt.commitSha)) {
     errors.push("Implementation execution receipt commit identity is invalid");
   }
+  const paths = receipt.files.map((file) => file.path);
   if (
     receipt.files.length === 0 ||
+    paths.length !== new Set(paths).size ||
     receipt.files.some(
       (file) =>
         !ALLOWED_TARGETS.has(file.path) ||
-        !/^sha256:[a-f0-9]{64}$/.test(file.beforeChecksum) ||
-        !/^sha256:[a-f0-9]{64}$/.test(file.afterChecksum) ||
+        !CHECKSUM_RE.test(file.beforeChecksum) ||
+        !CHECKSUM_RE.test(file.afterChecksum) ||
         file.beforeChecksum === file.afterChecksum
     )
   ) {
@@ -290,7 +264,7 @@ export function validateRegulatoryImplementationExecutionReceipt(
   ) {
     errors.push("Implementation execution receipt escaped its non-applied boundary");
   }
-  if (receipt.receiptChecksum !== receiptChecksum(receipt)) {
+  if (receipt.receiptChecksum !== checksumForReceipt(receipt)) {
     errors.push("Implementation execution receipt checksum does not reproduce");
   }
   return [...new Set(errors)];
@@ -356,11 +330,11 @@ async function preflight(
       errors.push("Executor pull request already exists for the target branch");
     }
 
-    const plannedPaths = sortedUnique(plan.steps.map((step) => step.targetFile));
+    const plannedPaths = sorted([...new Set(plan.steps.map((step) => step.targetFile))]);
     const bundlePaths = bundle.files.map((file) => file.path);
     if (
       bundlePaths.length !== new Set(bundlePaths).size ||
-      !sameStrings(sortedUnique(bundlePaths), plannedPaths)
+      !sameStrings(sorted(bundlePaths), plannedPaths)
     ) {
       errors.push("Executor bundle file set does not exactly match the implementation plan");
     }
@@ -389,11 +363,22 @@ function verifyChangedPaths(
   actual: readonly string[],
   expectedFiles: readonly RegulatoryImplementationFileChange[]
 ): string[] {
-  const expected = expectedFiles.map((file) => file.path).sort((a, b) => a.localeCompare(b));
-  const observed = [...actual].sort((a, b) => a.localeCompare(b));
-  return sameStrings(observed, expected)
+  const expected = sorted(expectedFiles.map((file) => file.path));
+  const observed = sorted(actual);
+  return observed.length === new Set(observed).size && sameStrings(observed, expected)
     ? []
     : ["Executor observed extra, missing, duplicated, or reordered file changes"];
+}
+
+function executionFailure(
+  stage: "branch" | "write" | "worktree-verification" | "commit" | "commit-verification",
+  error: unknown
+): RegulatoryImplementationExecutionResult {
+  return boundary({
+    status: "execution-failed" as const,
+    stage,
+    errors: [error instanceof Error ? error.message : String(error)],
+  });
 }
 
 export async function executeRegulatoryImplementationPullRequest(
@@ -404,17 +389,13 @@ export async function executeRegulatoryImplementationPullRequest(
 ): Promise<RegulatoryImplementationExecutionResult> {
   const preflightErrors = await preflight(plan, bundle, adapter, request);
   if (preflightErrors.length > 0) {
-    return resultBoundary({ status: "preflight-refused" as const, errors: preflightErrors });
+    return boundary({ status: "preflight-refused" as const, errors: preflightErrors });
   }
 
   try {
     await adapter.createBranch(plan.targetBranch, plan.baseCommitSha);
   } catch (error) {
-    return resultBoundary({
-      status: "execution-failed" as const,
-      stage: "branch" as const,
-      errors: [error instanceof Error ? error.message : String(error)],
-    });
+    return executionFailure("branch", error);
   }
 
   try {
@@ -422,83 +403,70 @@ export async function executeRegulatoryImplementationPullRequest(
       await adapter.writeFile(plan.targetBranch, file.path, file.content);
     }
   } catch (error) {
-    return resultBoundary({
-      status: "execution-failed" as const,
-      stage: "write" as const,
-      errors: [error instanceof Error ? error.message : String(error)],
-    });
+    return executionFailure("write", error);
   }
 
-  const worktreeErrors = verifyChangedPaths(
-    await adapter.listChangedFiles(plan.targetBranch),
-    bundle.files
-  );
-  if (worktreeErrors.length > 0) {
-    return resultBoundary({
-      status: "execution-failed" as const,
-      stage: "worktree-verification" as const,
-      errors: worktreeErrors,
-    });
+  try {
+    const errors = verifyChangedPaths(await adapter.listChangedFiles(plan.targetBranch), bundle.files);
+    if (errors.length > 0) {
+      return boundary({
+        status: "execution-failed" as const,
+        stage: "worktree-verification" as const,
+        errors,
+      });
+    }
+  } catch (error) {
+    return executionFailure("worktree-verification", error);
   }
 
   let commitSha: string;
   try {
     commitSha = await adapter.createCommit(plan.targetBranch, bundle.commitMessage);
-    if (!SHA_RE.test(commitSha)) throw new Error("Executor created commit SHA is invalid");
+    if (!COMMIT_SHA_RE.test(commitSha)) throw new Error("Executor created commit SHA is invalid");
   } catch (error) {
-    return resultBoundary({
-      status: "execution-failed" as const,
-      stage: "commit" as const,
-      errors: [error instanceof Error ? error.message : String(error)],
-    });
+    return executionFailure("commit", error);
   }
 
   try {
-    const commitPathErrors = verifyChangedPaths(
+    const errors = verifyChangedPaths(
       await adapter.listCommitChangedFiles(commitSha, plan.baseCommitSha),
       bundle.files
     );
-    const contentErrors: string[] = [];
     for (const file of bundle.files) {
       const committedContent = await adapter.readFileFromCommit(commitSha, file.path);
       if (committedContent !== file.content || sha256(committedContent) !== file.afterChecksum) {
-        contentErrors.push(`Executor commit content does not match bundle: ${file.path}`);
+        errors.push(`Executor commit content does not match bundle: ${file.path}`);
       }
     }
-    const errors = [...commitPathErrors, ...contentErrors];
     if (errors.length > 0) {
-      return resultBoundary({
+      return boundary({
         status: "execution-failed" as const,
         stage: "commit-verification" as const,
         errors,
       });
     }
   } catch (error) {
-    return resultBoundary({
-      status: "execution-failed" as const,
-      stage: "commit-verification" as const,
-      errors: [error instanceof Error ? error.message : String(error)],
-    });
+    return executionFailure("commit-verification", error);
   }
 
   const checks: RegulatoryImplementationCheckResult[] = [];
   for (const command of bundle.requiredChecks) {
     try {
-      const check = await adapter.runCheck(command, commitSha);
-      checks.push(jsonClone(check));
+      const result = await adapter.runCheck(command, commitSha);
+      checks.push(jsonClone(result));
       if (
-        check.command !== command ||
-        check.commitSha !== commitSha ||
-        check.conclusion !== "success"
+        result.command !== command ||
+        result.commitSha !== commitSha ||
+        result.conclusion !== "success"
       ) {
-        return resultBoundary({
+        return boundary({
           status: "check-failed" as const,
           checks,
           errors: [`Executor required check failed or was not bound to the created commit: ${command}`],
         });
       }
     } catch (error) {
-      return resultBoundary({
+      return boundary({
         status: "check-failed" as const,
         checks,
         errors: [error instanceof Error ? error.message : String(error)],
@@ -509,7 +477,7 @@ export async function executeRegulatoryImplementationPullRequest(
   try {
     await adapter.pushBranch(plan.targetBranch, commitSha, false);
   } catch (error) {
-    return resultBoundary({
+    return boundary({
       status: "push-failed" as const,
       checks,
       errors: [error instanceof Error ? error.message : String(error)],
@@ -537,7 +505,7 @@ export async function executeRegulatoryImplementationPullRequest(
       throw new Error("Executor pull-request metadata does not reproduce the bundle");
     }
   } catch (error) {
-    return resultBoundary({
+    return boundary({
       status: "pull-request-failed" as const,
       checks,
       errors: [error instanceof Error ? error.message : String(error)],
@@ -574,17 +542,15 @@ export async function executeRegulatoryImplementationPullRequest(
     executedAt: request.executedAt,
     executedBy: request.executedBy.replace(/\s+/g, " ").trim(),
     authorizationStatus: "audit-evidence-only",
-    applicationStatus: "not-applied",
-    customerFacingStatus: "benchmark-only",
-    mergeStatus: "not-authorized",
+    ...EXECUTION_BOUNDARY,
   };
   const receipt: RegulatoryImplementationExecutionReceipt = {
     ...payload,
-    receiptChecksum: receiptChecksum(payload),
+    receiptChecksum: checksumForReceipt(payload),
   };
   const receiptErrors = validateRegulatoryImplementationExecutionReceipt(receipt);
   if (receiptErrors.length > 0) {
-    return resultBoundary({
+    return boundary({
       status: "pull-request-failed" as const,
       checks,
       errors: receiptErrors,
@@ -592,5 +558,5 @@ export async function executeRegulatoryImplementationPullRequest(
   }
   const frozenReceipt = deepFreeze(receipt);
   LIVE_EXECUTION_RECEIPTS.add(frozenReceipt as object);
-  return resultBoundary({ status: "success" as const, receipt: frozenReceipt });
+  return boundary({ status: "success" as const, receipt: frozenReceipt });
 }
