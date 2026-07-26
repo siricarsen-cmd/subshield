@@ -60,15 +60,17 @@ An approved decision creates a separate immutable release record containing:
 - benchmark impact and regression plans; and
 - `not-applied` and `benchmark-only` boundaries.
 
-The release record does not contain a complete official-source body and cannot apply its transitions.
+The release record does not contain a complete official-source body and cannot apply its transitions. Approval and release timestamps must be exact ISO instants, must follow their prerequisite evidence, and cannot be materially in the future.
 
 ## Finality and storage
 
-Decision records use create-only storage. The record is tied to one draft identity, so a later approval or conflicting rejection cannot overwrite the first final decision.
+Decision records use create-only storage. The canonical path is bound to the draft checksum rather than the review date, so a later approval or conflicting rejection cannot create a second final decision for the same draft.
 
 Loaded records validate their canonical path, checksum, decision envelope, release record, separation-of-duties provenance, benchmark attestation, and data-minimization boundary.
 
-Serialized review records are audit artifacts, not trust credentials. Any future implementation step must reload the packet and stored source pair, reverify the draft, rebuild the review record, and obtain a fresh module-local opaque review receipt.
+Serialized review records are audit artifacts, not trust credentials. The original in-process human decision object may issue one module-local opaque authorization receipt. Cloning, serializing, storing, or loading the decision destroys that authorization capability permanently.
+
+A future implementation step cannot regain human approval merely by rebuilding the packet, source pair, draft, checksums, or review JSON. It must require a renewed independent human decision in the same controlled process or a separately designed cryptographically signed or Git-bound authorization mechanism.
 
 ## Command-line interface
 
@@ -110,4 +112,4 @@ The parser rejects unknown options, missing values, blank values, duplicate sing
 
 ## Current limitation
 
-No code in this phase applies an approved release record. A future implementation path must require an explicit code-change pull request, fresh opaque reverification, current registry fingerprints, complete regulatory and analyzer checks, and deliberate merge authorization before any registry value can change.
+No code in this phase applies an approved release record. A future implementation path must require an explicit code-change pull request, current registry fingerprints, complete regulatory and analyzer checks, a new human authorization boundary that cannot be reconstructed from stored JSON, and deliberate merge authorization before any registry value can change.
