@@ -6,6 +6,7 @@ import {
 import { REGULATORY_BENCHMARK_CITATION_PACKAGES } from "./benchmark-citation-packages";
 import {
   buildRegulatoryCitationPackage,
+  validateRegulatoryCitationPackage,
   type RegulatoryCitationPackage,
   type RegulatoryCitationPackageRequest,
 } from "./citation-package";
@@ -16,6 +17,60 @@ const ALL_APPROVED_SOURCE_EXCERPT_FIXTURES = {
   ...APPROVED_SOURCE_EXCERPT_FIXTURES,
   ...APPROVED_SUPPLEMENTAL_SOURCE_EXCERPT_FIXTURES,
 };
+
+/**
+ * Complete citation packages approved for direct use by mapping ID. Implementation
+ * bundles edit only this bounded surface; the canonical benchmark or coverage-request
+ * package remains the deterministic fallback for every mapping without an override.
+ */
+export const APPROVED_COVERAGE_PACKAGE_OVERRIDES: Readonly<
+  Record<string, RegulatoryCitationPackage>
+> = {};
+
+function validatedCoverageOverrides(
+  defaultPackages: readonly RegulatoryCitationPackage[]
+): ReadonlyMap<string, RegulatoryCitationPackage> {
+  const defaultsByMappingId = new Map<string, RegulatoryCitationPackage>();
+  const defaultPackageIds = new Set<string>();
+  for (const citationPackage of defaultPackages) {
+    if (
+      defaultsByMappingId.has(citationPackage.mappingId) ||
+      defaultPackageIds.has(citationPackage.packageId)
+    ) {
+      throw new Error(
+        `Duplicate default regulatory citation-package identity: ${citationPackage.mappingId}`
+      );
+    }
+    defaultsByMappingId.set(citationPackage.mappingId, citationPackage);
+    defaultPackageIds.add(citationPackage.packageId);
+  }
+
+  const packages = new Map<string, RegulatoryCitationPackage>();
+  const packageIds = new Set<string>();
+  for (const [mappingId, citationPackage] of Object.entries(
+    APPROVED_COVERAGE_PACKAGE_OVERRIDES
+  )) {
+    const registeredDefault = defaultsByMappingId.get(mappingId);
+    const errors = validateRegulatoryCitationPackage(citationPackage);
+    if (
+      !registeredDefault ||
+      citationPackage.mappingId !== mappingId ||
+      citationPackage.packageId !== registeredDefault.packageId ||
+      citationPackage.customerFacingStatus !== "benchmark-only" ||
+      errors.length > 0
+    ) {
+      throw new Error(
+        `Invalid approved coverage-package override for ${mappingId}: ${errors.join("; ")}`
+      );
+    }
+    if (packages.has(mappingId) || packageIds.has(citationPackage.packageId)) {
+      throw new Error(`Duplicate approved coverage-package override identity: ${mappingId}`);
+    }
+    packages.set(mappingId, citationPackage);
+    packageIds.add(citationPackage.packageId);
+  }
+  return packages;
+}
 
 function mappingById(
   mappings: readonly RegulatoryApplicabilityMapping[],
@@ -291,20 +346,34 @@ const COVERAGE_REQUESTS: RegulatoryCitationPackageRequest[] = [
   },
 ];
 
-export const REGULATORY_SOURCE_COVERAGE_COMPLETION_PACKAGES = COVERAGE_REQUESTS.map(
-  (request) => buildRegulatoryCitationPackage(request, ALL_APPROVED_SOURCE_EXCERPT_FIXTURES)
+const DEFAULT_SOURCE_COVERAGE_COMPLETION_PACKAGES = COVERAGE_REQUESTS.map((request) =>
+  buildRegulatoryCitationPackage(request, ALL_APPROVED_SOURCE_EXCERPT_FIXTURES)
 );
 
-const completionByMappingId = new Map(
-  REGULATORY_SOURCE_COVERAGE_COMPLETION_PACKAGES.map((citationPackage) => [
+const defaultCompletionByMappingId = new Map(
+  DEFAULT_SOURCE_COVERAGE_COMPLETION_PACKAGES.map((citationPackage) => [
     citationPackage.mappingId,
     citationPackage,
   ])
 );
 
-export const REGULATORY_FULL_BENCHMARK_CITATION_PACKAGES: RegulatoryCitationPackage[] = [
+const DEFAULT_FULL_BENCHMARK_CITATION_PACKAGES: RegulatoryCitationPackage[] = [
   ...REGULATORY_BENCHMARK_CITATION_PACKAGES.filter(
-    (citationPackage) => !completionByMappingId.has(citationPackage.mappingId)
+    (citationPackage) => !defaultCompletionByMappingId.has(citationPackage.mappingId)
   ),
-  ...REGULATORY_SOURCE_COVERAGE_COMPLETION_PACKAGES,
-].sort((left, right) => left.mappingId.localeCompare(right.mappingId));
+  ...DEFAULT_SOURCE_COVERAGE_COMPLETION_PACKAGES,
+];
+
+const coverageOverrides = validatedCoverageOverrides(
+  DEFAULT_FULL_BENCHMARK_CITATION_PACKAGES
+);
+
+export const REGULATORY_SOURCE_COVERAGE_COMPLETION_PACKAGES =
+  DEFAULT_SOURCE_COVERAGE_COMPLETION_PACKAGES.map(
+    (citationPackage) => coverageOverrides.get(citationPackage.mappingId) ?? citationPackage
+  );
+
+export const REGULATORY_FULL_BENCHMARK_CITATION_PACKAGES: RegulatoryCitationPackage[] =
+  DEFAULT_FULL_BENCHMARK_CITATION_PACKAGES.map(
+    (citationPackage) => coverageOverrides.get(citationPackage.mappingId) ?? citationPackage
+  ).sort((left, right) => left.mappingId.localeCompare(right.mappingId));
