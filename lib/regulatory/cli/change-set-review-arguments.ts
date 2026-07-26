@@ -16,6 +16,7 @@ export interface StoredChangeSetReviewCliArguments {
   draftRelativePath: string;
   decision: StoredRegulatoryChangeSetReviewDecision;
   reviewedBy: string;
+  reviewerPrincipal: string;
   reviewedAt: string;
   reviewNotes: string[];
   reviewedKinds: StoredRegulatoryChangeSetReviewKind[];
@@ -34,6 +35,7 @@ const SINGLE_OPTIONS = new Set([
   "--draft-path",
   "--decision",
   "--reviewed-by",
+  "--reviewer-principal",
   "--reviewed-at",
   "--release-created-at",
   "--validation-commit",
@@ -149,12 +151,10 @@ export function parseStoredChangeSetReviewCliArguments(
       regulatoryConclusion: "success",
       analyzerConclusion: "success",
     };
-  } else {
-    if (singles.has("--release-created-at") || benchmarkValues.some(Boolean)) {
-      throw new Error(
-        "Rejected stored change-set reviews must not include release or benchmark approval options"
-      );
-    }
+  } else if (singles.has("--release-created-at") || benchmarkValues.some(Boolean)) {
+    throw new Error(
+      "Rejected stored change-set reviews must not include release or benchmark approval options"
+    );
   }
 
   const snapshotRoot =
@@ -192,6 +192,7 @@ export function parseStoredChangeSetReviewCliArguments(
     draftRelativePath: required(singles, "--draft-path"),
     decision,
     reviewedBy: required(singles, "--reviewed-by"),
+    reviewerPrincipal: required(singles, "--reviewer-principal"),
     reviewedAt: required(singles, "--reviewed-at"),
     reviewNotes: notes,
     reviewedKinds,
