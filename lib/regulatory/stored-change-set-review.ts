@@ -39,6 +39,7 @@ export interface RegulatoryBenchmarkValidationAttestation {
 export interface StoredRegulatoryChangeSetReviewRequest {
   decision: StoredRegulatoryChangeSetReviewDecision;
   reviewedBy: string;
+  reviewerPrincipal: string;
   reviewedAt: string;
   reviewNotes: string[];
   reviewedKinds: StoredRegulatoryChangeSetReviewKind[];
@@ -60,11 +61,14 @@ export interface StoredRegulatoryChangeSetReviewRecord {
   draftReverificationChecksum: string;
   decision: StoredRegulatoryChangeSetReviewDecision;
   reviewedBy: string;
+  reviewerPrincipal: string;
   reviewedAt: string;
   reviewNotes: string[];
   reviewedKinds: StoredRegulatoryChangeSetReviewKind[];
   sourceReviewedBy: string;
+  sourceReviewerPrincipal: string;
   draftRequestedBy: string;
+  draftRequesterPrincipal: string;
   benchmarkValidation?: RegulatoryBenchmarkValidationAttestation;
   releaseRecord?: RegulatoryRegistryReleaseRecord;
   releaseRecordFingerprint?: string;
@@ -84,6 +88,7 @@ export interface ReverifiedStoredRegulatoryChangeSetReviewReceipt {
   draftReverificationChecksum: string;
   sourceId: string;
   candidateSnapshotId: string;
+  reviewerPrincipal: string;
   decision: StoredRegulatoryChangeSetReviewDecision;
   verificationChecksum: string;
 }
@@ -104,6 +109,7 @@ const SOURCE_ID_RE = /^[a-z0-9][a-z0-9-]*$/;
 const REVIEW_FILENAME_RE = /^[a-f0-9]{16}-review\.json$/;
 const SHA256_RE = /^sha256:[a-f0-9]{64}$/;
 const COMMIT_SHA_RE = /^[a-f0-9]{40}$/;
+const PRINCIPAL_RE = /^[a-z0-9][a-z0-9 ._@'+-]{1,158}$/i;
 const AUTOMATION_REVIEWER_RE = /(?:bot|automation|github[ -]?actions|workflow|monitor|preparer)/i;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 const HUMAN_REVIEWED_RECORDS = new WeakSet<object>();
@@ -137,8 +143,28 @@ function exactInstant(value: string, label: string): number {
   return parsed.getTime();
 }
 
-function normalizedIdentity(value: string): string {
+function normalizePrincipal(value: string): string {
   return value.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function validatePrincipalValue(value: string, label: string): string {
+  const trimmed = value.replace(/\s+/g, " ").trim();
+  if (
+    !trimmed ||
+    !PRINCIPAL_RE.test(trimmed) ||
+    /[,;|()]/.test(trimmed) ||
+    /\s[-–—]\s/.test(trimmed)
+  ) {
+    throw new Error(`${label} must be a stable reviewer principal without role suffixes`);
+  }
+  return normalizePrincipal(trimmed);
+}
+
+function principalFromDisplayLabel(value: string, label: string): string {
+  const display = value.replace(/\s+/g, " ").trim();
+  if (!display) throw new Error(`${label} must not be blank`);
+  const principal = display.split(/[,;|()]|\s[-–—]\s/, 1)[0]?.trim() ?? "";
+  return validatePrincipalValue(principal, label);
 }
 
 function uniqueNonblank(values: readonly string[]): string[] {
@@ -349,21 +375,38 @@ export function buildStoredRegulatoryChangeSetReviewRecord(
     throw new Error("Stored change-set review provenance does not align across draft, packet, and pair");
   }
 
-  const reviewedBy = request.reviewedBy.trim();
+  const reviewedBy = request.reviewedBy.replace(/\s+/g, " ").trim();
   if (!reviewedBy || AUTOMATION_REVIEWER_RE.test(reviewedBy)) {
     throw new Error("Stored change-set review requires an identified non-automated reviewer");
   }
-  const sourceReviewedBy = pair.candidate.reviewedBy?.trim();
+  const reviewerPrincipal = validatePrincipalValue(
+    request.reviewerPrincipal,
+    "Stored change-set reviewer principal"
+  );
+  const labelPrincipal = principalFromDisplayLabel(reviewedBy, "Stored change-set reviewer label");
+  if (reviewerPrincipal !== labelPrincipal) {
+    throw new Error("Stored change-set reviewer principal does not match the reviewer display label");
+  }
+
+  const sourceReviewedBy = pair.candidate.reviewedBy?.replace(/\s+/g, " ").trim();
   if (!sourceReviewedBy) {
     throw new Error("Stored change-set review requires retained source-review provenance");
   }
-  const reviewerIdentity = normalizedIdentity(reviewedBy);
+  const sourceReviewerPrincipal = principalFromDisplayLabel(
+    sourceReviewedBy,
+    "Stored source reviewer label"
+  );
+  const draftRequestedBy = draft.requestedBy.replace(/\s+/g, " ").trim();
+  const draftRequesterPrincipal = principalFromDisplayLabel(
+    draftRequestedBy,
+    "Stored change-set draft requester label"
+  );
   if (
-    reviewerIdentity === normalizedIdentity(sourceReviewedBy) ||
-    reviewerIdentity === normalizedIdentity(draft.requestedBy)
+    reviewerPrincipal === sourceReviewerPrincipal ||
+    reviewerPrincipal === draftRequesterPrincipal
   ) {
     throw new Error(
-      "Stored change-set reviewer must be independent from the source reviewer and draft preparer"
+      "Stored change-set reviewer principal must be independent from the source reviewer and draft preparer"
     );
   }
 
@@ -447,11 +490,14 @@ export function buildStoredRegulatoryChangeSetReviewRecord(
     draftReverificationChecksum: draftReceipt.verificationChecksum,
     decision: request.decision,
     reviewedBy,
+    reviewerPrincipal,
     reviewedAt: request.reviewedAt,
     reviewNotes,
     reviewedKinds,
     sourceReviewedBy,
-    draftRequestedBy: draft.requestedBy,
+    sourceReviewerPrincipal,
+    draftRequestedBy,
+    draftRequesterPrincipal,
     benchmarkValidation: request.benchmarkValidation
       ? jsonClone(request.benchmarkValidation)
       : undefined,
@@ -515,14 +561,35 @@ export function validateStoredRegulatoryChangeSetReviewRecord(
   if (!record.reviewedBy.trim() || AUTOMATION_REVIEWER_RE.test(record.reviewedBy)) {
     errors.push("Stored change-set review requires a non-automated reviewer");
   }
-  if (!record.sourceReviewedBy.trim() || !record.draftRequestedBy.trim()) {
-    errors.push("Stored change-set review separation-of-duties provenance is incomplete");
-  }
-  if (
-    normalizedIdentity(record.reviewedBy) === normalizedIdentity(record.sourceReviewedBy) ||
-    normalizedIdentity(record.reviewedBy) === normalizedIdentity(record.draftRequestedBy)
-  ) {
-    errors.push("Stored change-set reviewer is not independent");
+  try {
+    const reviewerPrincipal = validatePrincipalValue(
+      record.reviewerPrincipal,
+      "Stored change-set reviewer principal"
+    );
+    const labelPrincipal = principalFromDisplayLabel(
+      record.reviewedBy,
+      "Stored change-set reviewer label"
+    );
+    const sourcePrincipal = principalFromDisplayLabel(
+      record.sourceReviewedBy,
+      "Stored source reviewer label"
+    );
+    const draftPrincipal = principalFromDisplayLabel(
+      record.draftRequestedBy,
+      "Stored change-set draft requester label"
+    );
+    if (
+      reviewerPrincipal !== labelPrincipal ||
+      sourcePrincipal !== record.sourceReviewerPrincipal ||
+      draftPrincipal !== record.draftRequesterPrincipal
+    ) {
+      errors.push("Stored change-set reviewer principal provenance does not reproduce");
+    }
+    if (reviewerPrincipal === sourcePrincipal || reviewerPrincipal === draftPrincipal) {
+      errors.push("Stored change-set reviewer principal is not independent");
+    }
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
   }
   try {
     exactInstant(record.reviewedAt, "Stored change-set review timestamp");
@@ -620,6 +687,7 @@ function reviewReceiptPayload(
     draftReverificationChecksum: receipt.draftReverificationChecksum,
     sourceId: receipt.sourceId,
     candidateSnapshotId: receipt.candidateSnapshotId,
+    reviewerPrincipal: receipt.reviewerPrincipal,
     decision: receipt.decision,
   };
 }
@@ -671,6 +739,7 @@ export function reverifyStoredRegulatoryChangeSetReviewRecord(
     draftReverificationChecksum: draftReceipt.verificationChecksum,
     sourceId: record.sourceId,
     candidateSnapshotId: record.candidateSnapshotId,
+    reviewerPrincipal: record.reviewerPrincipal,
     decision: record.decision,
   };
   const receipt: ReverifiedStoredRegulatoryChangeSetReviewReceipt = {
