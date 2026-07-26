@@ -1,7 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { getApprovedRegulatoryEvidenceSnapshot } from "./approved-evidence-registry";
 import {
   extractApprovedRegulatoryCitation,
   type ExtractedRegulatoryCitation,
@@ -67,8 +66,14 @@ const DRAFT_FILENAME_RE = /^\d{4}-\d{2}-\d{2}-[a-f0-9]{16}\.json$/;
 const SHA256_RE = /^sha256:[a-f0-9]{64}$/;
 const REVERIFIED_DRAFTS = new WeakSet<object>();
 
-function deepClone<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
+function jsonClone<T>(value: T): T {
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) throw new Error("Stored change-set value is not JSON serializable");
+  return JSON.parse(serialized) as T;
+}
+
+function fingerprintJson(value: unknown): string {
+  return fingerprintRegulatoryRegistryValue(jsonClone(value));
 }
 
 function deepFreeze<T>(value: T): Readonly<T> {
@@ -96,13 +101,19 @@ function nonblankList(values: unknown): values is string[] {
   );
 }
 
+function sourceSet(value: RegulatoryCitationPackage): string {
+  return [...new Set(value.citations.map((citation) => citation.sourceId))]
+    .sort((left, right) => left.localeCompare(right))
+    .join("|");
+}
+
 function draftPayload(
   draft:
     | Omit<VerifiedStoredRegulatoryChangeSetDraft, "draftChecksum">
     | VerifiedStoredRegulatoryChangeSetDraft
 ): Omit<VerifiedStoredRegulatoryChangeSetDraft, "draftChecksum"> {
   const { draftChecksum: _ignored, ...payload } = draft as VerifiedStoredRegulatoryChangeSetDraft;
-  return deepClone(payload);
+  return jsonClone(payload);
 }
 
 function checksumForDraft(
@@ -113,66 +124,83 @@ function checksumForDraft(
   return fingerprintRegulatoryRegistryValue(draftPayload(draft));
 }
 
-function sourceSet(citationPackage: RegulatoryCitationPackage): string {
-  return [...new Set(citationPackage.citations.map((citation) => citation.sourceId))]
-    .sort((left, right) => left.localeCompare(right))
-    .join("|");
-}
-
-function sameExtractedCitation(
-  expected: ExtractedRegulatoryCitation,
-  observed: ExtractedRegulatoryCitation
-): boolean {
-  return fingerprintRegulatoryRegistryValue(expected) === fingerprintRegulatoryRegistryValue(observed);
-}
-
-function resolveApprovedSnapshot(
-  citation: ExtractedRegulatoryCitation,
-  pair: VerifiedStoredRegulatoryUpdatePair
-): RegulatorySourceSnapshot | undefined {
-  if (
-    citation.sourceId === pair.candidate.sourceId &&
-    citation.snapshotId === pair.candidate.snapshotId
-  ) {
-    return pair.candidate as RegulatorySourceSnapshot;
-  }
-  return getApprovedRegulatoryEvidenceSnapshot(citation.sourceId, citation.snapshotId);
-}
-
-function validateDynamicCitationPackage(
+function registeredCitationByIdentity(
   citationPackage: RegulatoryCitationPackage,
-  pair: VerifiedStoredRegulatoryUpdatePair,
+  citation: ExtractedRegulatoryCitation
+): ExtractedRegulatoryCitation | undefined {
+  return citationPackage.citations.find(
+    (candidate) =>
+      candidate.sourceId === citation.sourceId && candidate.locator === citation.locator
+  );
+}
+
+function verifyCandidateCitation(
+  citation: ExtractedRegulatoryCitation,
+  candidate: RegulatorySourceSnapshot,
   errors: string[]
 ): void {
-  errors.push(...validateRegulatoryCitationPackage(citationPackage));
-  for (const citation of citationPackage.citations) {
-    const label = `${citation.sourceId}/${citation.locator}`;
-    const snapshot = resolveApprovedSnapshot(citation, pair);
-    if (!snapshot) {
-      errors.push(`${label}: citation does not resolve to approved static or verified stored evidence`);
+  const label = `${citation.sourceId}/${citation.locator}`;
+  if (
+    citation.sourceId !== candidate.sourceId ||
+    citation.snapshotId !== candidate.snapshotId ||
+    citation.checksum !== candidate.checksum
+  ) {
+    errors.push(`${label}: citation does not identify the verified stored candidate`);
+    return;
+  }
+  try {
+    const extracted = extractApprovedRegulatoryCitation(candidate, {
+      sourceId: citation.sourceId,
+      locator: citation.locator,
+      startAnchor: citation.extractionStartAnchor,
+      endAnchor: citation.extractionEndAnchor,
+      requiredAnchors: [...citation.extractionRequiredAnchors],
+      maxCharacters: citation.extractionMaxCharacters,
+    });
+    if (fingerprintJson(extracted) !== fingerprintJson(citation)) {
+      errors.push(`${label}: citation does not reproduce from the approved stored candidate`);
+    }
+  } catch (error) {
+    errors.push(
+      `${label}: approved candidate citation extraction failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
+}
+
+function verifyCitationTransition(
+  afterValue: RegulatoryCitationPackage,
+  currentValue: RegulatoryCitationPackage,
+  candidate: RegulatorySourceSnapshot,
+  errors: string[]
+): void {
+  errors.push(...validateRegulatoryCitationPackage(afterValue));
+  if (sourceSet(afterValue) !== sourceSet(currentValue)) {
+    errors.push(
+      `${afterValue.mappingId}: source-list changes require coordinated mapping and historical-policy review`
+    );
+  }
+
+  let candidateCitationCount = 0;
+  for (const citation of afterValue.citations) {
+    if (
+      citation.sourceId === candidate.sourceId &&
+      citation.snapshotId === candidate.snapshotId
+    ) {
+      candidateCitationCount++;
+      verifyCandidateCitation(citation, candidate, errors);
       continue;
     }
-    try {
-      const extracted = extractApprovedRegulatoryCitation(snapshot, {
-        sourceId: citation.sourceId,
-        locator: citation.locator,
-        startAnchor: citation.extractionStartAnchor,
-        endAnchor: citation.extractionEndAnchor,
-        requiredAnchors: [...citation.extractionRequiredAnchors],
-        maxCharacters: citation.extractionMaxCharacters,
-      });
-      if (!sameExtractedCitation(extracted, citation)) {
-        errors.push(
-          `${label}: citation does not match deterministic extraction from approved evidence`
-        );
-      }
-    } catch (error) {
+    const registered = registeredCitationByIdentity(currentValue, citation);
+    if (!registered || fingerprintJson(registered) !== fingerprintJson(citation)) {
       errors.push(
-        `${label}: approved-evidence citation extraction failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`
+        `${citation.sourceId}/${citation.locator}: unchanged citation differs from the registered template`
       );
     }
+  }
+  if (candidateCitationCount === 0) {
+    errors.push(`${afterValue.mappingId}: proposed template lacks the approved stored candidate citation`);
   }
 }
 
@@ -187,16 +215,16 @@ function buildDraftChanges(
   const seen = new Set<string>();
 
   for (const transition of proposal.transitions) {
+    const key = `${transition.kind}:${transition.id}`;
+    if (seen.has(key)) {
+      errors.push(`Duplicate stored registry transition: ${transition.id}`);
+      continue;
+    }
+    seen.add(key);
     if (transition.kind !== "citation-template") {
       errors.push(`Unsupported stored registry transition kind: ${transition.kind}`);
       continue;
     }
-    const transitionKey = `${transition.kind}:${transition.id}`;
-    if (seen.has(transitionKey)) {
-      errors.push(`Duplicate stored registry transition: ${transition.id}`);
-      continue;
-    }
-    seen.add(transitionKey);
 
     const current = getRegisteredCitationTemplate(transition.id);
     if (!current) {
@@ -206,19 +234,13 @@ function buildDraftChanges(
     if (transition.beforeFingerprint !== current.fingerprint) {
       errors.push(`Stale citation-template before fingerprint: ${transition.id}`);
     }
-    if (
-      transition.afterFingerprint !==
-      fingerprintRegulatoryRegistryValue(transition.afterValue)
-    ) {
-      errors.push(`Citation-template after fingerprint does not reproduce: ${transition.id}`);
+    if (!SHA256_RE.test(transition.afterFingerprint)) {
+      errors.push(`Proposal citation-template after fingerprint is invalid: ${transition.id}`);
     }
-    if (transition.afterValue.mappingId !== transition.id) {
+
+    const afterValue = jsonClone(transition.afterValue);
+    if (afterValue.mappingId !== transition.id) {
       errors.push(`Citation-template identity mismatch: ${transition.id}`);
-    }
-    if (sourceSet(current.value) !== sourceSet(transition.afterValue)) {
-      errors.push(
-        `${transition.id}: source-list changes require coordinated mapping and historical-policy review`
-      );
     }
     if (
       transition.officialEvidence.sourceId !== pair.candidate.sourceId ||
@@ -228,14 +250,19 @@ function buildDraftChanges(
     ) {
       errors.push(`${transition.id}: transition evidence does not match the verified stored candidate`);
     }
-    validateDynamicCitationPackage(transition.afterValue, pair, errors);
+    verifyCitationTransition(
+      afterValue,
+      current.value as RegulatoryCitationPackage,
+      pair.candidate as RegulatorySourceSnapshot,
+      errors
+    );
 
     changes.push({
       kind: "citation-template",
       id: transition.id,
       beforeFingerprint: transition.beforeFingerprint,
-      afterValue: deepClone(transition.afterValue),
-      afterFingerprint: transition.afterFingerprint,
+      afterValue,
+      afterFingerprint: fingerprintJson(afterValue),
       reason: transition.reason,
       officialEvidence: [
         {
@@ -344,8 +371,10 @@ export function validateVerifiedStoredRegulatoryChangeSetDraft(
   const errors: string[] = [];
   if (draft.schemaVersion !== 1) errors.push("Stored change-set draft schema version is invalid");
   if (!SOURCE_ID_RE.test(draft.sourceId)) errors.push("Stored change-set draft source ID is invalid");
-  const expectedDraftId = `stored-regulatory-change-set:${draft.sourceId}:${draft.candidateSnapshotId}:${draft.createdAt}`;
-  if (draft.draftId !== expectedDraftId) {
+  if (
+    draft.draftId !==
+    `stored-regulatory-change-set:${draft.sourceId}:${draft.candidateSnapshotId}:${draft.createdAt}`
+  ) {
     errors.push("Stored change-set draft ID does not match its source, candidate, and timestamp");
   }
   if (!draft.baselineSnapshotId.trim() || !draft.candidateSnapshotId.trim()) {
@@ -390,15 +419,14 @@ export function validateVerifiedStoredRegulatoryChangeSetDraft(
     if (change.beforeFingerprint !== current.fingerprint) {
       errors.push(`${label}: stale before fingerprint`);
     }
-    const reproducedAfter = fingerprintRegulatoryRegistryValue(change.afterValue);
-    if (change.afterFingerprint !== reproducedAfter) {
-      errors.push(`${label}: after fingerprint does not reproduce`);
-    }
     const afterValue = change.afterValue as RegulatoryCitationPackage;
+    if (change.afterFingerprint !== fingerprintJson(afterValue)) {
+      errors.push(`${label}: after fingerprint does not reproduce from persisted JSON`);
+    }
     if (afterValue.mappingId !== change.id) {
       errors.push(`${label}: after-value identity mismatch`);
     }
-    if (sourceSet(current.value) !== sourceSet(afterValue)) {
+    if (sourceSet(current.value as RegulatoryCitationPackage) !== sourceSet(afterValue)) {
       errors.push(`${label}: source-list changes require coordinated registry review`);
     }
     errors.push(...validateRegulatoryCitationPackage(afterValue).map((error) => `${label}: ${error}`));
@@ -411,26 +439,43 @@ export function validateVerifiedStoredRegulatoryChangeSetDraft(
     }
     if (!Array.isArray(change.officialEvidence) || change.officialEvidence.length !== 1) {
       errors.push(`${label}: exactly one verified stored evidence record is required`);
-    } else {
-      const evidence = change.officialEvidence[0];
+      continue;
+    }
+    const evidence = change.officialEvidence[0];
+    if (
+      evidence.sourceId !== draft.sourceId ||
+      evidence.snapshotId !== draft.candidateSnapshotId ||
+      !evidence.citation?.trim() ||
+      !SHA256_RE.test(evidence.checksum) ||
+      !evidence.evidenceNote?.trim()
+    ) {
+      errors.push(`${label}: stored evidence does not match draft provenance`);
+    }
+    if (
+      !afterValue.citations.some(
+        (citation) =>
+          citation.sourceId === draft.sourceId &&
+          citation.snapshotId === draft.candidateSnapshotId &&
+          citation.checksum === evidence.checksum
+      )
+    ) {
+      errors.push(`${label}: after-value lacks the verified stored candidate citation`);
+    }
+    for (const citation of afterValue.citations) {
       if (
-        evidence.sourceId !== draft.sourceId ||
-        evidence.snapshotId !== draft.candidateSnapshotId ||
-        !evidence.citation?.trim() ||
-        !SHA256_RE.test(evidence.checksum) ||
-        !evidence.evidenceNote?.trim()
+        citation.sourceId === draft.sourceId &&
+        citation.snapshotId === draft.candidateSnapshotId
       ) {
-        errors.push(`${label}: stored evidence does not match draft provenance`);
+        continue;
       }
-      if (
-        !afterValue.citations.some(
-          (citation) =>
-            citation.sourceId === draft.sourceId &&
-            citation.snapshotId === draft.candidateSnapshotId &&
-            citation.checksum === evidence.checksum
-        )
-      ) {
-        errors.push(`${label}: after-value lacks the verified stored candidate citation`);
+      const registered = registeredCitationByIdentity(
+        current.value as RegulatoryCitationPackage,
+        citation
+      );
+      if (!registered || fingerprintJson(registered) !== fingerprintJson(citation)) {
+        errors.push(
+          `${label}: unchanged citation ${citation.sourceId}/${citation.locator} differs from the registered template`
+        );
       }
     }
   }
@@ -498,9 +543,9 @@ export function reverifyStoredRegulatoryChangeSetDraft(
   packet: RegulatoryUpdateReviewPacket,
   pair: VerifiedStoredRegulatoryUpdatePair
 ): Readonly<ReverifiedStoredRegulatoryChangeSetDraftReceipt> {
-  const draftErrors = validateVerifiedStoredRegulatoryChangeSetDraft(draft);
-  if (draftErrors.length > 0) {
-    throw new Error(`Stored change-set draft failed reverification: ${draftErrors.join("; ")}`);
+  const errors = validateVerifiedStoredRegulatoryChangeSetDraft(draft);
+  if (errors.length > 0) {
+    throw new Error(`Stored change-set draft failed reverification: ${errors.join("; ")}`);
   }
   if (!isVerifiedStoredRegulatoryUpdatePair(pair)) {
     throw new Error("Stored change-set draft reverification requires an opaque source pair");
@@ -525,10 +570,7 @@ export function reverifyStoredRegulatoryChangeSetDraft(
     draft.requestedBy,
     draft.createdAt
   );
-  if (
-    fingerprintRegulatoryRegistryValue(reproduced) !==
-    fingerprintRegulatoryRegistryValue(draft)
-  ) {
+  if (fingerprintJson(reproduced) !== fingerprintJson(draft)) {
     throw new Error("Stored change-set draft does not reproduce from current verified evidence");
   }
 
@@ -542,9 +584,7 @@ export function reverifyStoredRegulatoryChangeSetDraft(
   };
   const receipt: ReverifiedStoredRegulatoryChangeSetDraftReceipt = {
     ...withoutChecksum,
-    verificationChecksum: fingerprintRegulatoryRegistryValue(
-      receiptPayload(withoutChecksum)
-    ),
+    verificationChecksum: fingerprintRegulatoryRegistryValue(receiptPayload(withoutChecksum)),
   };
   const frozen = deepFreeze(receipt);
   REVERIFIED_DRAFTS.add(frozen as object);
@@ -608,7 +648,7 @@ export async function storeVerifiedStoredRegulatoryChangeSetDraft(
     encoding: "utf8",
     flag: "wx",
   });
-  return { draft: deepFreeze(deepClone(draft)), draftPath, relativePath };
+  return { draft: deepFreeze(jsonClone(draft)), draftPath, relativePath };
 }
 
 export async function loadVerifiedStoredRegulatoryChangeSetDraft(
