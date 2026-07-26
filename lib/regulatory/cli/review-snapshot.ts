@@ -1,19 +1,37 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
-
 import { recordRegulatorySnapshotReviewDecision } from "../review-decision-command";
 import { parseRegulatoryReviewDecisionCliArguments } from "./review-decision-arguments";
+import {
+  reserveRegulatoryReviewResultFile,
+  type RegulatoryReviewResultFileReservation,
+} from "./review-result-file";
 
 async function main(): Promise<void> {
   const arguments_ = parseRegulatoryReviewDecisionCliArguments(process.argv.slice(2));
-  const result = await recordRegulatorySnapshotReviewDecision(arguments_);
-  const serialized = `${JSON.stringify(result, null, 2)}\n`;
+  let reservation: RegulatoryReviewResultFileReservation | undefined;
   if (arguments_.resultFile) {
-    await mkdir(path.dirname(arguments_.resultFile), { recursive: true });
-    await writeFile(arguments_.resultFile, serialized, {
-      encoding: "utf8",
-      flag: "wx",
-    });
+    reservation = await reserveRegulatoryReviewResultFile(arguments_.resultFile);
+  }
+
+  let result;
+  try {
+    result = await recordRegulatorySnapshotReviewDecision(arguments_);
+  } catch (error) {
+    await reservation?.abandon();
+    throw error;
+  }
+
+  const serialized = `${JSON.stringify(result, null, 2)}\n`;
+  if (reservation) {
+    try {
+      await reservation.finalize(serialized);
+    } catch (error) {
+      process.stdout.write(serialized);
+      throw new Error(
+        `Regulatory review decision was persisted, but the reserved result file could not be finalized: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
   }
   process.stdout.write(serialized);
 }
