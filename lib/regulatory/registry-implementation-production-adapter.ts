@@ -32,7 +32,7 @@ const CANONICAL_GIT_ENDPOINT =
 const MAX_OUTPUT_BYTES = 256 * 1024;
 const COMMIT_SHA_RE = /^[a-f0-9]{40}$/;
 const RFC_3339_INSTANT_RE =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/;
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?Z$/;
 const SAFE_PERMISSION = new Set(["ADMIN", "MAINTAIN", "WRITE"]);
 const ALLOWED_PATHS = Object.freeze([
   "lib/regulatory/benchmark-applicability-mappings.ts",
@@ -46,6 +46,11 @@ const REQUIRED_CHECKS = Object.freeze([
   "npx tsc --noEmit",
   "npm run build",
 ] as const);
+const PRODUCTION_BOUNDARY = Object.freeze({
+  applicationStatus: "not-applied" as const,
+  customerFacingStatus: "benchmark-only" as const,
+  mergeStatus: "not-authorized" as const,
+});
 
 type AllowedCheck = (typeof REQUIRED_CHECKS)[number];
 type AdapterState =
@@ -58,6 +63,10 @@ type AdapterState =
   | "pushed"
   | "pr-created"
   | "cleaned";
+type ProductionBoundaryFailureStage =
+  | "execution"
+  | "cleanup"
+  | "execution-and-cleanup";
 
 interface CommandResult {
   stdout: string;
@@ -98,6 +107,41 @@ export interface RegulatoryImplementationProductionOptions {
   repositoryRoot: string;
 }
 
+export type RegulatoryImplementationProductionExecutionResult =
+  | RegulatoryImplementationExecutionResult
+  | Readonly<{
+      status: "production-boundary-failed";
+      stage: ProductionBoundaryFailureStage;
+      priorResult?: RegulatoryImplementationExecutionResult;
+      errors: readonly string[];
+      applicationStatus: "not-applied";
+      customerFacingStatus: "benchmark-only";
+      mergeStatus: "not-authorized";
+    }>;
+
+function productionBoundaryFailure(
+  stage: ProductionBoundaryFailureStage,
+  priorResult?: RegulatoryImplementationExecutionResult
+): Extract<
+  RegulatoryImplementationProductionExecutionResult,
+  { status: "production-boundary-failed" }
+> {
+  const errors = Object.freeze([
+    stage === "execution"
+      ? "Controlled production adapter execution failed before a structured executor result was produced"
+      : stage === "cleanup"
+        ? "Controlled production adapter cleanup failed after the executor produced a structured result"
+        : "Controlled production adapter execution and cleanup both failed before a structured executor result was produced",
+  ]);
+  return Object.freeze({
+    status: "production-boundary-failed" as const,
+    stage,
+    ...(priorResult ? { priorResult } : {}),
+    errors,
+    ...PRODUCTION_BOUNDARY,
+  });
+}
+
 /** Pure, non-mutating helpers exposed only for deterministic security tests. */
 export const regulatoryImplementationProductionAdapterTestSurface =
   Object.freeze({
@@ -108,6 +152,7 @@ export const regulatoryImplementationProductionAdapterTestSurface =
     validateBranchName,
     validateRepositoryPath,
     checkInvocation,
+    productionBoundaryFailure,
   });
 
 function commandFailure(label: string): Error {
@@ -168,12 +213,48 @@ function exactString(value: unknown, label: string): string {
 
 function normalizeRfc3339Instant(value: unknown, label: string): string {
   const candidate = exactString(value, label);
-  if (!RFC_3339_INSTANT_RE.test(candidate)) {
+  const match = RFC_3339_INSTANT_RE.exec(candidate);
+  if (!match) {
     throw new Error(`Controlled production adapter ${label} is invalid`);
   }
 
-  const parsed = new Date(candidate);
-  if (Number.isNaN(parsed.getTime())) {
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const millisecond = Number(`${match[7] ?? ""}000`.slice(0, 3));
+
+  if (
+    year < 1970 ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31 ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59 ||
+    second < 0 ||
+    second > 59
+  ) {
+    throw new Error(`Controlled production adapter ${label} is invalid`);
+  }
+
+  const parsed = new Date(
+    Date.UTC(year, month - 1, day, hour, minute, second, millisecond)
+  );
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day ||
+    parsed.getUTCHours() !== hour ||
+    parsed.getUTCMinutes() !== minute ||
+    parsed.getUTCSeconds() !== second ||
+    parsed.getUTCMilliseconds() !== millisecond
+  ) {
     throw new Error(`Controlled production adapter ${label} is invalid`);
   }
 
@@ -314,15 +395,35 @@ function sanitizedGitEnvironment(
   const environment = preservedEnvironment();
 
   environment.GIT_CONFIG_NOSYSTEM = "1";
+  environment.GIT_CONFIG_GLOBAL = `${hooksPath}.global-config`;
+  environment.GIT_CONFIG_SYSTEM = `${hooksPath}.system-config`;
   environment.GIT_TERMINAL_PROMPT = "0";
   environment.GCM_INTERACTIVE = "Never";
 
   const configuration: Array<[string, string]> = [
     ["core.hooksPath", hooksPath],
+    ["core.sshCommand", ""],
+    ["core.fsmonitor", "false"],
+    ["extensions.worktreeConfig", "false"],
     ["commit.gpgSign", "false"],
     ["tag.gpgSign", "false"],
     ["credential.helper", ""],
     ["credential.interactive", "never"],
+    ["http.extraHeader", ""],
+    ["http.proxy", ""],
+    [`http.${CANONICAL_GIT_ENDPOINT}.proxy`, ""],
+    ["http.sslVerify", "true"],
+    [`http.${CANONICAL_GIT_ENDPOINT}.sslVerify`, "true"],
+    ["http.followRedirects", "false"],
+    [`http.${CANONICAL_GIT_ENDPOINT}.followRedirects`, "false"],
+    ["http.cookieFile", ""],
+    [`http.${CANONICAL_GIT_ENDPOINT}.cookieFile`, ""],
+    ["protocol.allow", "never"],
+    ["protocol.https.allow", "always"],
+    ["protocol.file.allow", "never"],
+    ["protocol.ext.allow", "never"],
+    ["protocol.ssh.allow", "never"],
+    ["protocol.git.allow", "never"],
   ];
 
   if (authentication) {
@@ -597,12 +698,27 @@ class ProductionRegulatoryImplementationAdapter
     });
   }
 
+  private async rejectLocalIncludes(): Promise<void> {
+    const includes = await this.git(
+      ["config", "--local", "--name-only", "--get-regexp", "^include"],
+      {
+        label: "inspect prohibited local Git includes",
+        allowedExitCodes: [0, 1],
+      }
+    );
+    if (includes.exitCode === 0 && includes.stdout.trim()) {
+      throw new Error(
+        "Controlled production adapter local Git includes are prohibited"
+      );
+    }
+  }
+
   private async readConfiguredUrls(
     key: string,
     label: string
   ): Promise<string[]> {
     const result = await this.git(
-      ["config", "--local", "--get-all", key],
+      ["config", "--local", "--includes", "--get-all", key],
       {
         label,
         allowedExitCodes: [0, 1],
@@ -638,6 +754,8 @@ class ProductionRegulatoryImplementationAdapter
       );
     }
 
+    await this.rejectLocalIncludes();
+
     const fetchUrls = await this.readConfiguredUrls(
       "remote.origin.url",
       "inspect every origin fetch URL"
@@ -664,6 +782,7 @@ class ProductionRegulatoryImplementationAdapter
       [
         "config",
         "--local",
+        "--includes",
         "--get-regexp",
         "^url\\..*\\.(insteadOf|pushInsteadOf)$",
       ],
@@ -1645,7 +1764,7 @@ export async function executeRegulatoryImplementationWithProductionAdapter(
   plan: RegulatoryRegistryImplementationPlan,
   bundle: RegulatoryImplementationPullRequestBundle,
   options: RegulatoryImplementationProductionOptions
-): Promise<RegulatoryImplementationExecutionResult> {
+): Promise<RegulatoryImplementationProductionExecutionResult> {
   const repositoryRoot = await realpath(options.repositoryRoot);
   const adapter = new ProductionRegulatoryImplementationAdapter(
     repositoryRoot,
@@ -1653,13 +1772,38 @@ export async function executeRegulatoryImplementationWithProductionAdapter(
     bundle
   );
 
+  let result: RegulatoryImplementationExecutionResult | undefined;
+  let executionFailed = false;
   try {
-    return await executeRegulatoryImplementationPullRequest(
+    result = await executeRegulatoryImplementationPullRequest(
       plan,
       bundle,
       adapter
     );
-  } finally {
-    await adapter.cleanup();
+  } catch {
+    executionFailed = true;
   }
+
+  let cleanupFailed = false;
+  try {
+    await adapter.cleanup();
+  } catch {
+    cleanupFailed = true;
+  }
+
+  if (executionFailed || cleanupFailed) {
+    return productionBoundaryFailure(
+      executionFailed && cleanupFailed
+        ? "execution-and-cleanup"
+        : executionFailed
+          ? "execution"
+          : "cleanup",
+      result
+    );
+  }
+
+  if (!result) {
+    return productionBoundaryFailure("execution");
+  }
+  return result;
 }
