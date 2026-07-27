@@ -288,7 +288,7 @@ function sameOrderedStrings(
 }
 
 function preservedEnvironment(): NodeJS.ProcessEnv {
-  const environment: NodeJS.ProcessEnv = {};
+  const environment = {} as NodeJS.ProcessEnv;
   for (const key of [
     "PATH",
     "Path",
