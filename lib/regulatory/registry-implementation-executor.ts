@@ -86,11 +86,16 @@ export interface RegulatoryImplementationRepositoryAdapter {
     body: string;
     autoMergeEnabled: false;
   }): Promise<RegulatoryImplementationPullRequestRecord>;
+  readTrustedPrincipal(): Promise<string>;
   readTrustedClock(): Promise<string>;
 }
 
+/**
+ * Retained only for source compatibility. Caller-supplied identity is ignored;
+ * receipt provenance always comes from adapter.readTrustedPrincipal().
+ */
 export interface ExecuteRegulatoryImplementationRequest {
-  executedBy: string;
+  executedBy?: string;
 }
 
 export interface RegulatoryImplementationExecutionReceiptFile {
@@ -149,6 +154,11 @@ export type RegulatoryImplementationExecutionResult = Readonly<
     )
 >;
 
+interface PreflightResult {
+  errors: string[];
+  trustedPrincipal?: string;
+}
+
 function jsonClone<T>(value: T): T {
   const serialized = JSON.stringify(value);
   if (serialized === undefined) throw new Error("Executor value is not JSON serializable");
@@ -176,6 +186,10 @@ function exactInstant(value: string, label: string): void {
   if (Number.isNaN(parsed.getTime()) || parsed.toISOString() !== value) {
     throw new Error(`${label} must be an exact ISO instant`);
   }
+}
+
+function normalizePrincipal(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
 }
 
 function sorted(values: readonly string[]): string[] {
@@ -288,7 +302,9 @@ export function validateRegulatoryImplementationExecutionReceipt(
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
   }
-  if (!receipt.executedBy.trim()) errors.push("Implementation execution receipt executor is blank");
+  if (!normalizePrincipal(receipt.executedBy)) {
+    errors.push("Implementation execution receipt executor is blank");
+  }
   if (
     receipt.authorizationStatus !== "audit-evidence-only" ||
     receipt.applicationStatus !== "not-applied" ||
@@ -319,10 +335,10 @@ export function isLiveRegulatoryImplementationExecutionReceipt(
 async function preflight(
   plan: RegulatoryRegistryImplementationPlan,
   bundle: RegulatoryImplementationPullRequestBundle,
-  adapter: RegulatoryImplementationRepositoryAdapter,
-  request: ExecuteRegulatoryImplementationRequest
-): Promise<string[]> {
+  adapter: RegulatoryImplementationRepositoryAdapter
+): Promise<PreflightResult> {
   const errors: string[] = [];
+  let trustedPrincipal: string | undefined;
   if (!isLiveAuthorizedRegulatoryRegistryImplementationPlan(plan)) {
     errors.push("Executor requires the original live-authorized implementation plan");
   }
@@ -331,9 +347,13 @@ async function preflight(
   }
   errors.push(...validateRegulatoryRegistryImplementationPlan(plan));
   errors.push(...validateRegulatoryImplementationPullRequestBundle(bundle, plan));
-  if (!request.executedBy.trim()) errors.push("Implementation execution executor must not be blank");
 
   try {
+    trustedPrincipal = normalizePrincipal(await adapter.readTrustedPrincipal());
+    if (!trustedPrincipal) {
+      errors.push("Implementation execution trusted principal must not be blank");
+    }
+
     const repository = await adapter.inspectRepository();
     if (repository.repositoryFullName !== EXPECTED_REPOSITORY) {
       errors.push(`Executor repository must be ${EXPECTED_REPOSITORY}`);
@@ -383,7 +403,10 @@ async function preflight(
     errors.push(error instanceof Error ? error.message : String(error));
   }
 
-  return [...new Set(errors)];
+  return {
+    errors: [...new Set(errors)],
+    trustedPrincipal: errors.length === 0 ? trustedPrincipal : undefined,
+  };
 }
 
 function verifyChangedPaths(
@@ -412,12 +435,19 @@ export async function executeRegulatoryImplementationPullRequest(
   plan: RegulatoryRegistryImplementationPlan,
   bundle: RegulatoryImplementationPullRequestBundle,
   adapter: RegulatoryImplementationRepositoryAdapter,
-  request: ExecuteRegulatoryImplementationRequest
+  _request?: ExecuteRegulatoryImplementationRequest
 ): Promise<RegulatoryImplementationExecutionResult> {
-  const preflightErrors = await preflight(plan, bundle, adapter, request);
-  if (preflightErrors.length > 0) {
-    return boundary({ status: "preflight-refused" as const, errors: preflightErrors });
+  const preflightResult = await preflight(plan, bundle, adapter);
+  if (preflightResult.errors.length > 0 || !preflightResult.trustedPrincipal) {
+    return boundary({
+      status: "preflight-refused" as const,
+      errors:
+        preflightResult.errors.length > 0
+          ? preflightResult.errors
+          : ["Implementation execution trusted principal was not established"],
+    });
   }
+  const trustedPrincipal = preflightResult.trustedPrincipal;
 
   try {
     await adapter.createBranch(plan.targetBranch, plan.baseCommitSha);
@@ -590,7 +620,7 @@ export async function executeRegulatoryImplementationPullRequest(
       autoMergeEnabled: false,
     },
     executedAt,
-    executedBy: request.executedBy.replace(/\s+/g, " ").trim(),
+    executedBy: trustedPrincipal,
     authorizationStatus: "audit-evidence-only",
     ...EXECUTION_BOUNDARY,
   };
