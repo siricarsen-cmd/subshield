@@ -23,6 +23,8 @@ The executor does not merge, deploy, approve evidence, change customer reports, 
 - verification that the created commit has exactly the reviewed base as its single parent and the exact bundle commit message;
 - exact GitHub pull-request number and canonical repository URL verification;
 - receipt time derived from the adapter's narrow trusted clock rather than caller-supplied time;
+- receipt attribution derived from the adapter's authenticated principal when supplied, otherwise from the executor's fixed service principal bound to the independently verified repository identity;
+- caller-supplied `executedBy` data treated as non-authoritative and ignored;
 - explicit preflight, execution, check, push, pull-request, and receipt failure results;
 - a deeply frozen checksum-bound success receipt; and
 - module-local receipt branding that is lost when the receipt is cloned or serialized.
@@ -55,10 +57,13 @@ Repository effects are isolated behind `RegulatoryImplementationRepositoryAdapte
 9. inspect the created commit's exact parent and message;
 10. run each exact required check against that commit;
 11. push the branch without force;
-12. open one pull request with the deterministic title and body and auto-merge disabled; and
-13. read one trusted execution-clock instant for receipt provenance.
+12. open one pull request with the deterministic title and body and auto-merge disabled;
+13. optionally read one authenticated executor or service principal for receipt attribution; and
+14. read one trusted execution-clock instant for receipt provenance.
 
-The adapter contains no merge, deployment, tag, release, secret, environment, customer-record, database, payment, authentication, email, or unrelated repository operation.
+The optional principal read is strictly read-only. If a production adapter provides it, the returned value must be nonblank and becomes the receipt principal. The benchmark-only in-memory adapter may omit it, in which case the executor records the fixed service identity `service:subshield-regulatory-executor@siricarsen-cmd/subshield` after independently verifying that exact repository. Caller-provided attribution is never trusted.
+
+The adapter contains no merge, deployment, tag, release, secret, environment, customer-record, database, payment, authentication mutation, email, or unrelated repository operation.
 
 ## Preflight requirements
 
@@ -68,6 +73,7 @@ Before creating a branch, the executor proves:
 - the bundle is valid, still live, and exactly reproduces from the plan;
 - the repository identity is exactly `siricarsen-cmd/subshield`;
 - the default branch is exactly `main`;
+- the executor principal is obtained from trusted adapter or repository-bound service context and is nonblank;
 - the reviewed base commit exists;
 - the target branch name equals the deterministic plan and bundle branch;
 - no target branch or equivalent execution pull request exists;
@@ -113,7 +119,7 @@ A successful execution produces a deeply frozen, checksum-bound receipt containi
 - exact pull-request number and canonical repository URL;
 - exact pull-request title and body fingerprint;
 - execution timestamp from the trusted adapter clock;
-- executor principal;
+- executor principal from trusted adapter or repository-bound service context, never caller input;
 - `authorizationStatus: audit-evidence-only`;
 - `applicationStatus: not-applied`;
 - `customerFacingStatus: benchmark-only`; and
@@ -142,9 +148,12 @@ A future production adapter may recognize an existing completed execution only a
 - failed or mismatched checks create no push or pull request;
 - push and pull-request failures produce explicit non-success outcomes;
 - altered pull-request metadata, invalid pull-request number, wrong-repository URL, and enabled auto-merge are refused;
+- caller-supplied executor attribution is ignored by the implementation;
 - an invalid trusted clock cannot produce a live receipt;
 - deterministic inputs reproduce deterministic commit and receipt identity; and
 - the adapter exposes no merge, deployment, release, secret, payment, database, or email capability.
+
+The production-adapter phase must add explicit regressions for authenticated-principal success, blank-principal refusal, and failed-principal reads when it makes that optional adapter operation mandatory for live GitHub execution.
 
 ## Required validation
 
@@ -160,4 +169,4 @@ npm run build
 
 ## Next phase
 
-A separate production-adapter phase must implement the narrow repository contract using authenticated local Git and GitHub operations without expanding its capabilities. After that, a separate merge-authorization phase must independently query GitHub, verify the exact reviewed execution commit and pull request, require fresh successful checks and deliberate human authorization, and issue a one-time live merge authorization. The executor and its stored receipt must never merge code by themselves.
+A separate production-adapter phase must implement the narrow repository contract using authenticated local Git and GitHub operations without expanding its capabilities. It must make authenticated-principal reporting mandatory, prove blank or failed identity reads fail closed, and preserve the fixed service principal only for the benchmark-only in-memory foundation. After that, a separate merge-authorization phase must independently query GitHub, verify the exact reviewed execution commit and pull request, require fresh successful checks and deliberate human authorization, and issue a one-time live merge authorization. The executor and its stored receipt must never merge code by themselves.
