@@ -56,6 +56,10 @@ export interface RegulatoryImplementationPullRequestRecord {
   title: string;
   body: string;
   autoMergeEnabled: boolean;
+  /** Hosted adapters supply these fields; benchmark adapters may omit them. */
+  state?: string;
+  isDraft?: boolean;
+  createdAt?: string;
 }
 
 /**
@@ -65,6 +69,8 @@ export interface RegulatoryImplementationPullRequestRecord {
  */
 export interface RegulatoryImplementationRepositoryAdapter {
   inspectRepository(): Promise<RegulatoryImplementationRepositoryState>;
+  /** Production adapters must return the authenticated remote main head. */
+  readDefaultBranchHead?(): Promise<string>;
   commitExists(commitSha: string): Promise<boolean>;
   readFileAtCommit(commitSha: string, path: string): Promise<string>;
   branchExists(branch: string): Promise<boolean>;
@@ -368,6 +374,13 @@ async function preflight(
       errors.push(`Executor default branch must be ${EXPECTED_DEFAULT_BRANCH}`);
     }
 
+    if (adapter.readDefaultBranchHead) {
+      const defaultBranchHead = await adapter.readDefaultBranchHead();
+      if (defaultBranchHead !== plan.baseCommitSha) {
+        errors.push("Executor remote default branch does not equal the reviewed base commit");
+      }
+    }
+
     const principalValue = adapter.readTrustedPrincipal
       ? await adapter.readTrustedPrincipal()
       : repositoryServicePrincipal(repository.repositoryFullName);
@@ -556,6 +569,24 @@ export async function executeRegulatoryImplementationPullRequest(
     }
   }
 
+  if (adapter.readDefaultBranchHead) {
+    try {
+      if ((await adapter.readDefaultBranchHead()) !== plan.baseCommitSha) {
+        return boundary({
+          status: "push-failed" as const,
+          checks,
+          errors: ["Executor remote default branch moved before push"],
+        });
+      }
+    } catch (error) {
+      return boundary({
+        status: "push-failed" as const,
+        checks,
+        errors: [error instanceof Error ? error.message : String(error)],
+      });
+    }
+  }
+
   try {
     await adapter.pushBranch(plan.targetBranch, commitSha, false);
   } catch (error) {
@@ -564,6 +595,24 @@ export async function executeRegulatoryImplementationPullRequest(
       checks,
       errors: [error instanceof Error ? error.message : String(error)],
     });
+  }
+
+  if (adapter.readDefaultBranchHead) {
+    try {
+      if ((await adapter.readDefaultBranchHead()) !== plan.baseCommitSha) {
+        return boundary({
+          status: "pull-request-failed" as const,
+          checks,
+          errors: ["Executor remote default branch moved before pull-request creation"],
+        });
+      }
+    } catch (error) {
+      return boundary({
+        status: "pull-request-failed" as const,
+        checks,
+        errors: [error instanceof Error ? error.message : String(error)],
+      });
+    }
   }
 
   let pullRequest: RegulatoryImplementationPullRequestRecord;
@@ -583,7 +632,9 @@ export async function executeRegulatoryImplementationPullRequest(
       pullRequest.headCommitSha !== commitSha ||
       pullRequest.title !== bundle.pullRequestTitle ||
       pullRequest.body !== bundle.pullRequestBody ||
-      pullRequest.autoMergeEnabled !== false
+      pullRequest.autoMergeEnabled !== false ||
+      (pullRequest.state !== undefined && pullRequest.state !== "OPEN") ||
+      (pullRequest.isDraft !== undefined && pullRequest.isDraft !== false)
     ) {
       throw new Error("Executor pull-request identity or metadata does not reproduce the bundle");
     }
@@ -597,7 +648,7 @@ export async function executeRegulatoryImplementationPullRequest(
 
   let executedAt: string;
   try {
-    executedAt = await adapter.readTrustedClock();
+    executedAt = pullRequest.createdAt ?? (await adapter.readTrustedClock());
     exactInstant(executedAt, "Implementation execution trusted clock");
   } catch (error) {
     return boundary({
