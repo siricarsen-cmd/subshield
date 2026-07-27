@@ -1,271 +1,226 @@
 # Controlled Regulatory Implementation Production Adapter
 
-Status: implemented for adversarial review  
-Product scope: federal subcontractors reviewing prime-issued subcontract and solicitation packages  
-Customer-facing status: not enabled
+## Status
 
-## Purpose
+This phase adds a narrowly scoped production boundary for the benchmark-only regulatory implementation executor introduced in PR #57.
 
-This phase connects the benchmark-only controlled executor to authenticated local Git and GitHub operations without expanding the executor's authority.
+The adapter remains:
 
-The production adapter may create one exact regulatory implementation branch and commit, run four approved checks, publish that branch with a create-only compare-and-swap, and open one non-auto-merge pull request. It must never merge, deploy, approve evidence, change analyzer behavior, alter customer data, or treat stored artifacts as live authorization.
+- application status: `not-applied`;
+- customer-facing status: `benchmark-only`;
+- merge status: `not-authorized`.
 
-The adapter is a capability boundary. Every operation fails closed and remains bound to the original in-process live `RegulatoryRegistryImplementationPlan` and `RegulatoryImplementationPullRequestBundle` required by `registry-implementation-executor.ts`.
+It does not merge, deploy, release, tag, approve regulatory evidence, alter analyzer behavior, load stored artifacts as live authority, access customer records, or mutate authentication, payments, databases, email, or deployment configuration.
 
-## Non-goals
+## Authorized outcome
 
-This phase does not:
+Only an explicit call with the original in-process live-authorized implementation plan and original in-process live PR bundle may start execution. Stored JSON, a checksum, a cloned object, a service-principal fallback, or caller-supplied identity is not authority.
 
-- merge or approve an implementation pull request;
-- enable auto-merge;
-- deploy to Vercel or another environment;
-- change analyzer logic, reports, customer documents, authentication, payments, databases, email, secrets, or environment configuration;
-- approve official-source evidence or regulatory registry transitions;
-- restore live capability from a stored plan, bundle, or receipt;
-- create a scheduled or automatic invocation entry point; or
-- expose a generic GitHub administration client.
+A successful invocation may perform exactly this sequence:
 
-A later phase must separately implement deliberate merge authorization. A separate orchestration phase may connect the already controlled live review path to this adapter.
+1. Validate the exact plan, bundle, checksums, three-file set, target branch, and reviewed base.
+2. Establish the canonical repository and authenticated GitHub principal.
+3. Verify remote `main` equals the reviewed base.
+4. Create one isolated temporary Git worktree from that base.
+5. Reproduce only the authorized registry files.
+6. Create one deterministic single-parent commit.
+7. Run the four exact ordered validations.
+8. Reverify remote `main`.
+9. Atomically create one previously absent implementation branch.
+10. Reverify remote `main` again.
+11. Open and refetch one exact open, non-draft, non-auto-merge review PR.
+12. Return the executor’s checksum-bound audit receipt.
 
-## Public API and capability boundary
+No automatic retry, recovery from stored artifacts, branch overwrite, merge authorization, or deployment follows.
 
-The focused implementation module is:
+## Public API
 
-```text
-lib/regulatory/registry-implementation-production-adapter.ts
-```
+The high-level entry point is:
 
-The public production API exposes only the high-level runner:
-
-```text
+```ts
 executeRegulatoryImplementationWithProductionAdapter(plan, bundle, options)
 ```
 
-It requires the original live plan and bundle, constructs an internal adapter, invokes the controlled executor, and cleans up temporary resources. The real adapter class is not exported. Only pure validation helpers are exposed through an explicitly named test surface.
+Production options require explicit absolute canonical paths for:
 
-## Reviewed-base control
+- the repository root;
+- the Git executable;
+- the GitHub CLI executable;
+- the GitHub CLI configuration directory containing the operator’s authenticated `github.com` context.
 
-The authenticated remote repository's current `main` head must exactly equal `plan.baseCommitSha`:
+`process.execPath` is used as the trusted Node executable. The adapter never resolves Git, GitHub CLI, npm, npx, TypeScript, or Next.js from an inherited `PATH`.
 
-1. during preflight before branch or worktree mutation;
-2. immediately before branch publication; and
-3. immediately before pull-request creation.
+The real repository adapter class remains internal. The module exports only the high-level runner, result types, options, and a pure non-mutating test surface.
 
-If `main` moves, execution stops. The plan and bundle must be rebuilt and re-authorized from the new base. The adapter must not rebase, reset, force-update an existing ref, retry automatically, or replay an old authorization.
-
-## Repository identity and transport
+## Repository and identity binding
 
 Production execution requires:
 
-- repository identity exactly `siricarsen-cmd/subshield`;
-- default branch exactly `main`;
-- exactly one configured fetch URL and one effective push URL;
-- both URLs canonicalizing to the exact GitHub repository over HTTPS;
-- no SSH transport, credentials embedded in URLs, alternate hosts, nondefault ports, queries, fragments, lookalikes, forks, or Git URL rewrites;
-- a nonblank authenticated GitHub principal; and
-- `write`, `maintain`, or `admin` permission on the exact repository.
+- repository `siricarsen-cmd/subshield`;
+- default branch `main`;
+- exactly one canonical HTTPS fetch endpoint;
+- exactly one canonical effective HTTPS push endpoint;
+- no SSH, embedded credentials, alternate host, explicit port, query, fragment, lookalike path, or URL rewrite;
+- a non-fork GitHub repository view;
+- authenticated repository permission of `WRITE`, `MAINTAIN`, or `ADMIN`;
+- a nonblank validated GitHub login.
 
-The adapter enumerates every `remote.origin.url` and `remote.origin.pushurl`. A canonical first URL does not make an additional URL acceptable. Ambiguous or multiple endpoints fail before mutation.
+The token is obtained from the explicitly configured GitHub CLI context. The same token is used for later GitHub CLI requests and the canonical HTTPS Git transport. The recorded executor principal is derived from that attested login.
 
-All network Git operations use the fixed endpoint:
+The token is never placed in command argv, command labels, errors, receipts, required-check environments, or returned output. Command failures are sanitized.
 
-```text
-https://github.com/siricarsen-cmd/subshield.git
-```
+## Trusted executable boundary
 
-They do not rely on a caller-controlled remote name.
+Before authentication or repository mutation, the adapter requires the Git executable, GitHub CLI executable, Node executable, GitHub CLI configuration directory, repository root, and direct test/build tooling to be canonical absolute paths to regular non-symlink files or directories.
 
-## Principal-bound authentication
+Subprocess environments are constructed from a minimal operating-system set. An inherited `PATH` is not copied. Each subprocess receives only a `PATH` assembled from validated executable directories needed for that operation.
 
-The adapter obtains a token from the same authenticated `gh` context used to read the GitHub login and repository permission. Subsequent `gh` operations reuse that token.
+Required checks do not invoke npm or npx. The checksum-bound command identities remain unchanged, but they map internally to fixed direct invocations:
 
-Git transport uses the same token through process-environment Git configuration. It disables credential helpers and interactive prompting. The token must never appear in argv, returned output, errors, receipts, required-check environments, committed files, PR metadata, or logs produced by the adapter.
+- `npm run test:regulatory` → the complete immutable ordered regulatory test file list, executed with trusted Node and the fixed TypeScript loader;
+- `npm run test:accuracy` → the two immutable accuracy benchmark files;
+- `npx tsc --noEmit` → trusted Node plus `node_modules/typescript/bin/tsc --noEmit`;
+- `npm run build` → trusted Node plus `node_modules/next/dist/bin/next build`.
 
-Ambient SSH keys, unrelated credential helpers, inherited Git credential configuration, and caller-supplied principals are not authoritative. The receipt principal is normalized as:
+Tests execute from the isolated worktree. The already installed dependency directory is linked into that worktree only after the authorized commit has been created and verified. The link is not staged or committed and is removed with the worktree.
 
-```text
-github-user:<authenticated-login>
-```
+## Local Git configuration isolation
 
-The in-memory token reference is cleared during cleanup.
+The source checkout must be a canonical primary worktree with a real `.git` directory and real `.git/config` file.
 
-## Process and Git isolation
+Before any repository operation, the adapter parses that exact local config and accepts only minimal structural keys:
 
-Every child process uses an explicit executable and argv array with `shell: false`. No plan, bundle, branch, path, commit, title, body, or check value is concatenated into a shell command.
+- selected `core.*` repository-format values;
+- the one `remote.origin` URL/fetch/push definition;
+- structural `branch.<name>.remote` and `branch.<name>.merge` values.
 
-Every Git subprocess, including inspection, worktree creation, status, add, commit, publication, verification, and cleanup, receives:
+All other local keys fail closed, including:
 
-- an adapter-owned empty/nonexistent `core.hooksPath`;
-- disabled commit and tag signing;
-- `GIT_CONFIG_NOSYSTEM=1`;
-- a controlled `GIT_CONFIG_COUNT` configuration;
-- no inherited arbitrary `GIT_*` injection values;
-- disabled credential helpers; and
-- noninteractive authentication.
+- `include.*` and `includeIf.*`;
+- `filter.*` clean/smudge/process commands;
+- `core.attributesFile`;
+- `diff.*` or `merge.*` executable drivers;
+- `http.curloptResolve`, CA overrides, proxies, cookies, or redirects;
+- credentials and helpers;
+- SSH or external transport commands;
+- URL rewrite rules;
+- any duplicate or additional fetch/push endpoint.
 
-Repository hooks such as `post-checkout`, `pre-commit`, `commit-msg`, and `pre-push` must never execute.
+The exact local config bytes are SHA-256 fingerprinted. Every later Git operation re-reads the real config file and refuses execution if its bytes, type, or path change after preflight.
 
-Command output is bounded and suppressed from executor errors and receipts. Secret values are never returned.
+Global and system Git configuration are redirected to adapter-owned empty files. System loading is disabled. The adapter also supplies controlled configuration that:
 
-## Exact check allowlist
+- uses an adapter-owned empty hooks directory for every Git process;
+- disables commit/tag signing;
+- disables fsmonitor and untracked-cache helpers;
+- disables credential helpers and prompts;
+- clears inherited HTTP headers, proxies, and cookies;
+- requires TLS verification;
+- disables redirects;
+- denies every protocol except canonical HTTPS;
+- neutralizes SSH and external transport commands.
 
-Only these exact, ordered checks may execute:
+## Exact file and commit construction
 
-```text
-npm run test:regulatory
-npm run test:accuracy
-npx tsc --noEmit
-npm run build
-```
+Only these paths are authorized:
 
-Each string maps to a fixed executable and argv sequence. Unknown, reordered, duplicated, parameterized, or modified commands fail closed.
+- `lib/regulatory/benchmark-applicability-mappings.ts`;
+- `lib/regulatory/historical-grounding-policy.ts`;
+- `lib/regulatory/source-coverage-citation-packages.ts`.
 
-The adapter itself never invokes a shell. The three immutable `npm run` commands are a narrow exception only in the sense that npm may internally use its script shell for the exact scripts already present in the reviewed `package.json`. Before every check, the adapter proves the worktree's `package.json` bytes exactly reproduce `plan.baseCommitSha:package.json`. No caller-selected script, argument, package metadata, or shell string may enter this path. `npx tsc --noEmit` also uses a fixed argv sequence.
+Each path is checked for traversal, absolute paths, backslashes, NUL/control characters, symlinks, junction-like escapes, special files, and non-directory parent components.
 
-## Isolated worktree and path controls
+The executor independently verifies each reviewed-base checksum and after-content checksum.
 
-The adapter never switches or modifies the user's active branch or working tree. It creates a private temporary worktree from the exact reviewed base commit.
+Staging does not use `git add`. To prevent repository attributes or clean filters from changing authorized bytes, the adapter:
 
-Only these registry files may be written:
+1. hashes each exact worktree file using `git hash-object -w --no-filters`;
+2. reads its reviewed file mode;
+3. stages the exact blob with `git update-index --cacheinfo`;
+4. verifies the exact staged path set.
 
-```text
-lib/regulatory/benchmark-applicability-mappings.ts
-lib/regulatory/historical-grounding-policy.ts
-lib/regulatory/source-coverage-citation-packages.ts
-```
+The commit has:
 
-For every file, the adapter verifies:
+- exactly one parent: the reviewed base;
+- the exact bundle message;
+- exact committed bytes for every authorized file;
+- fixed author and committer names/emails;
+- a deterministic timestamp normalized from the reviewed base’s strict Git ISO `%cI` value;
+- disabled hooks and signing.
 
-- the path is present exactly once in the live bundle;
-- the path is relative, allowlisted, and contained inside the isolated worktree;
-- every existing parent component is a real directory, not a symlink, junction, file, or special object;
-- the base bytes reproduce `beforeChecksum`;
-- atomic written bytes reproduce the exact bundle content and `afterChecksum`;
-- Git reports exactly the authorized changed path set;
-- the commit has exactly one parent equal to `plan.baseCommitSha`;
-- the commit message exactly equals `bundle.commitMessage`; and
-- reading each path from the commit reproduces the exact bundle bytes and checksum.
+Git strict ISO timestamps with `Z` or valid `±HH:MM` offsets are accepted and normalized to UTC. Impossible calendar dates, rollover times, invalid offsets, hour 24, leap-second values, and malformed timestamps fail closed.
 
-No whitespace, line-ending, encoding, formatting, or final-newline normalization is allowed.
+## Remote-main and publication controls
 
-## Deterministic commit
+The authenticated remote `main` head must equal `plan.baseCommitSha`:
 
-The adapter creates one commit with:
+- during preflight;
+- immediately before branch publication;
+- immediately before PR creation.
 
-- fixed author and committer name `SubShield Regulatory Executor`;
-- fixed author and committer email `regulatory-executor@subshield.invalid`;
-- author and committer timestamps deterministically derived from the reviewed base commit;
-- hooks disabled;
-- commit and tag signing disabled;
-- the exact reviewed parent;
-- the exact bundle message; and
-- the exact authorized tree.
+If it moves, execution stops. The adapter never rebases, resets, replays, or updates the plan.
 
-Local Git identity, local time, signing configuration, hooks, and unrelated configuration must not affect the resulting commit identity.
-
-## Atomic create-only publication
-
-A normal non-force push is insufficient because a competing actor could create the target branch at the reviewed base after preflight and then be fast-forwarded.
-
-The only force-like operation permitted is the precisely scoped absent-ref lease:
+Publication uses only the exact absent-ref lease:
 
 ```text
 --force-with-lease=refs/heads/<exact-target>:
 ```
 
-The empty expected value means the remote target ref must not exist. This operation may create only the exact deterministic target branch at the exact commit. It cannot overwrite an existing ref. Ordinary force, a lease against an existing value, `+` refspecs, deletion, reset, rebase, and overwrite remain prohibited.
+The empty expected value makes publication create-only. It fails if another actor created the target ref after preflight, even when that ref points to the reviewed base. No ordinary force push, existing-value lease, `+` refspec, ref deletion, overwrite, retry, reset, or recovery capability exists.
 
-After publication, the adapter independently reads the hosted ref and requires it to equal the exact created commit. A branch-creation race fails without altering the competing branch.
+After publication, the hosted ref is refetched and must equal the exact created commit.
 
-## Pull-request requirements
+## Pull-request verification and trusted time
 
-Before PR creation, remote `main` must still equal the reviewed base. The adapter then creates exactly one PR with:
+The adapter creates one PR using a private restrictive body file, then refetches it and requires exact:
 
-- base `main`;
-- head equal to `plan.targetBranch`;
-- exact created head commit;
-- title exactly equal to `bundle.pullRequestTitle`;
-- body exactly equal to `bundle.pullRequestBody`; and
-- auto-merge disabled.
+- canonical URL and positive number;
+- base branch;
+- head branch and head commit;
+- title and body;
+- `OPEN` state;
+- non-draft state;
+- no auto-merge request.
 
-The body is written to a private temporary file. After creation, the adapter refetches the PR and requires:
+The receipt uses GitHub’s `createdAt`. Valid UTC RFC 3339 values with zero to nine fractional digits are normalized to milliseconds. Impossible dates, rollover clock values, offsets, and noncanonical values are rejected.
 
-- a positive safe integer number;
-- canonical URL `https://github.com/siricarsen-cmd/subshield/pull/<number>`;
-- exact base, head, SHA, title, and body;
-- state `OPEN`;
-- not draft;
-- no auto-merge request; and
-- no existing or duplicate PR for the head branch.
+## Required-check environment
 
-GitHub's RFC 3339 `createdAt` is validated and normalized to `Date.toISOString()`. Valid server timestamps with or without fractional seconds are accepted; invalid or non-UTC/noncanonical values fail. This server-issued time is the trusted receipt clock.
+Checks run with a fresh adapter-owned private home, XDG directories, cache, and empty npm configuration files. The adapter does not inherit caller `HOME`, `USERPROFILE`, `.npmrc`, npm environment settings, npm script-shell settings, or an arbitrary `PATH`.
 
-## State, failure, and cleanup
+The production build receives only established non-secret CI placeholders. GitHub credentials are never present in the check environment.
 
-The adapter enforces one ordered state machine and refuses repeated, skipped, reordered, or identity-mismatched operations.
+`package.json` in the isolated worktree must remain byte-for-byte equal to the reviewed base before every check. The direct fixed invocation mapping is code-controlled and cannot accept a caller-selected script, file, flag, or shell command.
 
-Preflight is mutation-free. No worktree, branch, file, commit, push, or PR is created until repository identity, principal, permission, remote base, live capability, exact paths, bytes, checksums, and required checks validate.
+## State, failures, and cleanup
 
-A partial local or remote branch created before a later failure is not overwritten or automatically deleted. Automatic recovery is out of scope. Temporary worktree and PR-body resources are cleaned, and in-memory authentication is cleared.
+The internal operation order is enforced. Repeated, skipped, reordered, mismatched, or concurrent-capability use fails closed.
 
-## Receipt boundary
+Normal executor failures remain explicit structured results such as preflight, check, push, PR, or receipt failure.
 
-A successful executor receipt remains:
+Unexpected adapter execution or cleanup exceptions return a deeply frozen `production-boundary-failed` result with stage:
 
-```text
-applicationStatus: not-applied
-customerFacingStatus: benchmark-only
-mergeStatus: not-authorized
-authorizationStatus: audit-evidence-only
-```
+- `execution`;
+- `cleanup`;
+- `execution-and-cleanup`.
 
-The receipt identifies the authenticated principal, reviewed base, target branch, exact commit, files, checks, exact PR identity, metadata fingerprint, and GitHub server time. Stored or cloned receipts remain audit evidence only and cannot restore live execution or merge authority.
+The result contains only sanitized generic errors and preserves the prior structured executor result when one exists. This ensures a caller does not lose evidence that a branch or PR may already exist.
 
-## Required adversarial regressions
+Cleanup requires successful `git worktree remove --force`, successful `git worktree prune`, independent verification that the worktree path is gone, and removal of private temporary files. Fatal Git exit 128 is not accepted as success. Cleanup failure is reported through the structured production boundary rather than masking prior evidence.
 
-The focused suite must prove at minimum:
+The adapter does not automatically delete a partially published remote branch or PR.
 
-1. canonical HTTPS repository acceptance and SSH, ambiguous, multiple, rewritten, credential-bearing, alternate-host, port, query, fragment, fork, and lookalike refusal;
-2. authenticated principal and sufficient permission required before mutation;
-3. Git transport bound to the attested principal with no token disclosure;
-4. every Git subprocess is hook-free and sanitized;
-5. remote `main` equality at preflight, before publication, and before PR creation;
-6. active worktree isolation and temporary-worktree cleanup;
-7. traversal, absolute path, backslash, NUL, control character, symlink, junction, file-parent, and special-object refusal;
-8. exact three-file, byte, checksum, commit parent, message, and tree reproduction;
-9. exact ordered check argv and immutable `package.json` guard;
-10. deterministic commit identity independent of local identity, time, signing, and hooks;
-11. failed checks produce no publication or PR;
-12. the exact absent-ref lease refuses branch races without altering the existing ref;
-13. exact PR metadata, open/non-draft/non-auto-merge state, canonical URL, and server time;
-14. RFC 3339 timestamps with and without fractional seconds normalize correctly;
-15. partial failures return explicit non-success outcomes; and
-16. the public API exposes no merge, deployment, release, tag, secret, payment, database, authentication mutation, email, or customer-record capability.
+## Validation gate
 
-Tests must make no live GitHub, government-source, Vercel, Supabase, Stripe, email, or customer-data request.
+Before merge, the exact hosted head must pass:
 
-## Validation and merge boundary
+- focused production-adapter adversarial regressions;
+- implementation-executor regressions;
+- full regulatory suite;
+- analyzer accuracy suite;
+- TypeScript validation;
+- production build with established non-secret placeholders;
+- diff checks;
+- fresh security-focused automated review.
 
-Run:
-
-```text
-npm run test:regulatory:implementation-production-adapter
-npm run test:regulatory:implementation-executor
-npm run test:regulatory
-npm run test:accuracy
-npx tsc --noEmit
-npm run build
-git diff --check
-```
-
-This PR may merge only after both hosted workflows pass on the exact final head, TypeScript and production build pass, all review findings are resolved, and a fresh final automated review of that exact head returns no findings.
-
-Merging the adapter does not invoke it, apply a regulatory update, merge an implementation PR, or deploy SubShield.
-
-## Later phases
-
-After this adapter is merged, continue separately with:
-
-1. controlled in-process orchestration connecting the live approved plan and bundle to this adapter without loading stored authority;
-2. deliberate human merge authorization with fresh verification of the exact PR, checks, branch, commit, and approved regulatory transitions; and
-3. an end-to-end controlled simulation proving unchanged and transport-only source updates create no packet, substantive updates require every review gate, and customer-facing behavior changes only after deliberate authorized merge.
+Review threads may be resolved only after the exact hosted implementation and hosted checks prove their fixes. Merge and deployment remain separate deliberate owner-authorized actions.
