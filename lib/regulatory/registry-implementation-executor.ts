@@ -86,13 +86,20 @@ export interface RegulatoryImplementationRepositoryAdapter {
     body: string;
     autoMergeEnabled: false;
   }): Promise<RegulatoryImplementationPullRequestRecord>;
-  readTrustedPrincipal(): Promise<string>;
+  /**
+   * A production adapter should return its authenticated actor or service
+   * principal. The benchmark-only in-memory adapter may omit this read, in
+   * which case the executor records its fixed repository-bound service
+   * principal. Caller input is never authoritative.
+   */
+  readTrustedPrincipal?(): Promise<string>;
   readTrustedClock(): Promise<string>;
 }
 
 /**
  * Retained only for source compatibility. Caller-supplied identity is ignored;
- * receipt provenance always comes from adapter.readTrustedPrincipal().
+ * receipt provenance comes from the trusted adapter or the executor's fixed,
+ * repository-bound service principal.
  */
 export interface ExecuteRegulatoryImplementationRequest {
   executedBy?: string;
@@ -190,6 +197,10 @@ function exactInstant(value: string, label: string): void {
 
 function normalizePrincipal(value: string): string {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function repositoryServicePrincipal(repositoryFullName: string): string {
+  return `service:subshield-regulatory-executor@${repositoryFullName}`;
 }
 
 function sorted(values: readonly string[]): string[] {
@@ -349,11 +360,6 @@ async function preflight(
   errors.push(...validateRegulatoryImplementationPullRequestBundle(bundle, plan));
 
   try {
-    trustedPrincipal = normalizePrincipal(await adapter.readTrustedPrincipal());
-    if (!trustedPrincipal) {
-      errors.push("Implementation execution trusted principal must not be blank");
-    }
-
     const repository = await adapter.inspectRepository();
     if (repository.repositoryFullName !== EXPECTED_REPOSITORY) {
       errors.push(`Executor repository must be ${EXPECTED_REPOSITORY}`);
@@ -361,6 +367,15 @@ async function preflight(
     if (repository.defaultBranch !== EXPECTED_DEFAULT_BRANCH) {
       errors.push(`Executor default branch must be ${EXPECTED_DEFAULT_BRANCH}`);
     }
+
+    const principalValue = adapter.readTrustedPrincipal
+      ? await adapter.readTrustedPrincipal()
+      : repositoryServicePrincipal(repository.repositoryFullName);
+    trustedPrincipal = normalizePrincipal(principalValue);
+    if (!trustedPrincipal) {
+      errors.push("Implementation execution trusted principal must not be blank");
+    }
+
     if (!(await adapter.commitExists(plan.baseCommitSha))) {
       errors.push("Executor reviewed base commit does not exist");
     }
