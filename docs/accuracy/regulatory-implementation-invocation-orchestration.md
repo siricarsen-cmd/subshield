@@ -58,7 +58,7 @@ The confirmation binds:
 
 The authorization is deeply frozen, checksum-bound, retained in a `WeakSet`, and linked through a `WeakMap` to the original live plan, original live bundle, and exact runtime configuration. A serialized copy can be audited but cannot be used to execute.
 
-Authorization must be created within five minutes of the operator timestamp and is checked again immediately before consumption. The existing five-minute allowance for a trusted operator clock that is ahead of the process clock remains in force; it does not extend the maximum age of an authorization.
+Authorization must be created within five minutes of the operator timestamp. A private process-observed five-minute deadline is captured at creation, and consumption is refused when either the timestamp-age limit or that creation deadline expires. The existing five-minute allowance for a trusted operator clock that is ahead of the process clock remains in force, but it cannot extend the authorization's real lifetime beyond five minutes from creation.
 
 ## One-use and no automatic retry
 
@@ -102,8 +102,9 @@ Before privileged execution it verifies:
 2. the plan and bundle are the exact original live objects bound to that authorization;
 3. the plan and bundle remain valid and live-authorized;
 4. plan, bundle, base, and branch identities still match;
-5. the runtime fingerprint still matches the authorized paths and expected GitHub login.
-6. the authorization is no more than five minutes old immediately before consumption.
+5. the runtime fingerprint still matches the authorized paths and expected GitHub login;
+6. the authorization timestamp is no more than five minutes old immediately before consumption; and
+7. no more than five minutes of process-observed time has elapsed since the authorization object was created.
 
 It then calls the production adapter with no caller-selected commands, shell strings, scripts, flags, paths, or identities beyond the already-bound options.
 
