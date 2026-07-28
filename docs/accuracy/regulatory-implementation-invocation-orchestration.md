@@ -58,6 +58,8 @@ The confirmation binds:
 
 The authorization is deeply frozen, checksum-bound, retained in a `WeakSet`, and linked through a `WeakMap` to the original live plan, original live bundle, and exact runtime configuration. A serialized copy can be audited but cannot be used to execute.
 
+Authorization must be created within five minutes of the operator timestamp and is checked again immediately before consumption. The existing five-minute allowance for a trusted operator clock that is ahead of the process clock remains in force; it does not extend the maximum age of an authorization.
+
 ## One-use and no automatic retry
 
 The live authorization is consumed before the production adapter is invoked.
@@ -101,6 +103,7 @@ Before privileged execution it verifies:
 3. the plan and bundle remain valid and live-authorized;
 4. plan, bundle, base, and branch identities still match;
 5. the runtime fingerprint still matches the authorized paths and expected GitHub login.
+6. the authorization is no more than five minutes old immediately before consumption.
 
 It then calls the production adapter with no caller-selected commands, shell strings, scripts, flags, paths, or identities beyond the already-bound options.
 

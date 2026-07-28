@@ -31,6 +31,7 @@ const GITHUB_LOGIN_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/;
 const AUDIT_FILENAME_RE = /^[a-f0-9]{24}-invocation-audit\.json$/;
 const HMAC_TAG_RE = /^hmac-sha256:[a-f0-9]{64}$/;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
+const MAX_AUTHORIZATION_AGE_MS = 5 * 60 * 1000;
 const REQUIRED_CHECKS = Object.freeze([
   "npm run test:regulatory",
   "npm run test:accuracy",
@@ -283,7 +284,69 @@ function validateCheckEvidence(value: unknown, mode: CheckValidationMode): strin
       errors.push("Invocation partial check evidence may fail only at its final observed check");
     }
   }
+  if (
+    mode === "partial" &&
+    value.length === REQUIRED_CHECKS.length &&
+    value.every((candidate) => isRecord(candidate) && candidate.conclusion === "success")
+  ) {
+    errors.push("Invocation check failure cannot contain a complete successful check sequence");
+  }
   return [...new Set(errors)];
+}
+
+const RECEIPT_KEYS = [
+  "schemaVersion", "receiptId", "repositoryFullName", "planId", "planChecksum",
+  "bundleId", "bundleChecksum", "baseCommitSha", "targetBranch", "commitSha",
+  "files", "checks", "pullRequest", "executedAt", "executedBy",
+  "authorizationStatus", "receiptChecksum", "applicationStatus",
+  "customerFacingStatus", "mergeStatus",
+] as const;
+
+function validateStoredExecutionReceiptShape(value: unknown): string[] {
+  if (!isRecord(value) || !hasExactKeys(value, RECEIPT_KEYS)) {
+    return ["Invocation success receipt has an invalid exact shape"];
+  }
+  const stringKeys = [
+    "receiptId", "repositoryFullName", "planId", "planChecksum", "bundleId",
+    "bundleChecksum", "baseCommitSha", "targetBranch", "commitSha", "executedAt",
+    "executedBy", "receiptChecksum",
+  ] as const;
+  if (
+    value.schemaVersion !== 1 ||
+    stringKeys.some((key) => typeof value[key] !== "string") ||
+    !Array.isArray(value.files) ||
+    value.files.some((file) =>
+      !isRecord(file) ||
+      !hasExactKeys(file, ["path", "beforeChecksum", "afterChecksum"]) ||
+      typeof file.path !== "string" ||
+      typeof file.beforeChecksum !== "string" ||
+      typeof file.afterChecksum !== "string"
+    ) ||
+    !Array.isArray(value.checks) ||
+    value.checks.some((check) =>
+      !isRecord(check) ||
+      !hasExactKeys(check, ["command", "commitSha", "conclusion"]) ||
+      typeof check.command !== "string" ||
+      typeof check.commitSha !== "string" ||
+      (check.conclusion !== "success" && check.conclusion !== "failure")
+    ) ||
+    !isRecord(value.pullRequest) ||
+    !hasExactKeys(value.pullRequest, [
+      "number", "url", "baseBranch", "headBranch", "headCommitSha", "title",
+      "bodyFingerprint", "autoMergeEnabled",
+    ]) ||
+    !Number.isSafeInteger(value.pullRequest.number) ||
+    ["url", "baseBranch", "headBranch", "headCommitSha", "title", "bodyFingerprint"].some(
+      (key) => typeof (value.pullRequest as UnknownRecord)[key] !== "string"
+    ) ||
+    value.pullRequest.autoMergeEnabled !== false
+  ) {
+    return ["Invocation success receipt contains unsafe or incomplete nested evidence"];
+  }
+  if (value.receiptId !== `regulatory-implementation-execution:${value.bundleId}:${value.commitSha}`) {
+    return ["Invocation success receipt ID is invalid"];
+  }
+  return [];
 }
 
 function validateExecutionResult(
@@ -375,7 +438,17 @@ function validateExecutionResult(
         break;
       }
       const receipt = value.receipt as unknown as RegulatoryImplementationExecutionReceipt;
-      const receiptErrors = validateRegulatoryImplementationExecutionReceipt(receipt);
+      const shapeErrors = validateStoredExecutionReceiptShape(value.receipt);
+      if (shapeErrors.length > 0) {
+        errors.push(...shapeErrors);
+        break;
+      }
+      let receiptErrors: string[];
+      try {
+        receiptErrors = validateRegulatoryImplementationExecutionReceipt(receipt);
+      } catch {
+        receiptErrors = ["Invocation success receipt validator rejected unsafe evidence"];
+      }
       if (receiptErrors.length > 0) {
         errors.push("Invocation success receipt does not reproduce");
       }
@@ -432,7 +505,10 @@ export function validateRegulatoryImplementationProductionResult(
   if (value.stage === "cleanup" && !Object.prototype.hasOwnProperty.call(value, "priorResult")) {
     errors.push("Invocation cleanup failure must preserve its prior structured result");
   }
-  if (value.stage === "execution" && Object.prototype.hasOwnProperty.call(value, "priorResult")) {
+  if (
+    (value.stage === "execution" || value.stage === "execution-and-cleanup") &&
+    Object.prototype.hasOwnProperty.call(value, "priorResult")
+  ) {
     errors.push("Invocation execution boundary failure must not claim a prior result");
   }
   if (Object.prototype.hasOwnProperty.call(value, "priorResult")) {
@@ -667,6 +743,9 @@ export function createRegulatoryImplementationInvocationAuthorization(
   }
   if (authorizedAtMs > Date.now() + MAX_CLOCK_SKEW_MS) {
     throw new Error("Invocation authorization cannot be materially in the future");
+  }
+  if (authorizedAtMs < Date.now() - MAX_AUTHORIZATION_AGE_MS) {
+    throw new Error("Invocation authorization is older than the five-minute freshness window");
   }
   const expectedGitHubLogin = normalizeGitHubLogin(request.expectedGitHubLogin);
   const repositoryRoot = exactAbsolutePath(request.repositoryRoot, "repository root");
@@ -968,6 +1047,11 @@ export async function executeRegulatoryImplementationInvocation(
     authorization.bundleChecksum !== bundle.bundleChecksum
   ) {
     return refusal("Invocation authorization binding no longer matches");
+  }
+
+  const authorizedAtMs = new Date(authorization.authorizedAt).getTime();
+  if (authorizedAtMs < Date.now() - MAX_AUTHORIZATION_AGE_MS) {
+    return refusal("Invocation authorization expired before consumption");
   }
 
   CONSUMED_AUTHORIZATIONS.add(authorization as object);
