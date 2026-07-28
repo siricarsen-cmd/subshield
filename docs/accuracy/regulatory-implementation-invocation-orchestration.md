@@ -121,7 +121,8 @@ Every consumed invocation attempts to create one deterministic private audit fil
 
 The audit record includes:
 
-- authorization, plan, bundle, base, branch, and expected-principal identities;
+- the complete checksum-valid but non-live authorization snapshot;
+- authorization, plan, bundle, base, branch, and expected-principal identities cross-checked against that snapshot;
 - authorization and recording timestamps;
 - the complete sanitized structured production result;
 - a checksum over the complete audit payload;
@@ -130,7 +131,7 @@ The audit record includes:
 - `customerFacingStatus: benchmark-only`;
 - `mergeStatus: not-authorized`.
 
-Audit files are evidence only. They are not placed in the live authorization `WeakSet`, do not retain the original plan/bundle references, and cannot be loaded as execution authority.
+Audit files are evidence only. The authorization snapshot is serialized audit data, is not placed in the live authorization `WeakSet`, does not retain the original plan/bundle references, and cannot be loaded as execution authority.
 
 The output directory must already exist as the exact canonical non-symlink directory explicitly bound during authorization. Audit files use `open(..., "wx", 0o600)` and are never overwritten.
 

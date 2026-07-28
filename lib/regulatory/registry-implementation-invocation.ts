@@ -82,6 +82,7 @@ export interface RegulatoryImplementationInvocationAuditRecord extends Invocatio
   auditId: string;
   authorizationId: string;
   authorizationChecksum: string;
+  authorization: RegulatoryImplementationInvocationAuthorization;
   repositoryFullName: typeof EXPECTED_REPOSITORY;
   planId: string;
   planChecksum: string;
@@ -434,6 +435,31 @@ export function validateRegulatoryImplementationInvocationAuditRecord(
   ) {
     errors.push("Invocation audit provenance is invalid");
   }
+  if (!audit.authorization || typeof audit.authorization !== "object") {
+    errors.push("Invocation audit authorization snapshot is invalid");
+  } else {
+    const authorizationErrors =
+      validateRegulatoryImplementationInvocationAuthorization(audit.authorization);
+    if (authorizationErrors.length > 0) {
+      errors.push("Invocation audit authorization snapshot does not reproduce");
+    }
+    if (
+      audit.authorizationChecksum !== audit.authorization.authorizationChecksum ||
+      audit.authorizationId !== audit.authorization.authorizationId ||
+      audit.repositoryFullName !== audit.authorization.repositoryFullName ||
+      audit.planId !== audit.authorization.planId ||
+      audit.planChecksum !== audit.authorization.planChecksum ||
+      audit.bundleId !== audit.authorization.bundleId ||
+      audit.bundleChecksum !== audit.authorization.bundleChecksum ||
+      audit.baseCommitSha !== audit.authorization.baseCommitSha ||
+      audit.targetBranch !== audit.authorization.targetBranch ||
+      audit.expectedExecutorPrincipal !==
+        audit.authorization.expectedExecutorPrincipal ||
+      audit.authorizedAt !== audit.authorization.authorizedAt
+    ) {
+      errors.push("Invocation audit fields do not match the authorization snapshot");
+    }
+  }
   try {
     const authorizedAt = new Date(
       exactInstant(audit.authorizedAt, "Invocation audit authorizedAt")
@@ -487,6 +513,7 @@ function buildAuditRecord(
     auditId: `regulatory-implementation-audit:${authorization.authorizationChecksum}`,
     authorizationId: authorization.authorizationId,
     authorizationChecksum: authorization.authorizationChecksum,
+    authorization: jsonClone(authorization),
     repositoryFullName: EXPECTED_REPOSITORY,
     planId: authorization.planId,
     planChecksum: authorization.planChecksum,
