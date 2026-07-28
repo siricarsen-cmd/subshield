@@ -55,6 +55,7 @@ const PRODUCTION_BOUNDARY_STAGES = new Set([
 ]);
 const LIVE_AUTHORIZATIONS = new WeakSet<object>();
 const CONSUMED_AUTHORIZATIONS = new WeakSet<object>();
+const INVALIDATED_AUTHORIZATIONS = new WeakSet<object>();
 const AUTHORIZATION_BINDINGS = new WeakMap<object, AuthorizationBinding>();
 const INVOCATION_BOUNDARY = Object.freeze({
   applicationStatus: "not-applied" as const,
@@ -709,6 +710,7 @@ export function isLiveRegulatoryImplementationInvocationAuthorization(
       typeof value === "object" &&
       LIVE_AUTHORIZATIONS.has(value as object) &&
       !CONSUMED_AUTHORIZATIONS.has(value as object) &&
+      !INVALIDATED_AUTHORIZATIONS.has(value as object) &&
       validateRegulatoryImplementationInvocationAuthorization(
         value as RegulatoryImplementationInvocationAuthorization
       ).length === 0
@@ -1064,6 +1066,7 @@ export async function executeRegulatoryImplementationInvocation(
     consumedAtMonotonicNs < binding.createdAtMonotonicNs ||
     consumedAtMonotonicNs - binding.createdAtMonotonicNs > MAX_AUTHORIZATION_AGE_NS
   ) {
+    INVALIDATED_AUTHORIZATIONS.add(authorization as object);
     return refusal("Invocation authorization expired before consumption");
   }
 
