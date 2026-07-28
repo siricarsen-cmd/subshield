@@ -1,0 +1,34 @@
+name: Temporary PR60 patch
+
+on:
+  push:
+    branches:
+      - feat/regulatory-implementation-invocation-orchestration
+    paths:
+      - .github/workflows/temp-pr60-patch.yml
+      - scripts/temp-pr60-patch.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/regulatory-implementation-invocation-orchestration
+          fetch-depth: 0
+      - name: Apply exact PR60 changes
+        run: python scripts/temp-pr60-patch.py
+      - name: Commit patched files
+        run: |
+          git config user.name "SubShield Automation"
+          git config user.email "subshield-automation@users.noreply.github.com"
+          git add package.json \
+            docs/accuracy/regulatory-implementation-production-adapter.md \
+            lib/regulatory/registry-implementation-production-adapter.ts \
+            lib/regulatory/__tests__/registry-implementation-invocation.test.mjs
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: wire controlled invocation validation"
+          git push origin HEAD:feat/regulatory-implementation-invocation-orchestration
