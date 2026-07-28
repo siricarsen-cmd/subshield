@@ -154,6 +154,7 @@ interface AuthorizationBinding {
   productionOptions: RegulatoryImplementationProductionOptions;
   auditOutputDirectory: string;
   auditAuthenticationKey: Buffer;
+  createdAtMs: number;
 }
 
 function jsonClone<T>(value: T): T {
@@ -738,13 +739,14 @@ export function createRegulatoryImplementationInvocationAuthorization(
 
   const authorizedAt = exactInstant(request.authorizedAt, "Invocation authorizedAt");
   const authorizedAtMs = new Date(authorizedAt).getTime();
+  const createdAtMs = Date.now();
   if (authorizedAtMs < new Date(plan.createdAt).getTime()) {
     throw new Error("Invocation authorization cannot predate the live implementation plan");
   }
-  if (authorizedAtMs > Date.now() + MAX_CLOCK_SKEW_MS) {
+  if (authorizedAtMs > createdAtMs + MAX_CLOCK_SKEW_MS) {
     throw new Error("Invocation authorization cannot be materially in the future");
   }
-  if (authorizedAtMs < Date.now() - MAX_AUTHORIZATION_AGE_MS) {
+  if (authorizedAtMs < createdAtMs - MAX_AUTHORIZATION_AGE_MS) {
     throw new Error("Invocation authorization is older than the five-minute freshness window");
   }
   const expectedGitHubLogin = normalizeGitHubLogin(request.expectedGitHubLogin);
@@ -823,6 +825,7 @@ export function createRegulatoryImplementationInvocationAuthorization(
       productionOptions,
       auditOutputDirectory,
       auditAuthenticationKey,
+      createdAtMs,
     });
     return frozen;
   } catch (error) {
@@ -1050,7 +1053,11 @@ export async function executeRegulatoryImplementationInvocation(
   }
 
   const authorizedAtMs = new Date(authorization.authorizedAt).getTime();
-  if (authorizedAtMs < Date.now() - MAX_AUTHORIZATION_AGE_MS) {
+  const consumedAtMs = Date.now();
+  if (
+    authorizedAtMs < consumedAtMs - MAX_AUTHORIZATION_AGE_MS ||
+    binding.createdAtMs < consumedAtMs - MAX_AUTHORIZATION_AGE_MS
+  ) {
     return refusal("Invocation authorization expired before consumption");
   }
 
