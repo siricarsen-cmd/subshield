@@ -1,0 +1,49 @@
+name: Trigger PR61 terminal builder
+
+on:
+  pull_request:
+    branches:
+      - fix/regulatory-invocation-creation-deadline
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  execute-builder:
+    if: github.head_ref == 'automation/pr61-terminal-invalidation'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: automation/pr61-terminal-invalidation
+          fetch-depth: 0
+
+      - name: Execute the checked-in deterministic builder
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/build-pr61-terminal-invalidation.yml').read_text().splitlines()
+          marker = '        run: |'
+          try:
+              start = workflow.index(marker) + 1
+          except ValueError as exc:
+              raise SystemExit('builder run block not found') from exc
+
+          script_lines = []
+          for line in workflow[start:]:
+              if line and not line.startswith('          '):
+                  break
+              script_lines.append(line[10:] if line.startswith('          ') else '')
+
+          script = '\n'.join(script_lines) + '\n'
+          if 'npm run test:regulatory:implementation-invocation' not in script:
+              raise SystemExit('builder verification command missing')
+          if 'git push origin HEAD:automation/pr61-terminal-invalidation' not in script:
+              raise SystemExit('builder destination guard missing')
+          Path('/tmp/pr61-terminal-builder.sh').write_text(script)
+          PY
+          bash /tmp/pr61-terminal-builder.sh
