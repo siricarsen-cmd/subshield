@@ -26,6 +26,16 @@ const COMMIT_SHA_RE = /^[a-f0-9]{40}$/;
 const GITHUB_LOGIN_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/;
 const AUDIT_FILENAME_RE = /^[a-f0-9]{24}-invocation-audit\.json$/;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
+const PRODUCTION_RESULT_STATUSES = new Set([
+  "preflight-refused",
+  "execution-failed",
+  "check-failed",
+  "push-failed",
+  "pull-request-failed",
+  "receipt-failed",
+  "success",
+  "production-boundary-failed",
+]);
 const LIVE_AUTHORIZATIONS = new WeakSet<object>();
 const CONSUMED_AUTHORIZATIONS = new WeakSet<object>();
 const AUTHORIZATION_BINDINGS = new WeakMap<object, AuthorizationBinding>();
@@ -233,7 +243,10 @@ export function validateRegulatoryImplementationInvocationAuthorization(
 ): string[] {
   const errors: string[] = [];
   if (authorization.schemaVersion !== 1) errors.push("Invocation authorization schema is invalid");
-  if (!authorization.authorizationId.startsWith("regulatory-implementation-invocation:")) {
+  if (
+    authorization.authorizationId !==
+    `regulatory-implementation-invocation:${authorization.bundleChecksum}`
+  ) {
     errors.push("Invocation authorization ID is invalid");
   }
   if (
@@ -401,12 +414,18 @@ export function validateRegulatoryImplementationInvocationAuditRecord(
 ): string[] {
   const errors: string[] = [];
   if (audit.schemaVersion !== 1) errors.push("Invocation audit schema is invalid");
-  if (!audit.auditId.startsWith("regulatory-implementation-audit:")) {
+  if (
+    audit.auditId !==
+    `regulatory-implementation-audit:${audit.authorizationChecksum}`
+  ) {
     errors.push("Invocation audit ID is invalid");
   }
   if (
     audit.repositoryFullName !== EXPECTED_REPOSITORY ||
-    !audit.authorizationId.trim() ||
+    audit.authorizationId !==
+      `regulatory-implementation-invocation:${audit.bundleChecksum}` ||
+    !audit.planId.trim() ||
+    !audit.bundleId.trim() ||
     !CHECKSUM_RE.test(audit.authorizationChecksum) ||
     !CHECKSUM_RE.test(audit.planChecksum) ||
     !CHECKSUM_RE.test(audit.bundleChecksum) ||
@@ -416,8 +435,21 @@ export function validateRegulatoryImplementationInvocationAuditRecord(
     errors.push("Invocation audit provenance is invalid");
   }
   try {
-    exactInstant(audit.authorizedAt, "Invocation audit authorizedAt");
-    exactInstant(audit.recordedAt, "Invocation audit recordedAt");
+    const authorizedAt = new Date(
+      exactInstant(audit.authorizedAt, "Invocation audit authorizedAt")
+    ).getTime();
+    const recordedAt = new Date(
+      exactInstant(audit.recordedAt, "Invocation audit recordedAt")
+    ).getTime();
+    if (recordedAt < authorizedAt || recordedAt > Date.now() + MAX_CLOCK_SKEW_MS) {
+      errors.push("Invocation audit recording timestamp is invalid");
+    }
+    const login = normalizeGitHubLogin(
+      audit.expectedExecutorPrincipal.replace(/^github-user:/, "")
+    );
+    if (audit.expectedExecutorPrincipal !== `github-user:${login}`) {
+      errors.push("Invocation audit expected executor principal is invalid");
+    }
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
   }
@@ -432,6 +464,13 @@ export function validateRegulatoryImplementationInvocationAuditRecord(
   }
   if (!audit.result || typeof audit.result !== "object" || !("status" in audit.result)) {
     errors.push("Invocation audit result is invalid");
+  } else if (
+    !PRODUCTION_RESULT_STATUSES.has(audit.result.status) ||
+    audit.result.applicationStatus !== "not-applied" ||
+    audit.result.customerFacingStatus !== "benchmark-only" ||
+    audit.result.mergeStatus !== "not-authorized"
+  ) {
+    errors.push("Invocation audit production result escaped its controlled boundary");
   }
   if (!CHECKSUM_RE.test(audit.auditChecksum) || audit.auditChecksum !== checksumForAudit(audit)) {
     errors.push("Invocation audit checksum does not reproduce");
@@ -549,11 +588,21 @@ export async function executeRegulatoryImplementationInvocation(
   }
 
   CONSUMED_AUTHORIZATIONS.add(authorization as object);
-  const productionResult = await executeRegulatoryImplementationWithProductionAdapter(
-    plan,
-    bundle,
-    binding.productionOptions
-  );
+  let productionResult: RegulatoryImplementationProductionResult;
+  try {
+    productionResult = await executeRegulatoryImplementationWithProductionAdapter(
+      plan,
+      bundle,
+      binding.productionOptions
+    );
+  } catch {
+    productionResult = deepFreeze({
+      status: "production-boundary-failed" as const,
+      stage: "execution" as const,
+      errors: ["Controlled regulatory invocation production adapter failed unexpectedly"],
+      ...INVOCATION_BOUNDARY,
+    });
+  }
   let auditRecord: Readonly<RegulatoryImplementationInvocationAuditRecord>;
   try {
     auditRecord = buildAuditRecord(authorization, productionResult);

@@ -111,7 +111,7 @@ The orchestration layer presents these top-level outcomes:
 - `invocation-failed` — the production adapter returned a structured preflight, execution, check, push, pull-request, receipt, or production-boundary failure, and the audit file was retained;
 - `audit-retention-failed` — the production result is preserved, but the evidence-only audit record or file could not be retained.
 
-The complete underlying production result is preserved. This includes a prior structured executor result when the production adapter reports cleanup failure after a branch or PR may already exist.
+The complete underlying production result is preserved. This includes a prior structured executor result when the production adapter reports cleanup failure after a branch or PR may already exist. An unexpected adapter throw is converted into a sanitized `production-boundary-failed` execution result so authorization consumption and audit handling remain explicit.
 
 No failure path automatically deletes, retries, overwrites, rebases, resets, or merges a hosted branch or pull request.
 
