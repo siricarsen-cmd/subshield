@@ -689,7 +689,7 @@ function checkEnvironment(
   environment.NPM_CONFIG_IGNORE_SCRIPTS = "true";
   environment.npm_config_ignore_scripts = "true";
   environment.CI = "1";
-  environment.NODE_ENV = "production";
+  Object.assign(environment, { NODE_ENV: "production" });
   environment.NEXT_TELEMETRY_DISABLED = "1";
   environment.NEXT_PUBLIC_BASE_URL = "http://localhost:3000";
   environment.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
