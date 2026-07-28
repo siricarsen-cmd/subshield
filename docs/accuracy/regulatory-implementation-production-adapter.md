@@ -46,7 +46,8 @@ Production options require explicit absolute canonical paths for:
 - the repository root;
 - the Git executable;
 - the GitHub CLI executable;
-- the GitHub CLI configuration directory containing the operator’s authenticated `github.com` context.
+- the GitHub CLI configuration directory containing the operator’s authenticated `github.com` context;
+- the exact expected GitHub login deliberately bound by the invocation authorization.
 
 `process.execPath` is used as the trusted Node executable. The adapter never resolves Git, GitHub CLI, npm, npx, TypeScript, or Next.js from an inherited `PATH`.
 
@@ -63,7 +64,8 @@ Production execution requires:
 - no SSH, embedded credentials, alternate host, explicit port, query, fragment, lookalike path, or URL rewrite;
 - a non-fork GitHub repository view;
 - authenticated repository permission of `WRITE`, `MAINTAIN`, or `ADMIN`;
-- a nonblank validated GitHub login.
+- a nonblank validated GitHub login;
+- an exact case-normalized match between that authenticated login and the expected login bound by the invocation authorization.
 
 The token is obtained from the explicitly configured GitHub CLI context. The same token is used for later GitHub CLI requests and the canonical HTTPS Git transport. The recorded executor principal is derived from that attested login.
 
