@@ -1,0 +1,129 @@
+name: Apply verified PR 60 security fixes
+
+on:
+  push:
+    branches:
+      - feat/regulatory-implementation-invocation-orchestration
+    paths:
+      - .github/workflows/pr60-apply-verified-fixes.yml
+
+permissions:
+  contents: write
+  issues: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Verify and apply exact reviewed archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_PARENT: 3222fd9fe39e7abecc29e3ccf0e4794d80f7157e
+          COMMENT_ID: "5100366559"
+        run: |
+          python - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import os
+          from pathlib import Path, PurePosixPath
+          import re
+          import subprocess
+          import tarfile
+          import io
+          import urllib.request
+
+          def run(*args: str) -> str:
+              return subprocess.check_output(args, text=True).strip()
+
+          parent = run("git", "rev-parse", "HEAD^")
+          if parent != os.environ["EXPECTED_PARENT"]:
+              raise SystemExit(f"Refusing unexpected parent {parent}")
+
+          url = (
+              "https://api.github.com/repos/siricarsen-cmd/subshield/issues/comments/"
+              + os.environ["COMMENT_ID"]
+          )
+          request = urllib.request.Request(
+              url,
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+          )
+          with urllib.request.urlopen(request, timeout=30) as response:
+              body = json.loads(response.read())["body"]
+
+          match = re.search(
+              r"FILES_TARGZ_BASE64_BEGIN\s*(.*?)\s*FILES_TARGZ_BASE64_END",
+              body,
+              re.S,
+          )
+          if not match:
+              raise SystemExit("Verified archive markers were not found")
+          payload = re.sub(r"\s+", "", match.group(1))
+          if len(payload) != 21352:
+              raise SystemExit(f"Unexpected archive base64 length {len(payload)}")
+          archive = base64.b64decode(payload, validate=True)
+          archive_sha = hashlib.sha256(archive).hexdigest()
+          if archive_sha != "6da4a1f31f24db2898a4c744af7962a6e00fbc3eb4d8de5239e81c50ad95f997":
+              raise SystemExit(f"Archive checksum mismatch {archive_sha}")
+
+          expected = {
+              "docs/accuracy/regulatory-implementation-invocation-orchestration.md": (
+                  9916,
+                  "5896964f73b48421c5f7327eebe636c09f0956edfe11d1c1aa7f217a9c897637",
+              ),
+              "lib/regulatory/__tests__/registry-implementation-invocation.test.mjs": (
+                  24678,
+                  "836375ab7dfd38cb5a4265a6fd0973197c8dbb4ca6afde7395b5ff8fb06b51cc",
+              ),
+              "lib/regulatory/registry-implementation-invocation.ts": (
+                  42076,
+                  "a3b93fbd68414749f7d2015779c96c072d03ca5822527dd0147c2a12e04a2a97",
+              ),
+          }
+          with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as bundle:
+              members = bundle.getmembers()
+              if {member.name for member in members} != set(expected):
+                  raise SystemExit("Archive contains unexpected paths")
+              for member in members:
+                  path = PurePosixPath(member.name)
+                  if (
+                      not member.isfile()
+                      or member.issym()
+                      or member.islnk()
+                      or path.is_absolute()
+                      or ".." in path.parts
+                  ):
+                      raise SystemExit(f"Unsafe archive member {member.name}")
+                  data = bundle.extractfile(member).read()
+                  expected_size, expected_sha = expected[member.name]
+                  actual_sha = hashlib.sha256(data).hexdigest()
+                  if len(data) != expected_size or actual_sha != expected_sha:
+                      raise SystemExit(f"File integrity mismatch {member.name}")
+                  target = Path(*path.parts)
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(data)
+
+          workflow = Path(".github/workflows/pr60-apply-verified-fixes.yml")
+          workflow.unlink()
+          changed = set(run("git", "diff", "--name-only").splitlines())
+          allowed = set(expected) | {str(workflow)}
+          if changed != allowed:
+              raise SystemExit(f"Unexpected changed paths: {sorted(changed)}")
+          subprocess.check_call(["git", "diff", "--check"])
+          PY
+
+      - name: Commit exact verified corrections
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: harden regulatory invocation validation"
+          git push origin HEAD:feat/regulatory-implementation-invocation-orchestration
