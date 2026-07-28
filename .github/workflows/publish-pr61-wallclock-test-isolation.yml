@@ -1,0 +1,59 @@
+name: Publish PR61 wall-clock test isolation
+
+on:
+  push:
+    branches:
+      - automation/pr61-wallclock-test-isolation
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: automation/pr61-wallclock-test-isolation
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Isolate wall-clock expiration and publish clean commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_head='ccceb64ff203f067c2cd3f6e24d16a2b8e6258a0'
+          target_branch='fix/regulatory-invocation-creation-deadline'
+
+          git fetch origin "$target_branch"
+          test "$(git rev-parse "origin/$target_branch")" = "$expected_head"
+          git checkout --detach "$expected_head"
+
+          python3 <<'PY'
+          from pathlib import Path
+          path = Path('lib/regulatory/__tests__/registry-implementation-invocation.test.mjs')
+          text = path.read_text()
+          old = '''  testNow = testBaseMs + 5 * 60_000 + 1;
+            globalThis.__subshieldTestMonotonicNowNs += BigInt(5 * 60_000 + 1) * BigInt(1_000_000);'''
+          new = '''  testNow = testBaseMs + 5 * 60_000 + 2;
+            globalThis.__subshieldTestMonotonicNowNs += BigInt(5 * 60_000) * BigInt(1_000_000);'''
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one wall-clock test match, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+          npm run test:regulatory:implementation-invocation
+          git diff --check
+
+          git add -- lib/regulatory/__tests__/registry-implementation-invocation.test.mjs
+          test "$(git diff --cached --name-only)" = 'lib/regulatory/__tests__/registry-implementation-invocation.test.mjs'
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Isolate wall-clock authorization expiration regression"
+          test "$(git rev-parse HEAD^)" = "$expected_head"
+          test "$(git diff --name-only "$expected_head" HEAD)" = 'lib/regulatory/__tests__/registry-implementation-invocation.test.mjs'
+
+          git push --force-with-lease="refs/heads/$target_branch:$expected_head" origin HEAD:"refs/heads/$target_branch"
