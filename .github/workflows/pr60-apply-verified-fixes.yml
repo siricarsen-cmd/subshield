@@ -19,13 +19,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: feat/regulatory-implementation-invocation-orchestration
-          fetch-depth: 0
+          fetch-depth: 4
+          show-progress: false
 
       - name: Verify and apply exact reviewed archive
         env:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_BASE_HEAD: 3222fd9fe39e7abecc29e3ccf0e4794d80f7157e
-          COMMENT_ID: "5100366559"
         run: |
           python - <<'PY'
           import base64
@@ -42,42 +42,55 @@ jobs:
           def run(*args: str) -> str:
               return subprocess.check_output(args, text=True).strip()
 
+          def comment_body(comment_id: str) -> str:
+              url = f"https://api.github.com/repos/siricarsen-cmd/subshield/issues/comments/{comment_id}"
+              request = urllib.request.Request(
+                  url,
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.loads(response.read())["body"]
+
           base_head = os.environ["EXPECTED_BASE_HEAD"]
           subprocess.check_call(["git", "merge-base", "--is-ancestor", base_head, "HEAD"])
-          staged_history = set(run("git", "diff", "--name-only", f"{base_head}..HEAD").splitlines())
           workflow_path = ".github/workflows/pr60-apply-verified-fixes.yml"
+          staged_history = set(run("git", "diff", "--name-only", f"{base_head}..HEAD").splitlines())
           if staged_history != {workflow_path}:
               raise SystemExit(f"Unexpected staged branch paths: {sorted(staged_history)}")
+          print("Verified staging history")
 
-          url = (
-              "https://api.github.com/repos/siricarsen-cmd/subshield/issues/comments/"
-              + os.environ["COMMENT_ID"]
-          )
-          request = urllib.request.Request(
-              url,
-              headers={
-                  "Accept": "application/vnd.github+json",
-                  "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
-                  "X-GitHub-Api-Version": "2022-11-28",
-              },
-          )
-          with urllib.request.urlopen(request, timeout=30) as response:
-              body = json.loads(response.read())["body"]
-
-          match = re.search(
+          body = comment_body("5100366559")
+          full_match = re.search(
               r"FILES_TARGZ_BASE64_BEGIN\s*(.*?)\s*FILES_TARGZ_BASE64_END",
               body,
               re.S,
           )
-          if not match:
-              raise SystemExit("Verified archive markers were not found")
-          payload = re.sub(r"\s+", "", match.group(1))
+          if full_match:
+              payload = re.sub(r"\s+", "", full_match.group(1))
+          else:
+              body = comment_body("5100628456")
+              pieces = {
+                  int(number): re.sub(r"\s+", "", value)
+                  for number, value in re.findall(
+                      r"ARCHIVE_CHUNK_(\d+)_BEGIN\s*(.*?)\s*ARCHIVE_CHUNK_\1_END",
+                      body,
+                      re.S,
+                  )
+              }
+              if set(pieces) != set(range(1, 7)):
+                  raise SystemExit(f"Expected six archive chunks, found {sorted(pieces)}")
+              payload = "".join(pieces[index] for index in range(1, 7))
           if len(payload) != 21352:
               raise SystemExit(f"Unexpected archive base64 length {len(payload)}")
           archive = base64.b64decode(payload, validate=True)
           archive_sha = hashlib.sha256(archive).hexdigest()
           if archive_sha != "6da4a1f31f24db2898a4c744af7962a6e00fbc3eb4d8de5239e81c50ad95f997":
               raise SystemExit(f"Archive checksum mismatch {archive_sha}")
+          print("Verified archive checksum")
 
           expected = {
               "docs/accuracy/regulatory-implementation-invocation-orchestration.md": (
@@ -107,7 +120,10 @@ jobs:
                       or ".." in path.parts
                   ):
                       raise SystemExit(f"Unsafe archive member {member.name}")
-                  data = bundle.extractfile(member).read()
+                  source = bundle.extractfile(member)
+                  if source is None:
+                      raise SystemExit(f"Unable to read archive member {member.name}")
+                  data = source.read()
                   expected_size, expected_sha = expected[member.name]
                   actual_sha = hashlib.sha256(data).hexdigest()
                   if len(data) != expected_size or actual_sha != expected_sha:
@@ -115,6 +131,7 @@ jobs:
                   target = Path(*path.parts)
                   target.parent.mkdir(parents=True, exist_ok=True)
                   target.write_bytes(data)
+          print("Verified and wrote three exact files")
 
           workflow = Path(workflow_path)
           workflow.unlink()
@@ -123,6 +140,7 @@ jobs:
           if changed != allowed:
               raise SystemExit(f"Unexpected changed paths: {sorted(changed)}")
           subprocess.check_call(["git", "diff", "--check"])
+          print("Verified final changed-file boundary")
           PY
 
       - name: Commit exact verified corrections
