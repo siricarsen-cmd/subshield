@@ -1,0 +1,45 @@
+name: PR59 One-Line Type Fix
+
+on:
+  push:
+    branches:
+      - feat/regulatory-implementation-production-adapter
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/regulatory-implementation-production-adapter
+          fetch-depth: 0
+
+      - name: Apply exact compiler-only correction
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("lib/regulatory/registry-implementation-production-adapter.ts")
+          source = path.read_text(encoding="utf-8")
+          old = '  environment["NODE_ENV"] = "production";'
+          new = '  Object.assign(environment, { NODE_ENV: "production" });'
+          if source.count(old) != 1:
+              raise SystemExit(f"Expected exactly one target line, found {source.count(old)}")
+          path.write_text(source.replace(old, new), encoding="utf-8")
+
+          workflow = Path(".github/workflows/pr59-node-env-fix.yml")
+          workflow.unlink()
+
+      - name: Commit exact source fix and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/regulatory/registry-implementation-production-adapter.ts .github/workflows/pr59-node-env-fix.yml
+          git diff --cached --check
+          git commit -m "fix(regulatory): assign production environment safely"
+          git push origin HEAD:feat/regulatory-implementation-production-adapter
