@@ -40,6 +40,7 @@ const CANONICAL_GIT_ENDPOINT =
 const MAX_OUTPUT_BYTES = 256 * 1024;
 const COMMIT_SHA_RE = /^[a-f0-9]{40}$/;
 const CHECKSUM_RE = /^sha256:[a-f0-9]{64}$/;
+const GITHUB_LOGIN_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/;
 const GITHUB_INSTANT_RE =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?Z$/;
 const GIT_STRICT_INSTANT_RE =
@@ -87,6 +88,7 @@ const REGULATORY_TEST_FILES = Object.freeze([
   "lib/regulatory/__tests__/registry-implementation-pr-bundle-semantic.test.mjs",
   "lib/regulatory/__tests__/registry-implementation-executor.test.mjs",
   "lib/regulatory/__tests__/registry-implementation-production-adapter.test.mjs",
+  "lib/regulatory/__tests__/registry-implementation-invocation.test.mjs",
   "lib/regulatory/__tests__/ingestion.test.mjs",
   "lib/regulatory/__tests__/verified-stored-update-pair.test.mjs",
   "lib/regulatory/__tests__/applicability-mapping.test.mjs",
@@ -184,6 +186,8 @@ export interface RegulatoryImplementationProductionOptions {
   githubCliExecutable: string;
   /** Canonical absolute real directory containing the authenticated gh host config. */
   githubCliConfigDir: string;
+  /** Exact github.com login deliberately authorized to perform this invocation. */
+  expectedGitHubLogin: string;
 }
 
 export type RegulatoryImplementationProductionBoundaryFailure = Readonly<{
@@ -274,6 +278,14 @@ function exactString(value: unknown, label: string): string {
     throw new Error(`Controlled production adapter ${label} is invalid`);
   }
   return value.trim();
+}
+
+function normalizeGitHubLogin(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (normalized !== value.toLowerCase() || !GITHUB_LOGIN_RE.test(normalized)) {
+    throw new Error("Controlled production adapter authenticated principal is invalid");
+  }
+  return normalized;
 }
 
 function normalizedJson<T>(value: string, label: string): T {
@@ -847,6 +859,7 @@ class ProductionRegulatoryImplementationAdapter
   private readonly branch: string;
   private readonly baseCommitSha: string;
   private readonly requiredChecks: readonly string[];
+  private readonly expectedGitHubLogin: string;
 
   constructor(
     private readonly options: RegulatoryImplementationProductionOptions,
@@ -856,6 +869,7 @@ class ProductionRegulatoryImplementationAdapter
     this.branch = validateBranchName(plan.targetBranch);
     this.baseCommitSha = plan.baseCommitSha;
     this.requiredChecks = [...bundle.requiredChecks];
+    this.expectedGitHubLogin = normalizeGitHubLogin(options.expectedGitHubLogin);
     if (!COMMIT_SHA_RE.test(this.baseCommitSha)) {
       throw new Error("Controlled production adapter reviewed base commit is invalid");
     }
@@ -1113,8 +1127,11 @@ class ProductionRegulatoryImplementationAdapter
       ).stdout,
       "authenticated principal"
     );
-    if (!/^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/.test(login)) {
-      throw new Error("Controlled production adapter authenticated principal is invalid");
+    const normalizedLogin = normalizeGitHubLogin(login);
+    if (normalizedLogin !== this.expectedGitHubLogin) {
+      throw new Error(
+        "Controlled production adapter authenticated principal does not match the authorized operator"
+      );
     }
 
     const repository = normalizedJson<GitHubRepositoryView>(
@@ -1141,7 +1158,7 @@ class ProductionRegulatoryImplementationAdapter
     ) {
       throw new Error("Controlled production adapter authenticated repository is invalid");
     }
-    this.trustedPrincipal = `github-user:${login.toLowerCase()}`;
+    this.trustedPrincipal = `github-user:${normalizedLogin}`;
     this.state = "preflighted";
     return {
       repositoryFullName: EXPECTED_REPOSITORY,
@@ -1869,6 +1886,7 @@ export const regulatoryImplementationProductionAdapterTestSurface = Object.freez
   requiredChecks: [...REQUIRED_CHECKS],
   regulatoryTestFiles: [...REGULATORY_TEST_FILES],
   accuracyTestFiles: [...ACCURACY_TEST_FILES],
+  normalizeGitHubLogin,
   normalizeOriginUrl,
   normalizeGitHubInstant,
   normalizeGitStrictInstant,
