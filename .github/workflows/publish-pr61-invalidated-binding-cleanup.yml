@@ -1,0 +1,84 @@
+name: Publish PR61 invalidated binding cleanup
+
+on:
+  pull_request:
+    branches:
+      - fix/regulatory-invocation-creation-deadline
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-publish:
+    if: github.head_ref == 'automation/pr61-invalidated-binding-cleanup'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: automation/pr61-invalidated-binding-cleanup
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Erase terminally invalidated binding and publish clean commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_head='ae0009e10073549444c6a92e86bdae1d923be873'
+          target_branch='fix/regulatory-invocation-creation-deadline'
+
+          git fetch origin "$target_branch"
+          test "$(git rev-parse "origin/$target_branch")" = "$expected_head"
+          git checkout --detach "$expected_head"
+
+          python3 <<'PY'
+          from pathlib import Path
+
+          source_path = Path('lib/regulatory/registry-implementation-invocation.ts')
+          test_path = Path('lib/regulatory/__tests__/registry-implementation-invocation.test.mjs')
+          source = source_path.read_text()
+          test = test_path.read_text()
+
+          old_source = '''    INVALIDATED_AUTHORIZATIONS.add(authorization as object);
+              return refusal("Invocation authorization expired before consumption");'''
+          new_source = '''    INVALIDATED_AUTHORIZATIONS.add(authorization as object);
+              binding.auditAuthenticationKey.fill(0);
+              AUTHORIZATION_BINDINGS.delete(authorization as object);
+              return refusal("Invocation authorization expired before consumption");'''
+          if source.count(old_source) != 1:
+              raise SystemExit(f'expected one terminal invalidation source match, found {source.count(old_source)}')
+          source = source.replace(old_source, new_source, 1)
+
+          old_guard = '''  [source.includes("auditAuthenticationKey.fill(0)"), "the private audit key copy is erased after one-use invocation"],'''
+          new_guard = '''  [source.includes('INVALIDATED_AUTHORIZATIONS.add(authorization as object);\\n    binding.auditAuthenticationKey.fill(0);\\n    AUTHORIZATION_BINDINGS.delete(authorization as object);\\n    return refusal("Invocation authorization expired before consumption");'), "terminal freshness invalidation erases its private binding material"],
+            [source.includes("auditAuthenticationKey.fill(0)"), "the private audit key copy is erased after one-use invocation"],'''
+          if test.count(old_guard) != 1:
+              raise SystemExit(f'expected one audit-key source guard match, found {test.count(old_guard)}')
+          test = test.replace(old_guard, new_guard, 1)
+
+          source_path.write_text(source)
+          test_path.write_text(test)
+          PY
+
+          npm run test:regulatory:implementation-invocation
+          git diff --check
+
+          git add -- \
+            lib/regulatory/registry-implementation-invocation.ts \
+            lib/regulatory/__tests__/registry-implementation-invocation.test.mjs
+          mapfile -t changed < <(git diff --cached --name-only | sort)
+          mapfile -t expected < <(printf '%s\n' \
+            'lib/regulatory/__tests__/registry-implementation-invocation.test.mjs' \
+            'lib/regulatory/registry-implementation-invocation.ts' | sort)
+          diff <(printf '%s\n' "${expected[@]}") <(printf '%s\n' "${changed[@]}")
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Erase terminally invalidated authorization bindings"
+          test "$(git rev-parse HEAD^)" = "$expected_head"
+          mapfile -t final_changed < <(git diff --name-only "$expected_head" HEAD | sort)
+          diff <(printf '%s\n' "${expected[@]}") <(printf '%s\n' "${final_changed[@]}")
+
+          git push --force-with-lease="refs/heads/$target_branch:$expected_head" origin HEAD:"refs/heads/$target_branch"
