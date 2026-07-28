@@ -1,0 +1,66 @@
+name: Publish clean PR61 terminal invalidation
+
+on:
+  pull_request:
+    branches:
+      - fix/regulatory-invocation-creation-deadline
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  publish-clean-commit:
+    if: github.head_ref == 'automation/pr61-terminal-invalidation'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: automation/pr61-terminal-invalidation
+          fetch-depth: 0
+
+      - name: Publish only the verified source and test blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_head='d93ad48411d7bae3a2d7d85a80e3cfd255ae9590'
+          target_branch='fix/regulatory-invocation-creation-deadline'
+          source_blob='ec736e92092d10a4321338900cf3d2383cb03e1a'
+          test_blob='b830569039c18fb89c75ef3d542aaad44292b910'
+
+          test "$(git hash-object lib/regulatory/registry-implementation-invocation.ts)" = "$source_blob"
+          test "$(git hash-object lib/regulatory/__tests__/registry-implementation-invocation.test.mjs)" = "$test_blob"
+
+          cp lib/regulatory/registry-implementation-invocation.ts /tmp/registry-implementation-invocation.ts
+          cp lib/regulatory/__tests__/registry-implementation-invocation.test.mjs /tmp/registry-implementation-invocation.test.mjs
+
+          git fetch origin "$target_branch"
+          actual_head="$(git rev-parse "origin/$target_branch")"
+          test "$actual_head" = "$expected_head"
+
+          git checkout --detach "$expected_head"
+          cp /tmp/registry-implementation-invocation.ts lib/regulatory/registry-implementation-invocation.ts
+          cp /tmp/registry-implementation-invocation.test.mjs lib/regulatory/__tests__/registry-implementation-invocation.test.mjs
+
+          git add -- \
+            lib/regulatory/registry-implementation-invocation.ts \
+            lib/regulatory/__tests__/registry-implementation-invocation.test.mjs
+
+          mapfile -t changed < <(git diff --cached --name-only | sort)
+          mapfile -t expected < <(printf '%s\n' \
+            'lib/regulatory/__tests__/registry-implementation-invocation.test.mjs' \
+            'lib/regulatory/registry-implementation-invocation.ts' | sort)
+          diff <(printf '%s\n' "${expected[@]}") <(printf '%s\n' "${changed[@]}")
+          git diff --cached --check
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Make authorization freshness refusals terminal"
+
+          test "$(git rev-parse HEAD^)" = "$expected_head"
+          mapfile -t final_changed < <(git diff --name-only "$expected_head" HEAD | sort)
+          diff <(printf '%s\n' "${expected[@]}") <(printf '%s\n' "${final_changed[@]}")
+          test "$(git hash-object lib/regulatory/registry-implementation-invocation.ts)" = "$source_blob"
+          test "$(git hash-object lib/regulatory/__tests__/registry-implementation-invocation.test.mjs)" = "$test_blob"
+
+          git push --force-with-lease="refs/heads/$target_branch:$expected_head" origin HEAD:"refs/heads/$target_branch"
