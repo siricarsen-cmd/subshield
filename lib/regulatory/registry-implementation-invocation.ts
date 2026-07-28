@@ -18,6 +18,10 @@ import {
   type RegulatoryImplementationPullRequestBundle,
 } from "./registry-implementation-pr-bundle";
 import { fingerprintRegulatoryRegistryValue } from "./registry-integrity";
+import {
+  validateRegulatoryImplementationExecutionReceipt,
+  type RegulatoryImplementationExecutionReceipt,
+} from "./registry-implementation-executor";
 
 const EXPECTED_REPOSITORY = "siricarsen-cmd/subshield";
 const EXPECTED_DEFAULT_BRANCH = "main";
@@ -26,15 +30,23 @@ const COMMIT_SHA_RE = /^[a-f0-9]{40}$/;
 const GITHUB_LOGIN_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/;
 const AUDIT_FILENAME_RE = /^[a-f0-9]{24}-invocation-audit\.json$/;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
-const PRODUCTION_RESULT_STATUSES = new Set([
-  "preflight-refused",
-  "execution-failed",
-  "check-failed",
-  "push-failed",
-  "pull-request-failed",
-  "receipt-failed",
-  "success",
-  "production-boundary-failed",
+const REQUIRED_CHECKS = Object.freeze([
+  "npm run test:regulatory",
+  "npm run test:accuracy",
+  "npx tsc --noEmit",
+  "npm run build",
+] as const);
+const EXECUTION_FAILURE_STAGES = new Set([
+  "branch",
+  "write",
+  "worktree-verification",
+  "commit",
+  "commit-verification",
+]);
+const PRODUCTION_BOUNDARY_STAGES = new Set([
+  "execution",
+  "cleanup",
+  "execution-and-cleanup",
 ]);
 const LIVE_AUTHORIZATIONS = new WeakSet<object>();
 const CONSUMED_AUTHORIZATIONS = new WeakSet<object>();
@@ -174,6 +186,233 @@ function exactAbsolutePath(value: string, label: string): string {
     throw new Error(`Invocation ${label} must be an exact absolute path`);
   }
   return value;
+}
+
+
+type UnknownRecord = Record<string, unknown>;
+type CheckValidationMode = "partial" | "complete-success";
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function hasExactKeys(record: UnknownRecord, expected: readonly string[]): boolean {
+  const actual = Object.keys(record).sort();
+  const canonical = [...expected].sort();
+  return actual.length === canonical.length && actual.every((key, index) => key === canonical[index]);
+}
+
+function hasNonblankErrors(value: unknown): value is readonly string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((entry) => typeof entry === "string" && entry.trim().length > 0)
+  );
+}
+
+function validateControlledBoundary(record: UnknownRecord, label: string): string[] {
+  return record.applicationStatus === "not-applied" &&
+    record.customerFacingStatus === "benchmark-only" &&
+    record.mergeStatus === "not-authorized"
+    ? []
+    : [`${label} escaped its controlled boundary`];
+}
+
+function validateCheckEvidence(value: unknown, mode: CheckValidationMode): string[] {
+  const errors: string[] = [];
+  if (!Array.isArray(value)) return ["Invocation production check evidence is not an array"];
+  if (
+    value.length > REQUIRED_CHECKS.length ||
+    (mode === "complete-success" && value.length !== REQUIRED_CHECKS.length)
+  ) {
+    errors.push("Invocation production check evidence has an invalid length");
+  }
+  let commitSha: string | undefined;
+  for (const [index, candidate] of value.entries()) {
+    if (!isRecord(candidate) || !hasExactKeys(candidate, ["command", "commitSha", "conclusion"])) {
+      errors.push("Invocation production check evidence has an invalid shape");
+      continue;
+    }
+    if (candidate.command !== REQUIRED_CHECKS[index]) {
+      errors.push("Invocation production check evidence does not preserve the required sequence");
+    }
+    if (typeof candidate.commitSha !== "string" || !COMMIT_SHA_RE.test(candidate.commitSha)) {
+      errors.push("Invocation production check evidence commit is invalid");
+    } else if (commitSha && candidate.commitSha !== commitSha) {
+      errors.push("Invocation production check evidence is not bound to one commit");
+    } else {
+      commitSha = candidate.commitSha;
+    }
+    if (candidate.conclusion !== "success" && candidate.conclusion !== "failure") {
+      errors.push("Invocation production check evidence conclusion is invalid");
+    }
+    if (mode === "complete-success" && candidate.conclusion !== "success") {
+      errors.push("Invocation completed check evidence must contain only successes");
+    }
+    if (
+      mode === "partial" &&
+      index < value.length - 1 &&
+      candidate.conclusion !== "success"
+    ) {
+      errors.push("Invocation partial check evidence may fail only at its final observed check");
+    }
+  }
+  return [...new Set(errors)];
+}
+
+function validateExecutionResult(
+  value: unknown,
+  authorization?: RegulatoryImplementationInvocationAuthorization
+): string[] {
+  if (!isRecord(value) || typeof value.status !== "string") {
+    return ["Invocation production execution result is invalid"];
+  }
+  const errors = validateControlledBoundary(value, "Invocation production execution result");
+  switch (value.status) {
+    case "preflight-refused":
+      if (
+        !hasExactKeys(value, [
+          "status",
+          "errors",
+          "applicationStatus",
+          "customerFacingStatus",
+          "mergeStatus",
+        ]) ||
+        !hasNonblankErrors(value.errors)
+      ) {
+        errors.push("Invocation preflight refusal is incomplete");
+      }
+      break;
+    case "execution-failed":
+      if (
+        !hasExactKeys(value, [
+          "status",
+          "stage",
+          "errors",
+          "applicationStatus",
+          "customerFacingStatus",
+          "mergeStatus",
+        ]) ||
+        typeof value.stage !== "string" ||
+        !EXECUTION_FAILURE_STAGES.has(value.stage) ||
+        !hasNonblankErrors(value.errors)
+      ) {
+        errors.push("Invocation execution failure is incomplete");
+      }
+      break;
+    case "check-failed":
+      if (
+        !hasExactKeys(value, [
+          "status",
+          "checks",
+          "errors",
+          "applicationStatus",
+          "customerFacingStatus",
+          "mergeStatus",
+        ]) ||
+        !hasNonblankErrors(value.errors)
+      ) {
+        errors.push("Invocation check failure is incomplete");
+      }
+      errors.push(...validateCheckEvidence(value.checks, "partial"));
+      break;
+    case "push-failed":
+    case "pull-request-failed":
+    case "receipt-failed":
+      if (
+        !hasExactKeys(value, [
+          "status",
+          "checks",
+          "errors",
+          "applicationStatus",
+          "customerFacingStatus",
+          "mergeStatus",
+        ]) ||
+        !hasNonblankErrors(value.errors)
+      ) {
+        errors.push(`Invocation ${value.status} result is incomplete`);
+      }
+      errors.push(...validateCheckEvidence(value.checks, "complete-success"));
+      break;
+    case "success": {
+      if (
+        !hasExactKeys(value, [
+          "status",
+          "receipt",
+          "applicationStatus",
+          "customerFacingStatus",
+          "mergeStatus",
+        ]) ||
+        !isRecord(value.receipt)
+      ) {
+        errors.push("Invocation success result lacks a complete receipt");
+        break;
+      }
+      const receipt = value.receipt as unknown as RegulatoryImplementationExecutionReceipt;
+      const receiptErrors = validateRegulatoryImplementationExecutionReceipt(receipt);
+      if (receiptErrors.length > 0) {
+        errors.push("Invocation success receipt does not reproduce");
+      }
+      errors.push(...validateCheckEvidence(receipt.checks, "complete-success"));
+      if (
+        authorization &&
+        (receipt.repositoryFullName !== authorization.repositoryFullName ||
+          receipt.planId !== authorization.planId ||
+          receipt.planChecksum !== authorization.planChecksum ||
+          receipt.bundleId !== authorization.bundleId ||
+          receipt.bundleChecksum !== authorization.bundleChecksum ||
+          receipt.baseCommitSha !== authorization.baseCommitSha ||
+          receipt.targetBranch !== authorization.targetBranch ||
+          receipt.executedBy !== authorization.expectedExecutorPrincipal)
+      ) {
+        errors.push("Invocation success receipt does not match its authorization");
+      }
+      break;
+    }
+    default:
+      errors.push("Invocation production execution result status is invalid");
+  }
+  return [...new Set(errors)];
+}
+
+export function validateRegulatoryImplementationProductionResult(
+  value: unknown,
+  authorization?: RegulatoryImplementationInvocationAuthorization
+): string[] {
+  if (!isRecord(value) || typeof value.status !== "string") {
+    return ["Invocation production result is invalid"];
+  }
+  if (value.status !== "production-boundary-failed") {
+    return validateExecutionResult(value, authorization);
+  }
+  const allowedKeys = [
+    "status",
+    "stage",
+    "errors",
+    "applicationStatus",
+    "customerFacingStatus",
+    "mergeStatus",
+    ...(Object.prototype.hasOwnProperty.call(value, "priorResult") ? ["priorResult"] : []),
+  ];
+  const errors = validateControlledBoundary(value, "Invocation production boundary failure");
+  if (
+    !hasExactKeys(value, allowedKeys) ||
+    typeof value.stage !== "string" ||
+    !PRODUCTION_BOUNDARY_STAGES.has(value.stage) ||
+    !hasNonblankErrors(value.errors)
+  ) {
+    errors.push("Invocation production boundary failure is incomplete");
+  }
+  if (value.stage === "cleanup" && !Object.prototype.hasOwnProperty.call(value, "priorResult")) {
+    errors.push("Invocation cleanup failure must preserve its prior structured result");
+  }
+  if (value.stage === "execution" && Object.prototype.hasOwnProperty.call(value, "priorResult")) {
+    errors.push("Invocation execution boundary failure must not claim a prior result");
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "priorResult")) {
+    errors.push(...validateExecutionResult(value.priorResult, authorization));
+  }
+  return [...new Set(errors)];
 }
 
 function authorizationPayload(
@@ -488,15 +727,12 @@ export function validateRegulatoryImplementationInvocationAuditRecord(
   ) {
     errors.push("Invocation audit escaped its evidence-only boundary");
   }
-  if (!audit.result || typeof audit.result !== "object" || !("status" in audit.result)) {
-    errors.push("Invocation audit result is invalid");
-  } else if (
-    !PRODUCTION_RESULT_STATUSES.has(audit.result.status) ||
-    audit.result.applicationStatus !== "not-applied" ||
-    audit.result.customerFacingStatus !== "benchmark-only" ||
-    audit.result.mergeStatus !== "not-authorized"
-  ) {
-    errors.push("Invocation audit production result escaped its controlled boundary");
+  const productionResultErrors = validateRegulatoryImplementationProductionResult(
+    audit.result,
+    audit.authorization
+  );
+  if (productionResultErrors.length > 0) {
+    errors.push(...productionResultErrors);
   }
   if (!CHECKSUM_RE.test(audit.auditChecksum) || audit.auditChecksum !== checksumForAudit(audit)) {
     errors.push("Invocation audit checksum does not reproduce");
@@ -679,5 +915,7 @@ export const regulatoryImplementationInvocationTestSurface = Object.freeze({
   checksumForAudit,
   runtimeFingerprintFor,
   auditFilename,
+  validateCheckEvidence,
+  validateExecutionResult,
   refusal,
 });

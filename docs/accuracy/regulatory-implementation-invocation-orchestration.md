@@ -113,6 +113,8 @@ The orchestration layer presents these top-level outcomes:
 
 The complete underlying production result is preserved. This includes a prior structured executor result when the production adapter reports cleanup failure after a branch or PR may already exist. An unexpected adapter throw is converted into a sanitized `production-boundary-failed` execution result so authorization consumption and audit handling remain explicit.
 
+When audit evidence is read back, every discriminated production-result variant is validated for its exact fields, nonblank failure details, stage, required check sequence, and controlled boundaries. Success additionally requires a checksum-valid execution receipt whose repository, plan, bundle, base, branch, checks, and trusted executor principal match the authorization snapshot. A bare status object cannot validate as a complete result.
+
 No failure path automatically deletes, retries, overwrites, rebases, resets, or merges a hosted branch or pull request.
 
 ## Audit retention
