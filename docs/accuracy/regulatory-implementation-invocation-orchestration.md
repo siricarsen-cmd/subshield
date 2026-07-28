@@ -58,7 +58,7 @@ The confirmation binds:
 
 The authorization is deeply frozen, checksum-bound, retained in a `WeakSet`, and linked through a `WeakMap` to the original live plan, original live bundle, and exact runtime configuration. A serialized copy can be audited but cannot be used to execute.
 
-Authorization must be created within five minutes of the operator timestamp. A private process-observed five-minute deadline is captured at creation, and consumption is refused when either the timestamp-age limit or that creation deadline expires. The existing five-minute allowance for a trusted operator clock that is ahead of the process clock remains in force, but it cannot extend the authorization's real lifetime beyond five minutes from creation.
+Authorization must be created within five minutes of the operator timestamp. A private monotonic process-clock observation is captured at creation, and consumption is refused when either the wall-clock timestamp-age limit or more than five minutes of monotonic process time has elapsed. The existing five-minute allowance for a trusted operator clock that is ahead of the process wall clock remains in force, but it cannot extend the authorization's actual lifetime. Wall-clock rollback cannot extend that lifetime, and impossible backward monotonic movement is refused fail-closed.
 
 ## One-use and no automatic retry
 
@@ -84,7 +84,7 @@ Authorization binds the exact runtime inputs:
 - expected GitHub login; and
 - audit-output directory.
 
-Only a fingerprint is retained in the serializable authorization. The actual paths and original live objects remain in the private in-memory binding.
+Only a fingerprint is retained in the serializable authorization. The actual paths, original live objects, and monotonic creation observation remain in the private in-memory binding.
 
 The production adapter continues to perform canonical path, regular-file/directory, Git configuration, transport, token, repository, remote-main, file, commit, check, branch, PR, and cleanup validation.
 
@@ -103,8 +103,9 @@ Before privileged execution it verifies:
 3. the plan and bundle remain valid and live-authorized;
 4. plan, bundle, base, and branch identities still match;
 5. the runtime fingerprint still matches the authorized paths and expected GitHub login;
-6. the authorization timestamp is no more than five minutes old immediately before consumption; and
-7. no more than five minutes of process-observed time has elapsed since the authorization object was created.
+6. the authorization timestamp is no more than five minutes old immediately before consumption;
+7. no more than five minutes of monotonic process time has elapsed since the authorization object was created; and
+8. the monotonic process clock has not moved backward relative to the private creation observation.
 
 It then calls the production adapter with no caller-selected commands, shell strings, scripts, flags, paths, or identities beyond the already-bound options.
 
@@ -140,7 +141,7 @@ The audit record includes:
 - `customerFacingStatus: benchmark-only`;
 - `mergeStatus: not-authorized`.
 
-Audit files are evidence only. The authorization snapshot is serialized audit data, is not placed in the live authorization `WeakSet`, does not retain the original plan/bundle references, and cannot be loaded as execution authority.
+Audit files are evidence only. The authorization snapshot is serialized audit data, is not placed in the live authorization `WeakSet`, does not retain the original plan/bundle references or private monotonic creation observation, and cannot be loaded as execution authority.
 
 The output directory must already exist as the exact canonical non-symlink directory explicitly bound during authorization. Audit files use `open(..., "wx", 0o600)` and are never overwritten. The authentication key must be retained separately in an operator-controlled secret store; losing it prevents later authentication, while exposing it would allow a file editor to forge tags.
 
