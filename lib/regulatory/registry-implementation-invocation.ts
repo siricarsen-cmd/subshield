@@ -32,6 +32,9 @@ const AUDIT_FILENAME_RE = /^[a-f0-9]{24}-invocation-audit\.json$/;
 const HMAC_TAG_RE = /^hmac-sha256:[a-f0-9]{64}$/;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 const MAX_AUTHORIZATION_AGE_MS = 5 * 60 * 1000;
+const MAX_AUTHORIZATION_AGE_NS =
+  BigInt(MAX_AUTHORIZATION_AGE_MS) * BigInt(1_000_000);
+const monotonicNow = process.hrtime.bigint.bind(process.hrtime);
 const REQUIRED_CHECKS = Object.freeze([
   "npm run test:regulatory",
   "npm run test:accuracy",
@@ -154,7 +157,7 @@ interface AuthorizationBinding {
   productionOptions: RegulatoryImplementationProductionOptions;
   auditOutputDirectory: string;
   auditAuthenticationKey: Buffer;
-  createdAtMs: number;
+  createdAtMonotonicNs: bigint;
 }
 
 function jsonClone<T>(value: T): T {
@@ -740,6 +743,7 @@ export function createRegulatoryImplementationInvocationAuthorization(
   const authorizedAt = exactInstant(request.authorizedAt, "Invocation authorizedAt");
   const authorizedAtMs = new Date(authorizedAt).getTime();
   const createdAtMs = Date.now();
+  const createdAtMonotonicNs = monotonicNow();
   if (authorizedAtMs < new Date(plan.createdAt).getTime()) {
     throw new Error("Invocation authorization cannot predate the live implementation plan");
   }
@@ -825,7 +829,7 @@ export function createRegulatoryImplementationInvocationAuthorization(
       productionOptions,
       auditOutputDirectory,
       auditAuthenticationKey,
-      createdAtMs,
+      createdAtMonotonicNs,
     });
     return frozen;
   } catch (error) {
@@ -1054,9 +1058,11 @@ export async function executeRegulatoryImplementationInvocation(
 
   const authorizedAtMs = new Date(authorization.authorizedAt).getTime();
   const consumedAtMs = Date.now();
+  const consumedAtMonotonicNs = monotonicNow();
   if (
     authorizedAtMs < consumedAtMs - MAX_AUTHORIZATION_AGE_MS ||
-    binding.createdAtMs < consumedAtMs - MAX_AUTHORIZATION_AGE_MS
+    consumedAtMonotonicNs < binding.createdAtMonotonicNs ||
+    consumedAtMonotonicNs - binding.createdAtMonotonicNs > MAX_AUTHORIZATION_AGE_NS
   ) {
     return refusal("Invocation authorization expired before consumption");
   }
