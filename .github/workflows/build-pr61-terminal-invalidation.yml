@@ -1,0 +1,269 @@
+name: Build PR61 terminal invalidation
+
+on:
+  push:
+    branches:
+      - automation/pr61-terminal-invalidation
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: automation/pr61-terminal-invalidation
+          fetch-depth: 0
+
+      - name: Apply terminal freshness invalidation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          source_path = Path('lib/regulatory/registry-implementation-invocation.ts')
+          test_path = Path('lib/regulatory/__tests__/registry-implementation-invocation.test.mjs')
+          source = source_path.read_text()
+          test = test_path.read_text()
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected one match, found {count}')
+              return text.replace(old, new, 1)
+
+          source = replace_once(
+              source,
+              '''const LIVE_AUTHORIZATIONS = new WeakSet<object>();
+          const CONSUMED_AUTHORIZATIONS = new WeakSet<object>();
+          const AUTHORIZATION_BINDINGS = new WeakMap<object, AuthorizationBinding>();''',
+              '''const LIVE_AUTHORIZATIONS = new WeakSet<object>();
+          const CONSUMED_AUTHORIZATIONS = new WeakSet<object>();
+          const INVALIDATED_AUTHORIZATIONS = new WeakSet<object>();
+          const AUTHORIZATION_BINDINGS = new WeakMap<object, AuthorizationBinding>();''',
+              'source invalidation set',
+          )
+
+          source = replace_once(
+              source,
+              '''      LIVE_AUTHORIZATIONS.has(value as object) &&
+                !CONSUMED_AUTHORIZATIONS.has(value as object) &&
+                validateRegulatoryImplementationInvocationAuthorization(''',
+              '''      LIVE_AUTHORIZATIONS.has(value as object) &&
+                !CONSUMED_AUTHORIZATIONS.has(value as object) &&
+                !INVALIDATED_AUTHORIZATIONS.has(value as object) &&
+                validateRegulatoryImplementationInvocationAuthorization(''',
+              'source live predicate',
+          )
+
+          source = replace_once(
+              source,
+              '''  if (
+              authorizedAtMs < consumedAtMs - MAX_AUTHORIZATION_AGE_MS ||
+              consumedAtMonotonicNs < binding.createdAtMonotonicNs ||
+              consumedAtMonotonicNs - binding.createdAtMonotonicNs > MAX_AUTHORIZATION_AGE_NS
+            ) {
+              return refusal("Invocation authorization expired before consumption");
+            }''',
+              '''  if (
+              authorizedAtMs < consumedAtMs - MAX_AUTHORIZATION_AGE_MS ||
+              consumedAtMonotonicNs < binding.createdAtMonotonicNs ||
+              consumedAtMonotonicNs - binding.createdAtMonotonicNs > MAX_AUTHORIZATION_AGE_NS
+            ) {
+              INVALIDATED_AUTHORIZATIONS.add(authorization as object);
+              return refusal("Invocation authorization expired before consumption");
+            }''',
+              'source terminal freshness refusal',
+          )
+
+          test = replace_once(
+              test,
+              '''  pass(
+              !Object.hasOwn(futureSkewAuthorization, "createdAtMonotonicNs"),
+              "monotonic creation time is not serialized into authorization"
+            );''',
+              '''  pass(
+              !Object.hasOwn(futureSkewAuthorization, "createdAtMonotonicNs") &&
+                !JSON.stringify(futureSkewAuthorization).toLowerCase().includes("invalidat"),
+              "private monotonic and invalidation state are not serialized into authorization"
+            );''',
+              'test authorization serialization guard',
+          )
+
+          test = replace_once(
+              test,
+              '''  pass(
+              isLiveRegulatoryImplementationInvocationAuthorization(futureSkewAuthorization),
+              "process-time expiry refuses before adapter execution and does not consume authorization"
+            );
+            equal(
+              globalThis.__subshieldProductionAdapterInvocations,
+              invocationsBeforeExpiry,
+              "wall-clock rollback cannot let an expired authorization reach the adapter"
+            );
+            testNow = testBaseMs;
+            globalThis.__subshieldTestMonotonicNowNs = BigInt(10 * 60_000) * BigInt(1_000_000);''',
+              '''  equal(
+              futureSkewInvocation.authorizationStatus,
+              "refused",
+              "process-time expiry remains a refusal rather than successful consumption"
+            );
+            pass(
+              !isLiveRegulatoryImplementationInvocationAuthorization(futureSkewAuthorization),
+              "process-time expiry permanently invalidates authority before adapter execution"
+            );
+            equal(
+              globalThis.__subshieldProductionAdapterInvocations,
+              invocationsBeforeExpiry,
+              "wall-clock rollback cannot let an expired authorization reach the adapter"
+            );
+            testNow = testBaseMs;
+            globalThis.__subshieldTestMonotonicNowNs = BigInt(4 * 60_000) * BigInt(1_000_000);
+            const futureSkewRollbackRetry = await executeRegulatoryImplementationInvocation(
+              fakePlan, fakeBundle, futureSkewAuthorization
+            );
+            equal(futureSkewRollbackRetry.status, "invocation-refused", "moving monotonic time back inside the window cannot resurrect expired authority");
+            equal(globalThis.__subshieldProductionAdapterInvocations, invocationsBeforeExpiry, "rollback retry remains before adapter invocation");
+            globalThis.__subshieldTestMonotonicNowNs = BigInt(0);
+            const futureSkewCreationRetry = await executeRegulatoryImplementationInvocation(
+              fakePlan, fakeBundle, futureSkewAuthorization
+            );
+            equal(futureSkewCreationRetry.status, "invocation-refused", "resetting monotonic time to creation cannot resurrect expired authority");
+            equal(globalThis.__subshieldProductionAdapterInvocations, invocationsBeforeExpiry, "creation-time retry remains before adapter invocation");
+            testNow = testBaseMs;
+            globalThis.__subshieldTestMonotonicNowNs = BigInt(10 * 60_000) * BigInt(1_000_000);''',
+              'test monotonic expiry terminality',
+          )
+
+          test = replace_once(
+              test,
+              '''  equal(backwardInvocation.status, "invocation-refused", "backward monotonic movement refuses fail-closed");
+            pass(isLiveRegulatoryImplementationInvocationAuthorization(backwardAuthorization), "backward monotonic refusal does not consume authorization");
+            equal(globalThis.__subshieldProductionAdapterInvocations, invocationsBeforeExpiry, "backward monotonic refusal does not invoke adapter");
+            globalThis.__subshieldTestMonotonicNowNs = BigInt(20 * 60_000) * BigInt(1_000_000);''',
+              '''  equal(backwardInvocation.status, "invocation-refused", "backward monotonic movement refuses fail-closed");
+            pass(!isLiveRegulatoryImplementationInvocationAuthorization(backwardAuthorization), "backward monotonic refusal permanently invalidates authority");
+            equal(globalThis.__subshieldProductionAdapterInvocations, invocationsBeforeExpiry, "backward monotonic refusal does not invoke adapter");
+            globalThis.__subshieldTestMonotonicNowNs = BigInt(10 * 60_000) * BigInt(1_000_000);
+            const backwardRetry = await executeRegulatoryImplementationInvocation(
+              fakePlan, fakeBundle, backwardAuthorization
+            );
+            equal(backwardRetry.status, "invocation-refused", "resetting a backward monotonic reading cannot resurrect authority");
+            equal(globalThis.__subshieldProductionAdapterInvocations, invocationsBeforeExpiry, "backward retry remains before adapter invocation");
+            globalThis.__subshieldTestMonotonicNowNs = BigInt(20 * 60_000) * BigInt(1_000_000);''',
+              'test backward terminality',
+          )
+
+          test = replace_once(
+              test,
+              '''  testNow = testBaseMs + 5 * 60_000 + 1;
+            globalThis.__subshieldTestMonotonicNowNs += BigInt(5 * 60_000 + 1) * BigInt(1_000_000);
+            const expired = await executeRegulatoryImplementationInvocation(fakePlan, fakeBundle, expiringAuthorization);
+            equal(expired.status, "invocation-refused", "authorization expiration is rechecked before consumption");
+            pass(isLiveRegulatoryImplementationInvocationAuthorization(expiringAuthorization), "expired refusal does not consume authorization");
+            testNow = testBaseMs;
+            globalThis.__subshieldTestMonotonicNowNs = BigInt(30 * 60_000) * BigInt(1_000_000);
+
+            const invocation = await executeRegulatoryImplementationInvocation(
+              fakePlan,
+              fakeBundle,
+              expiringAuthorization
+            );''',
+              '''  testNow = testBaseMs + 5 * 60_000 + 1;
+            globalThis.__subshieldTestMonotonicNowNs += BigInt(5 * 60_000 + 1) * BigInt(1_000_000);
+            const expired = await executeRegulatoryImplementationInvocation(fakePlan, fakeBundle, expiringAuthorization);
+            equal(expired.status, "invocation-refused", "authorization expiration is rechecked before consumption");
+            pass(!isLiveRegulatoryImplementationInvocationAuthorization(expiringAuthorization), "wall-clock expiration permanently invalidates authority");
+            const invocationsBeforeWallClockRetry = globalThis.__subshieldProductionAdapterInvocations;
+            testNow = testBaseMs;
+            globalThis.__subshieldTestMonotonicNowNs = BigInt(30 * 60_000) * BigInt(1_000_000);
+            const wallClockRollbackRetry = await executeRegulatoryImplementationInvocation(
+              fakePlan, fakeBundle, expiringAuthorization
+            );
+            equal(wallClockRollbackRetry.status, "invocation-refused", "wall-clock rollback cannot resurrect expired authority");
+            equal(globalThis.__subshieldProductionAdapterInvocations, invocationsBeforeWallClockRetry, "wall-clock rollback retry remains before adapter invocation");
+
+            const auditedAuthorization = createRegulatoryImplementationInvocationAuthorization(
+              fakePlan,
+              fakeBundle,
+              {
+                authorizedAt: testIso(1), expectedGitHubLogin: "SiriCarsen-Cmd",
+                repositoryRoot: "/trusted/repository", gitExecutable: "/trusted/bin/git",
+                githubCliExecutable: "/trusted/bin/gh", githubCliConfigDir: "/trusted/gh-config",
+                auditOutputDirectory: auditDirectory, auditAuthenticationKey, confirmation,
+              }
+            );
+            pass(isLiveRegulatoryImplementationInvocationAuthorization(auditedAuthorization), "a separate fresh authorization remains available for ordinary one-use invocation");
+
+            const invocation = await executeRegulatoryImplementationInvocation(
+              fakePlan,
+              fakeBundle,
+              auditedAuthorization
+            );''',
+              'test wall-clock terminality and fresh audit authorization',
+          )
+
+          test = replace_once(
+              test,
+              '''    !isLiveRegulatoryImplementationInvocationAuthorization(expiringAuthorization),
+              "consumed authorization loses live status"''',
+              '''    !isLiveRegulatoryImplementationInvocationAuthorization(auditedAuthorization),
+              "consumed authorization loses live status"''',
+              'test consumed authorization name',
+          )
+
+          test = replace_once(
+              test,
+              '''  pass(
+              !JSON.stringify(storedAudit).includes("createdAtMonotonicNs"),
+              "monotonic creation time is not retained in audit evidence"
+            );''',
+              '''  pass(
+              !JSON.stringify(storedAudit).includes("createdAtMonotonicNs") &&
+                !JSON.stringify(storedAudit).toLowerCase().includes("invalidat"),
+              "private monotonic and invalidation state are not retained in audit evidence"
+            );''',
+              'test audit serialization guard',
+          )
+
+          test = replace_once(
+              test,
+              '''    expiringAuthorization
+            );
+            equal(replay.status, "invocation-refused", "consumed authorization cannot be replayed");''',
+              '''    auditedAuthorization
+            );
+            equal(replay.status, "invocation-refused", "consumed authorization cannot be replayed");''',
+              'test replay authorization name',
+          )
+
+          test = replace_once(
+              test,
+              '''  [source.includes("LIVE_AUTHORIZATIONS = new WeakSet"), "live authorization uses opaque in-process identity"],''',
+              '''  [source.includes("LIVE_AUTHORIZATIONS = new WeakSet") && source.includes("INVALIDATED_AUTHORIZATIONS = new WeakSet"), "live and freshness-invalidated authority use opaque in-process identity"],''',
+              'test source guard',
+          )
+
+          source_path.write_text(source)
+          test_path.write_text(test)
+          PY
+
+          npm run test:regulatory:implementation-invocation
+          git diff --check
+
+          git add -- \
+            lib/regulatory/registry-implementation-invocation.ts \
+            lib/regulatory/__tests__/registry-implementation-invocation.test.mjs
+          mapfile -t changed < <(git diff --cached --name-only | sort)
+          mapfile -t expected < <(printf '%s\n' \
+            'lib/regulatory/__tests__/registry-implementation-invocation.test.mjs' \
+            'lib/regulatory/registry-implementation-invocation.ts' | sort)
+          diff <(printf '%s\n' "${expected[@]}") <(printf '%s\n' "${changed[@]}")
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Make authorization freshness refusals terminal"
+          git push origin HEAD:automation/pr61-terminal-invalidation
