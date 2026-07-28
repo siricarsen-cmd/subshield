@@ -1,0 +1,33 @@
+name: Temporary PR60 result validation
+
+on:
+  push:
+    branches:
+      - feat/regulatory-implementation-invocation-orchestration
+    paths:
+      - .github/workflows/temp-pr60-result-validation.yml
+      - scripts/temp-pr60-result-validation.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/regulatory-implementation-invocation-orchestration
+          fetch-depth: 0
+      - name: Add discriminated result validation
+        run: python scripts/temp-pr60-result-validation.py
+      - name: Commit patched files
+        run: |
+          git config user.name "SubShield Automation"
+          git config user.email "subshield-automation@users.noreply.github.com"
+          git add docs/accuracy/regulatory-implementation-invocation-orchestration.md \
+            lib/regulatory/registry-implementation-invocation.ts \
+            lib/regulatory/__tests__/registry-implementation-invocation.test.mjs
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: validate complete invocation production results"
+          git push origin HEAD:feat/regulatory-implementation-invocation-orchestration
