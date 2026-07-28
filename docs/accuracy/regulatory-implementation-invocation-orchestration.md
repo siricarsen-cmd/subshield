@@ -62,6 +62,8 @@ Authorization must be created within five minutes of the operator timestamp. A p
 
 Any wall-clock-expiration, monotonic-expiration, or backward-monotonic freshness refusal permanently invalidates that one-use authorization before privileged execution. The result remains a refusal rather than a successful consumption, but resetting either clock cannot restore live authority; a new explicit in-process authorization is required.
 
+Focused regression coverage isolates the wall-clock-expiration branch by advancing wall time beyond the five-minute age limit while holding monotonic elapsed time exactly at its still-valid five-minute boundary.
+
 ## One-use and no automatic retry
 
 A valid live authorization is consumed before the production adapter is invoked. A freshness-invalidated authorization is terminally non-live without being treated as a successfully consumed invocation.
