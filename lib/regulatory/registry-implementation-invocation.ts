@@ -1067,6 +1067,8 @@ export async function executeRegulatoryImplementationInvocation(
     consumedAtMonotonicNs - binding.createdAtMonotonicNs > MAX_AUTHORIZATION_AGE_NS
   ) {
     INVALIDATED_AUTHORIZATIONS.add(authorization as object);
+    binding.auditAuthenticationKey.fill(0);
+    AUTHORIZATION_BINDINGS.delete(authorization as object);
     return refusal("Invocation authorization expired before consumption");
   }
 
