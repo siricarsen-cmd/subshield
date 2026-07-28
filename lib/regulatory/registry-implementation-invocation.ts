@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { lstat, open, realpath } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 
@@ -29,6 +29,7 @@ const CHECKSUM_RE = /^sha256:[a-f0-9]{64}$/;
 const COMMIT_SHA_RE = /^[a-f0-9]{40}$/;
 const GITHUB_LOGIN_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/;
 const AUDIT_FILENAME_RE = /^[a-f0-9]{24}-invocation-audit\.json$/;
+const HMAC_TAG_RE = /^hmac-sha256:[a-f0-9]{64}$/;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 const REQUIRED_CHECKS = Object.freeze([
   "npm run test:regulatory",
@@ -67,6 +68,8 @@ export interface RegulatoryImplementationInvocationAuthorizationRequest {
   githubCliExecutable: string;
   githubCliConfigDir: string;
   auditOutputDirectory: string;
+  /** Secret audit-authentication key retained only in protected process memory. */
+  auditAuthenticationKey: Uint8Array;
   confirmation: string;
 }
 
@@ -84,9 +87,16 @@ export interface RegulatoryImplementationInvocationAuthorization extends Invocat
   expectedExecutorPrincipal: string;
   authorizedAt: string;
   runtimeFingerprint: string;
+  auditAuthenticationKeyId: string;
   confirmationFingerprint: string;
   authorizationStatus: "live-one-use-operator-authorization";
   authorizationChecksum: string;
+}
+
+export interface RegulatoryImplementationInvocationAuditAuthentication {
+  algorithm: "hmac-sha256";
+  keyId: string;
+  tag: string;
 }
 
 export interface RegulatoryImplementationInvocationAuditRecord extends InvocationBoundary {
@@ -109,6 +119,7 @@ export interface RegulatoryImplementationInvocationAuditRecord extends Invocatio
   result: RegulatoryImplementationProductionResult;
   auditStatus: "evidence-only-not-execution-authority";
   auditChecksum: string;
+  auditAuthentication: RegulatoryImplementationInvocationAuditAuthentication;
 }
 
 export type RegulatoryImplementationInvocationResult = Readonly<
@@ -141,6 +152,7 @@ interface AuthorizationBinding {
   bundle: RegulatoryImplementationPullRequestBundle;
   productionOptions: RegulatoryImplementationProductionOptions;
   auditOutputDirectory: string;
+  auditAuthenticationKey: Buffer;
 }
 
 function jsonClone<T>(value: T): T {
@@ -162,6 +174,20 @@ function fingerprint(value: unknown): string {
 }
 
 function sha256(value: string): string {
+  return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+}
+
+function copyAuditAuthenticationKey(value: unknown): Buffer {
+  if (!(value instanceof Uint8Array) || value.byteLength < 32 || value.byteLength > 4096) {
+    throw new Error("Invocation audit authentication key must contain 32 to 4096 bytes");
+  }
+  return Buffer.from(value);
+}
+
+function auditAuthenticationKeyIdFor(value: Uint8Array): string {
+  if (!(value instanceof Uint8Array) || value.byteLength < 32 || value.byteLength > 4096) {
+    throw new Error("Invocation audit authentication key must contain 32 to 4096 bytes");
+  }
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
 }
 
@@ -433,27 +459,83 @@ function checksumForAuthorization(
   return fingerprint(authorizationPayload(authorization));
 }
 
-function auditPayload(
-  audit:
-    | Omit<RegulatoryImplementationInvocationAuditRecord, "auditChecksum">
-    | RegulatoryImplementationInvocationAuditRecord
-): Omit<RegulatoryImplementationInvocationAuditRecord, "auditChecksum"> {
-  const { auditChecksum: _ignored, ...payload } =
-    audit as RegulatoryImplementationInvocationAuditRecord;
+function auditPayload(audit: unknown): UnknownRecord {
+  if (!isRecord(audit)) throw new Error("Invocation audit payload is invalid");
+  const {
+    auditChecksum: _ignoredChecksum,
+    auditAuthentication: _ignoredAuthentication,
+    ...payload
+  } = audit;
   return jsonClone(payload);
 }
 
-function checksumForAudit(
-  audit:
-    | Omit<RegulatoryImplementationInvocationAuditRecord, "auditChecksum">
-    | RegulatoryImplementationInvocationAuditRecord
-): string {
+function checksumForAudit(audit: unknown): string {
   return fingerprint(auditPayload(audit));
+}
+
+function auditAuthenticationPayload(audit: unknown): UnknownRecord {
+  if (!isRecord(audit)) throw new Error("Invocation audit authentication payload is invalid");
+  const { auditAuthentication: _ignoredAuthentication, ...payload } = audit;
+  return jsonClone(payload);
+}
+
+function buildAuditAuthentication(
+  audit: unknown,
+  auditAuthenticationKey: Uint8Array
+): RegulatoryImplementationInvocationAuditAuthentication {
+  const key = copyAuditAuthenticationKey(auditAuthenticationKey);
+  try {
+    const keyId = auditAuthenticationKeyIdFor(key);
+    const tag = `hmac-sha256:${createHmac("sha256", key)
+      .update(fingerprint(auditAuthenticationPayload(audit)))
+      .digest("hex")}`;
+    return deepFreeze({ algorithm: "hmac-sha256" as const, keyId, tag });
+  } finally {
+    key.fill(0);
+  }
+}
+
+function validateAuditAuthentication(
+  audit: RegulatoryImplementationInvocationAuditRecord,
+  auditAuthenticationKey: Uint8Array
+): string[] {
+  const errors: string[] = [];
+  let key: Buffer | undefined;
+  try {
+    key = copyAuditAuthenticationKey(auditAuthenticationKey);
+    const expectedKeyId = auditAuthenticationKeyIdFor(key);
+    if (
+      !audit.auditAuthentication ||
+      typeof audit.auditAuthentication !== "object" ||
+      audit.auditAuthentication.algorithm !== "hmac-sha256" ||
+      audit.auditAuthentication.keyId !== expectedKeyId ||
+      audit.authorization.auditAuthenticationKeyId !== expectedKeyId ||
+      !HMAC_TAG_RE.test(audit.auditAuthentication.tag)
+    ) {
+      errors.push("Invocation audit authentication metadata is invalid");
+      return errors;
+    }
+    const expected = buildAuditAuthentication(audit, key).tag;
+    const actualBytes = Buffer.from(audit.auditAuthentication.tag, "utf8");
+    const expectedBytes = Buffer.from(expected, "utf8");
+    if (
+      actualBytes.length !== expectedBytes.length ||
+      !timingSafeEqual(actualBytes, expectedBytes)
+    ) {
+      errors.push("Invocation audit authentication tag does not reproduce");
+    }
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+  } finally {
+    key?.fill(0);
+  }
+  return [...new Set(errors)];
 }
 
 function runtimeFingerprintFor(
   options: RegulatoryImplementationProductionOptions,
-  auditOutputDirectory: string
+  auditOutputDirectory: string,
+  auditAuthenticationKeyId: string
 ): string {
   return fingerprint({
     repositoryRoot: options.repositoryRoot,
@@ -462,12 +544,14 @@ function runtimeFingerprintFor(
     githubCliConfigDir: options.githubCliConfigDir,
     auditOutputDirectory,
     expectedGitHubLogin: options.expectedGitHubLogin,
+    auditAuthenticationKeyId,
   });
 }
 
 export function buildRegulatoryImplementationInvocationConfirmation(
   plan: RegulatoryRegistryImplementationPlan,
-  bundle: RegulatoryImplementationPullRequestBundle
+  bundle: RegulatoryImplementationPullRequestBundle,
+  auditAuthenticationKey: Uint8Array
 ): string {
   return [
     "AUTHORIZE SUBSHIELD REGULATORY IMPLEMENTATION PR",
@@ -475,6 +559,7 @@ export function buildRegulatoryImplementationInvocationConfirmation(
     `bundle=${bundle.bundleChecksum}`,
     `base=${plan.baseCommitSha}`,
     `branch=${plan.targetBranch}`,
+    `audit-key=${auditAuthenticationKeyIdFor(auditAuthenticationKey)}`,
   ].join(" ");
 }
 
@@ -501,6 +586,7 @@ export function validateRegulatoryImplementationInvocationAuthorization(
     !CHECKSUM_RE.test(authorization.planChecksum) ||
     !CHECKSUM_RE.test(authorization.bundleChecksum) ||
     !CHECKSUM_RE.test(authorization.runtimeFingerprint) ||
+    !CHECKSUM_RE.test(authorization.auditAuthenticationKeyId) ||
     !CHECKSUM_RE.test(authorization.confirmationFingerprint) ||
     !COMMIT_SHA_RE.test(authorization.baseCommitSha) ||
     !authorization.targetBranch.trim()
@@ -597,60 +683,78 @@ export function createRegulatoryImplementationInvocationAuthorization(
     request.auditOutputDirectory,
     "audit output directory"
   );
-  const expectedConfirmation = buildRegulatoryImplementationInvocationConfirmation(plan, bundle);
-  if (request.confirmation !== expectedConfirmation) {
-    throw new Error("Invocation requires the exact plan-and-bundle-bound operator confirmation");
+  const auditAuthenticationKey = copyAuditAuthenticationKey(request.auditAuthenticationKey);
+  try {
+    const auditAuthenticationKeyId = auditAuthenticationKeyIdFor(auditAuthenticationKey);
+    const expectedConfirmation = buildRegulatoryImplementationInvocationConfirmation(
+      plan,
+      bundle,
+      auditAuthenticationKey
+    );
+    if (request.confirmation !== expectedConfirmation) {
+      throw new Error("Invocation requires the exact plan-and-bundle-bound operator confirmation");
+    }
+    const productionOptions: RegulatoryImplementationProductionOptions = {
+      repositoryRoot,
+      gitExecutable,
+      githubCliExecutable,
+      githubCliConfigDir,
+      expectedGitHubLogin,
+    };
+    const runtimeFingerprint = runtimeFingerprintFor(
+      productionOptions,
+      auditOutputDirectory,
+      auditAuthenticationKeyId
+    );
+    const payload: Omit<
+      RegulatoryImplementationInvocationAuthorization,
+      "authorizationChecksum"
+    > = {
+      schemaVersion: 1,
+      authorizationId: `regulatory-implementation-invocation:${bundle.bundleChecksum}`,
+      repositoryFullName: EXPECTED_REPOSITORY,
+      defaultBranch: EXPECTED_DEFAULT_BRANCH,
+      planId: plan.planId,
+      planChecksum: plan.planChecksum,
+      bundleId: bundle.bundleId,
+      bundleChecksum: bundle.bundleChecksum,
+      baseCommitSha: plan.baseCommitSha,
+      targetBranch: plan.targetBranch,
+      expectedExecutorPrincipal: `github-user:${expectedGitHubLogin}`,
+      authorizedAt,
+      runtimeFingerprint,
+      auditAuthenticationKeyId,
+      confirmationFingerprint: sha256(request.confirmation),
+      authorizationStatus: "live-one-use-operator-authorization",
+      ...INVOCATION_BOUNDARY,
+    };
+    const authorization: RegulatoryImplementationInvocationAuthorization = {
+      ...payload,
+      authorizationChecksum: checksumForAuthorization(payload),
+    };
+    const errors = validateRegulatoryImplementationInvocationAuthorization(authorization);
+    if (errors.length > 0) {
+      throw new Error(`Built invocation authorization failed validation: ${errors.join("; ")}`);
+    }
+    const frozen = deepFreeze(authorization);
+    LIVE_AUTHORIZATIONS.add(frozen as object);
+    AUTHORIZATION_BINDINGS.set(frozen as object, {
+      plan,
+      bundle,
+      productionOptions,
+      auditOutputDirectory,
+      auditAuthenticationKey,
+    });
+    return frozen;
+  } catch (error) {
+    auditAuthenticationKey.fill(0);
+    throw error;
   }
-  const productionOptions: RegulatoryImplementationProductionOptions = {
-    repositoryRoot,
-    gitExecutable,
-    githubCliExecutable,
-    githubCliConfigDir,
-    expectedGitHubLogin,
-  };
-  const runtimeFingerprint = runtimeFingerprintFor(productionOptions, auditOutputDirectory);
-  const payload: Omit<
-    RegulatoryImplementationInvocationAuthorization,
-    "authorizationChecksum"
-  > = {
-    schemaVersion: 1,
-    authorizationId: `regulatory-implementation-invocation:${bundle.bundleChecksum}`,
-    repositoryFullName: EXPECTED_REPOSITORY,
-    defaultBranch: EXPECTED_DEFAULT_BRANCH,
-    planId: plan.planId,
-    planChecksum: plan.planChecksum,
-    bundleId: bundle.bundleId,
-    bundleChecksum: bundle.bundleChecksum,
-    baseCommitSha: plan.baseCommitSha,
-    targetBranch: plan.targetBranch,
-    expectedExecutorPrincipal: `github-user:${expectedGitHubLogin}`,
-    authorizedAt,
-    runtimeFingerprint,
-    confirmationFingerprint: sha256(request.confirmation),
-    authorizationStatus: "live-one-use-operator-authorization",
-    ...INVOCATION_BOUNDARY,
-  };
-  const authorization: RegulatoryImplementationInvocationAuthorization = {
-    ...payload,
-    authorizationChecksum: checksumForAuthorization(payload),
-  };
-  const errors = validateRegulatoryImplementationInvocationAuthorization(authorization);
-  if (errors.length > 0) {
-    throw new Error(`Built invocation authorization failed validation: ${errors.join("; ")}`);
-  }
-  const frozen = deepFreeze(authorization);
-  LIVE_AUTHORIZATIONS.add(frozen as object);
-  AUTHORIZATION_BINDINGS.set(frozen as object, {
-    plan,
-    bundle,
-    productionOptions,
-    auditOutputDirectory,
-  });
-  return frozen;
 }
 
 export function validateRegulatoryImplementationInvocationAuditRecord(
-  audit: RegulatoryImplementationInvocationAuditRecord
+  audit: RegulatoryImplementationInvocationAuditRecord,
+  auditAuthenticationKey: Uint8Array
 ): string[] {
   const errors: string[] = [];
   if (audit.schemaVersion !== 1) errors.push("Invocation audit schema is invalid");
@@ -706,7 +810,7 @@ export function validateRegulatoryImplementationInvocationAuditRecord(
     const recordedAt = new Date(
       exactInstant(audit.recordedAt, "Invocation audit recordedAt")
     ).getTime();
-    if (recordedAt < authorizedAt || recordedAt > Date.now() + MAX_CLOCK_SKEW_MS) {
+    if (recordedAt + MAX_CLOCK_SKEW_MS < authorizedAt || recordedAt > Date.now() + MAX_CLOCK_SKEW_MS) {
       errors.push("Invocation audit recording timestamp is invalid");
     }
     const login = normalizeGitHubLogin(
@@ -737,14 +841,19 @@ export function validateRegulatoryImplementationInvocationAuditRecord(
   if (!CHECKSUM_RE.test(audit.auditChecksum) || audit.auditChecksum !== checksumForAudit(audit)) {
     errors.push("Invocation audit checksum does not reproduce");
   }
+  errors.push(...validateAuditAuthentication(audit, auditAuthenticationKey));
   return [...new Set(errors)];
 }
 
 function buildAuditRecord(
   authorization: RegulatoryImplementationInvocationAuthorization,
-  result: RegulatoryImplementationProductionResult
+  result: RegulatoryImplementationProductionResult,
+  auditAuthenticationKey: Uint8Array
 ): Readonly<RegulatoryImplementationInvocationAuditRecord> {
-  const payload: Omit<RegulatoryImplementationInvocationAuditRecord, "auditChecksum"> = {
+  const payload: Omit<
+    RegulatoryImplementationInvocationAuditRecord,
+    "auditChecksum" | "auditAuthentication"
+  > = {
     schemaVersion: 1,
     auditId: `regulatory-implementation-audit:${authorization.authorizationChecksum}`,
     authorizationId: authorization.authorizationId,
@@ -765,11 +874,21 @@ function buildAuditRecord(
     auditStatus: "evidence-only-not-execution-authority",
     ...INVOCATION_BOUNDARY,
   };
-  const audit: RegulatoryImplementationInvocationAuditRecord = {
+  const withChecksum: Omit<
+    RegulatoryImplementationInvocationAuditRecord,
+    "auditAuthentication"
+  > = {
     ...payload,
     auditChecksum: checksumForAudit(payload),
   };
-  const errors = validateRegulatoryImplementationInvocationAuditRecord(audit);
+  const audit: RegulatoryImplementationInvocationAuditRecord = {
+    ...withChecksum,
+    auditAuthentication: buildAuditAuthentication(withChecksum, auditAuthenticationKey),
+  };
+  const errors = validateRegulatoryImplementationInvocationAuditRecord(
+    audit,
+    auditAuthenticationKey
+  );
   if (errors.length > 0) {
     throw new Error(`Invocation audit failed validation: ${errors.join("; ")}`);
   }
@@ -840,7 +959,8 @@ export async function executeRegulatoryImplementationInvocation(
   }
   const runtimeFingerprint = runtimeFingerprintFor(
     binding.productionOptions,
-    binding.auditOutputDirectory
+    binding.auditOutputDirectory,
+    authorization.auditAuthenticationKeyId
   );
   if (
     authorization.runtimeFingerprint !== runtimeFingerprint ||
@@ -851,56 +971,65 @@ export async function executeRegulatoryImplementationInvocation(
   }
 
   CONSUMED_AUTHORIZATIONS.add(authorization as object);
-  let productionResult: RegulatoryImplementationProductionResult;
   try {
-    productionResult = await executeRegulatoryImplementationWithProductionAdapter(
-      plan,
-      bundle,
-      binding.productionOptions
-    );
-  } catch {
-    productionResult = deepFreeze({
-      status: "production-boundary-failed" as const,
-      stage: "execution" as const,
-      errors: ["Controlled regulatory invocation production adapter failed unexpectedly"],
-      ...INVOCATION_BOUNDARY,
-    });
-  }
-  let auditRecord: Readonly<RegulatoryImplementationInvocationAuditRecord>;
-  try {
-    auditRecord = buildAuditRecord(authorization, productionResult);
-  } catch {
-    return deepFreeze({
-      status: "audit-retention-failed" as const,
-      authorizationStatus: "consumed" as const,
-      productionResult,
-      errors: ["Invocation result was preserved, but the audit record could not be constructed"],
-      ...INVOCATION_BOUNDARY,
-    });
-  }
+    let productionResult: RegulatoryImplementationProductionResult;
+    try {
+      productionResult = await executeRegulatoryImplementationWithProductionAdapter(
+        plan,
+        bundle,
+        binding.productionOptions
+      );
+    } catch {
+      productionResult = deepFreeze({
+        status: "production-boundary-failed" as const,
+        stage: "execution" as const,
+        errors: ["Controlled regulatory invocation production adapter failed unexpectedly"],
+        ...INVOCATION_BOUNDARY,
+      });
+    }
+    let auditRecord: Readonly<RegulatoryImplementationInvocationAuditRecord>;
+    try {
+      auditRecord = buildAuditRecord(
+        authorization,
+        productionResult,
+        binding.auditAuthenticationKey
+      );
+    } catch {
+      return deepFreeze({
+        status: "audit-retention-failed" as const,
+        authorizationStatus: "consumed" as const,
+        productionResult,
+        errors: ["Invocation result was preserved, but the audit record could not be constructed"],
+        ...INVOCATION_BOUNDARY,
+      });
+    }
 
-  try {
-    const auditPath = await storeAuditRecord(binding.auditOutputDirectory, auditRecord);
-    return deepFreeze({
-      status:
-        productionResult.status === "success"
-          ? ("invocation-succeeded" as const)
-          : ("invocation-failed" as const),
-      authorizationStatus: "consumed" as const,
-      productionResult,
-      auditRecord,
-      auditPath,
-      ...INVOCATION_BOUNDARY,
-    });
-  } catch {
-    return deepFreeze({
-      status: "audit-retention-failed" as const,
-      authorizationStatus: "consumed" as const,
-      productionResult,
-      auditRecord,
-      errors: ["Invocation result was preserved, but the evidence-only audit file was not retained"],
-      ...INVOCATION_BOUNDARY,
-    });
+    try {
+      const auditPath = await storeAuditRecord(binding.auditOutputDirectory, auditRecord);
+      return deepFreeze({
+        status:
+          productionResult.status === "success"
+            ? ("invocation-succeeded" as const)
+            : ("invocation-failed" as const),
+        authorizationStatus: "consumed" as const,
+        productionResult,
+        auditRecord,
+        auditPath,
+        ...INVOCATION_BOUNDARY,
+      });
+    } catch {
+      return deepFreeze({
+        status: "audit-retention-failed" as const,
+        authorizationStatus: "consumed" as const,
+        productionResult,
+        auditRecord,
+        errors: ["Invocation result was preserved, but the evidence-only audit file was not retained"],
+        ...INVOCATION_BOUNDARY,
+      });
+    }
+  } finally {
+    binding.auditAuthenticationKey.fill(0);
+    AUTHORIZATION_BINDINGS.delete(authorization as object);
   }
 }
 
@@ -913,6 +1042,9 @@ export const regulatoryImplementationInvocationTestSurface = Object.freeze({
   checksumForAuthorization,
   auditPayload,
   checksumForAudit,
+  auditAuthenticationKeyIdFor,
+  buildAuditAuthentication,
+  validateAuditAuthentication,
   runtimeFingerprintFor,
   auditFilename,
   validateCheckEvidence,

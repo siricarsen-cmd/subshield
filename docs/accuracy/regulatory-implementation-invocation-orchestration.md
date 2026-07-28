@@ -41,6 +41,7 @@ The request must contain:
 - an exact ISO authorization timestamp;
 - the expected GitHub login;
 - canonical absolute repository, Git, GitHub CLI, GitHub CLI configuration, and audit-output paths;
+- a protected external audit-authentication key of at least 32 bytes, supplied only in process memory;
 - the exact plan-and-bundle-bound confirmation returned by:
 
 ```ts
@@ -52,7 +53,8 @@ The confirmation binds:
 - the plan checksum;
 - the bundle checksum;
 - the reviewed base commit; and
-- the exact target branch.
+- the exact target branch; and
+- the external audit-authentication key identifier.
 
 The authorization is deeply frozen, checksum-bound, retained in a `WeakSet`, and linked through a `WeakMap` to the original live plan, original live bundle, and exact runtime configuration. A serialized copy can be audited but cannot be used to execute.
 
@@ -119,7 +121,7 @@ No failure path automatically deletes, retries, overwrites, rebases, resets, or 
 
 ## Audit retention
 
-Every consumed invocation attempts to create one deterministic private audit file with exclusive creation mode.
+Every consumed invocation attempts to create one deterministic private audit file with exclusive creation mode. The file is authenticated with HMAC-SHA-256 using a protected key that is not serialized into the authorization or audit, is not written into the repository, and is erased from the orchestration binding after the one-use invocation. Later verification requires the same externally retained key; file contents and unkeyed checksums alone are insufficient.
 
 The audit record includes:
 
@@ -128,6 +130,7 @@ The audit record includes:
 - authorization and recording timestamps;
 - the complete sanitized structured production result;
 - a checksum over the complete audit payload;
+- an HMAC-SHA-256 authentication tag and non-secret key identifier over the checksum-bound audit record;
 - `auditStatus: evidence-only-not-execution-authority`;
 - `applicationStatus: not-applied`;
 - `customerFacingStatus: benchmark-only`;
@@ -135,7 +138,7 @@ The audit record includes:
 
 Audit files are evidence only. The authorization snapshot is serialized audit data, is not placed in the live authorization `WeakSet`, does not retain the original plan/bundle references, and cannot be loaded as execution authority.
 
-The output directory must already exist as the exact canonical non-symlink directory explicitly bound during authorization. Audit files use `open(..., "wx", 0o600)` and are never overwritten.
+The output directory must already exist as the exact canonical non-symlink directory explicitly bound during authorization. Audit files use `open(..., "wx", 0o600)` and are never overwritten. The authentication key must be retained separately in an operator-controlled secret store; losing it prevents later authentication, while exposing it would allow a file editor to forge tags.
 
 ## Why there is no reconstructive CLI
 
