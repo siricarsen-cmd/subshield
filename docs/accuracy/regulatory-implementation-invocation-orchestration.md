@@ -62,6 +62,8 @@ Authorization must be created within five minutes of the operator timestamp. A p
 
 Any wall-clock-expiration, monotonic-expiration, or backward-monotonic freshness refusal permanently invalidates that one-use authorization before privileged execution. The result remains a refusal rather than a successful consumption, but resetting either clock cannot restore live authority; a new explicit in-process authorization is required.
 
+Before returning a terminal freshness refusal, the orchestration layer zeroes its private audit-authentication key copy and deletes the private authorization binding so the original plan, bundle, runtime paths, and key material are not retained after the authorization becomes unusable.
+
 Focused regression coverage isolates the wall-clock-expiration branch by advancing wall time beyond the five-minute age limit while holding monotonic elapsed time exactly at its still-valid five-minute boundary.
 
 ## One-use and no automatic retry
@@ -88,7 +90,7 @@ Authorization binds the exact runtime inputs:
 - expected GitHub login; and
 - audit-output directory.
 
-Only a fingerprint is retained in the serializable authorization. The actual paths, original live objects, monotonic creation observation, and invalidation state remain in private process-local memory.
+Only a fingerprint is retained in the serializable authorization. The actual paths, original live objects, monotonic creation observation, and invalidation state remain in private process-local memory only while the authorization remains usable or is being consumed.
 
 The production adapter continues to perform canonical path, regular-file/directory, Git configuration, transport, token, repository, remote-main, file, commit, check, branch, PR, and cleanup validation.
 
@@ -117,7 +119,7 @@ It then calls the production adapter with no caller-selected commands, shell str
 
 The orchestration layer presents these top-level outcomes:
 
-- `invocation-refused` — no privileged operation started; an invalid binding is refused without consumption, while a freshness failure also permanently invalidates that authorization so it cannot later become live again;
+- `invocation-refused` — no privileged operation started; an invalid binding is refused without consumption, while a freshness failure also permanently invalidates that authorization and erases its private binding so it cannot later become live again;
 - `invocation-succeeded` — the production adapter returned `success` and the audit file was retained;
 - `invocation-failed` — the production adapter returned a structured preflight, execution, check, push, pull-request, receipt, or production-boundary failure, and the audit file was retained;
 - `audit-retention-failed` — the production result is preserved, but the evidence-only audit record or file could not be retained.
@@ -130,7 +132,7 @@ No failure path automatically deletes, retries, overwrites, rebases, resets, or 
 
 ## Audit retention
 
-Every consumed invocation attempts to create one deterministic private audit file with exclusive creation mode. The file is authenticated with HMAC-SHA-256 using a protected key that is not serialized into the authorization or audit, is not written into the repository, and is erased from the orchestration binding after the one-use invocation. Later verification requires the same externally retained key; file contents and unkeyed checksums alone are insufficient.
+Every consumed invocation attempts to create one deterministic private audit file with exclusive creation mode. The file is authenticated with HMAC-SHA-256 using a protected key that is not serialized into the authorization or audit, is not written into the repository, and is erased from the orchestration binding after the one-use invocation. A terminal freshness refusal also zeroes the key copy and deletes the binding without creating an audit record because no privileged invocation started. Later verification of a consumed invocation requires the same externally retained key; file contents and unkeyed checksums alone are insufficient.
 
 The audit record includes:
 
