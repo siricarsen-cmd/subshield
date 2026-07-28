@@ -60,15 +60,17 @@ The authorization is deeply frozen, checksum-bound, retained in a `WeakSet`, and
 
 Authorization must be created within five minutes of the operator timestamp. A private monotonic process-clock observation is captured at creation, and consumption is refused when either the wall-clock timestamp-age limit or more than five minutes of monotonic process time has elapsed. The existing five-minute allowance for a trusted operator clock that is ahead of the process wall clock remains in force, but it cannot extend the authorization's actual lifetime. Wall-clock rollback cannot extend that lifetime, and impossible backward monotonic movement is refused fail-closed.
 
+Any wall-clock-expiration, monotonic-expiration, or backward-monotonic freshness refusal permanently invalidates that one-use authorization before privileged execution. The result remains a refusal rather than a successful consumption, but resetting either clock cannot restore live authority; a new explicit in-process authorization is required.
+
 ## One-use and no automatic retry
 
-The live authorization is consumed before the production adapter is invoked.
+A valid live authorization is consumed before the production adapter is invoked. A freshness-invalidated authorization is terminally non-live without being treated as a successfully consumed invocation.
 
-After consumption:
+After consumption or freshness invalidation:
 
-- the same authorization cannot be replayed;
+- the same authorization cannot be replayed or resurrected;
 - stored or cloned copies are not live;
-- a scheduler, delayed callback, CLI reconstruction, or stored-artifact loader cannot restore it;
+- a scheduler, delayed callback, CLI reconstruction, stored-artifact loader, or clock reset cannot restore it;
 - no automatic retry, reset, rebase, branch overwrite, branch deletion, or PR deletion occurs.
 
 A later attempt requires a new explicit in-process authorization. Existing branch/PR protections in the executor and production adapter still fail closed if a partial hosted mutation already exists.
@@ -84,7 +86,7 @@ Authorization binds the exact runtime inputs:
 - expected GitHub login; and
 - audit-output directory.
 
-Only a fingerprint is retained in the serializable authorization. The actual paths, original live objects, and monotonic creation observation remain in the private in-memory binding.
+Only a fingerprint is retained in the serializable authorization. The actual paths, original live objects, monotonic creation observation, and invalidation state remain in private process-local memory.
 
 The production adapter continues to perform canonical path, regular-file/directory, Git configuration, transport, token, repository, remote-main, file, commit, check, branch, PR, and cleanup validation.
 
@@ -98,7 +100,7 @@ executeRegulatoryImplementationInvocation(plan, bundle, authorization)
 
 Before privileged execution it verifies:
 
-1. the authorization is the unused original live authorization;
+1. the authorization is the unused and non-invalidated original live authorization;
 2. the plan and bundle are the exact original live objects bound to that authorization;
 3. the plan and bundle remain valid and live-authorized;
 4. plan, bundle, base, and branch identities still match;
@@ -113,7 +115,7 @@ It then calls the production adapter with no caller-selected commands, shell str
 
 The orchestration layer presents these top-level outcomes:
 
-- `invocation-refused` — no privileged operation started; authorization remains unconsumed when the binding itself is invalid;
+- `invocation-refused` — no privileged operation started; an invalid binding is refused without consumption, while a freshness failure also permanently invalidates that authorization so it cannot later become live again;
 - `invocation-succeeded` — the production adapter returned `success` and the audit file was retained;
 - `invocation-failed` — the production adapter returned a structured preflight, execution, check, push, pull-request, receipt, or production-boundary failure, and the audit file was retained;
 - `audit-retention-failed` — the production result is preserved, but the evidence-only audit record or file could not be retained.
@@ -141,7 +143,7 @@ The audit record includes:
 - `customerFacingStatus: benchmark-only`;
 - `mergeStatus: not-authorized`.
 
-Audit files are evidence only. The authorization snapshot is serialized audit data, is not placed in the live authorization `WeakSet`, does not retain the original plan/bundle references or private monotonic creation observation, and cannot be loaded as execution authority.
+Audit files are evidence only. The authorization snapshot is serialized audit data, is not placed in the live or invalidated authorization `WeakSet`s, does not retain the original plan/bundle references, private monotonic creation observation, or private invalidation state, and cannot be loaded as execution authority.
 
 The output directory must already exist as the exact canonical non-symlink directory explicitly bound during authorization. Audit files use `open(..., "wx", 0o600)` and are never overwritten. The authentication key must be retained separately in an operator-controlled secret store; losing it prevents later authentication, while exposing it would allow a file editor to forge tags.
 
