@@ -1,9 +1,9 @@
 name: Apply verified PR 60 security fixes
 
 on:
-  push:
-    branches:
-      - feat/regulatory-implementation-invocation-orchestration
+  pull_request:
+    types: [synchronize]
+    branches: [main]
     paths:
       - .github/workflows/pr60-apply-verified-fixes.yml
 
@@ -13,16 +13,18 @@ permissions:
 
 jobs:
   apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feat/regulatory-implementation-invocation-orchestration'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          ref: feat/regulatory-implementation-invocation-orchestration
+          fetch-depth: 0
 
       - name: Verify and apply exact reviewed archive
         env:
           GH_TOKEN: ${{ github.token }}
-          EXPECTED_PARENT: 3222fd9fe39e7abecc29e3ccf0e4794d80f7157e
+          EXPECTED_BASE_HEAD: 3222fd9fe39e7abecc29e3ccf0e4794d80f7157e
           COMMENT_ID: "5100366559"
         run: |
           python - <<'PY'
@@ -40,9 +42,12 @@ jobs:
           def run(*args: str) -> str:
               return subprocess.check_output(args, text=True).strip()
 
-          parent = run("git", "rev-parse", "HEAD^")
-          if parent != os.environ["EXPECTED_PARENT"]:
-              raise SystemExit(f"Refusing unexpected parent {parent}")
+          base_head = os.environ["EXPECTED_BASE_HEAD"]
+          subprocess.check_call(["git", "merge-base", "--is-ancestor", base_head, "HEAD"])
+          staged_history = set(run("git", "diff", "--name-only", f"{base_head}..HEAD").splitlines())
+          workflow_path = ".github/workflows/pr60-apply-verified-fixes.yml"
+          if staged_history != {workflow_path}:
+              raise SystemExit(f"Unexpected staged branch paths: {sorted(staged_history)}")
 
           url = (
               "https://api.github.com/repos/siricarsen-cmd/subshield/issues/comments/"
@@ -111,10 +116,10 @@ jobs:
                   target.parent.mkdir(parents=True, exist_ok=True)
                   target.write_bytes(data)
 
-          workflow = Path(".github/workflows/pr60-apply-verified-fixes.yml")
+          workflow = Path(workflow_path)
           workflow.unlink()
           changed = set(run("git", "diff", "--name-only").splitlines())
-          allowed = set(expected) | {str(workflow)}
+          allowed = set(expected) | {workflow_path}
           if changed != allowed:
               raise SystemExit(f"Unexpected changed paths: {sorted(changed)}")
           subprocess.check_call(["git", "diff", "--check"])
