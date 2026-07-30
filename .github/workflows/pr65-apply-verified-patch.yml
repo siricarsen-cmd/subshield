@@ -1,0 +1,60 @@
+name: PR65 Apply Verified Patch
+
+on:
+  push:
+    branches:
+      - feat/regulatory-implementation-merge-authorization
+    paths:
+      - .github/workflows/pr65-apply-verified-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    name: Verify and apply PR65 patch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/regulatory-implementation-merge-authorization
+          fetch-depth: 0
+
+      - name: Verify, apply, and push exact patch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          branch="feat/regulatory-implementation-merge-authorization"
+          test "$(git branch --show-current)" = "$branch"
+
+          cat .github/pr65-patch.part1 .github/pr65-patch.part2 > /tmp/pr65-direct.patch.b64
+          test "$(wc -c < /tmp/pr65-direct.patch.b64 | tr -d ' ')" = "37804"
+          echo "c0635932cf9fa943c41a5c341fb48584b0bd586b4ee95feefdc54d98a4c311f2  /tmp/pr65-direct.patch.b64" | sha256sum -c -
+
+          base64 --decode /tmp/pr65-direct.patch.b64 > /tmp/pr65-direct.patch.gz
+          echo "53b17d3b79dcbbd95fd6bf7cacd5ed0b632ef11fa38259ded59f3f5e9ca9c67b  /tmp/pr65-direct.patch.gz" | sha256sum -c -
+
+          gzip --decompress --stdout /tmp/pr65-direct.patch.gz > /tmp/pr65-direct.patch
+          echo "21f013c594c79a81b1ba61752ebccd8f8d2b5e0af5ef1fe65f53b3a051ab7b4d  /tmp/pr65-direct.patch" | sha256sum -c -
+
+          git apply --check /tmp/pr65-direct.patch
+          git apply --index /tmp/pr65-direct.patch
+          git diff --cached --check
+
+          mapfile -t changed < <(git diff --cached --name-only | sort)
+          expected=(
+            "lib/regulatory/__tests__/registry-implementation-merge-authorization.test.mjs"
+            "lib/regulatory/__tests__/registry-implementation-merge-production-adapter.test.mjs"
+            "lib/regulatory/registry-implementation-merge-authorization.ts"
+            "lib/regulatory/registry-implementation-merge-production-adapter.ts"
+            "package.json"
+          )
+          test "${#changed[@]}" -eq "${#expected[@]}"
+          diff -u <(printf '%s\n' "${expected[@]}") <(printf '%s\n' "${changed[@]}")
+
+          git config user.name "SubShield PR65 Automation"
+          git config user.email "automation@subshield.local"
+          git commit -m "feat: add regulatory implementation merge authorization"
+          git push origin "HEAD:$branch"
