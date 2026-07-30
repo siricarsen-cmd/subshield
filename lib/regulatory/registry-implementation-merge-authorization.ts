@@ -212,6 +212,7 @@ interface AuthorizationBinding {
 }
 
 const LIVE_BINDINGS = new WeakMap<object, AuthorizationBinding>();
+const IN_FLIGHT_AUTHORIZATIONS = new WeakSet<object>();
 const CONSUMED_AUTHORIZATIONS = new WeakSet<object>();
 const ZEROED_AUTHORIZATIONS = new WeakSet<object>();
 
@@ -715,6 +716,7 @@ export function isLiveRegulatoryImplementationMergeAuthorization(
     value &&
       typeof value === "object" &&
       LIVE_BINDINGS.has(value as object) &&
+      !IN_FLIGHT_AUTHORIZATIONS.has(value as object) &&
       !CONSUMED_AUTHORIZATIONS.has(value as object) &&
       validateRegulatoryImplementationMergeAuthorization(value).length === 0
   );
@@ -1407,6 +1409,10 @@ export async function executeRegulatoryImplementationMerge(
     return invalidExecutionResult(["unused-original-live-authorization-required"]);
   }
 
+  // Claim synchronously before the first await so concurrent callers cannot
+  // share one authorization or its copied audit key.
+  IN_FLIGHT_AUTHORIZATIONS.add(authorization);
+
   let outcome: RegulatoryImplementationMergeHostedOutcome;
   try {
     if (
@@ -1437,10 +1443,12 @@ export async function executeRegulatoryImplementationMerge(
     let freshIdentity: RegulatoryMergeRuntimeIdentity;
     let freshSnapshot: Readonly<RegulatoryMergeHostedSnapshot>;
     try {
-      freshIdentity = await binding.adapter.authenticate();
       freshSnapshot = await binding.adapter.inspectExactPullRequest(
         authorization.pullRequestNumber
       );
+      // Authenticate after the complete hosted inspection so the final
+      // freshness check follows the last protected-path/authentication await.
+      freshIdentity = await binding.adapter.authenticate();
     } catch {
       outcome = buildHostedOutcome(
         authorization,
@@ -1595,6 +1603,7 @@ export async function executeRegulatoryImplementationMerge(
     );
     return await terminalResult(authorization, binding, outcome);
   } finally {
+    IN_FLIGHT_AUTHORIZATIONS.delete(authorization);
     CONSUMED_AUTHORIZATIONS.add(authorization);
     LIVE_BINDINGS.delete(authorization);
     binding.auditKey.fill(0);

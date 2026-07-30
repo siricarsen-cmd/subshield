@@ -919,7 +919,9 @@ export async function createRegulatoryImplementationMergeProductionAdapter(): Pr
     ) {
       throw new Error("Merge identity was invalid");
     }
-    await authenticate();
+    // Authentication is performed by the authorization orchestrator
+    // immediately before its final trusted freshness check. Do not insert an
+    // additional await between that check and starting the guarded PUT.
     try {
       const response = asRecord(
         await githubApi([
