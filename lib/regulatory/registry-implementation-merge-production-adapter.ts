@@ -15,6 +15,12 @@ const QUALIFYING_FINDING_RE = /\b(?:p1|p2|correctness|security|test[- ]quality)\
 const CLEAN_REVIEW_RE = /codex review:\s*did(?:n't| not) find any major issues\.\s*bravo\./i;
 const REVIEWED_COMMIT_RE = /reviewed commit:\s*([a-f0-9]{40})\b/i;
 const LIVE_PRODUCTION_ADAPTERS = new WeakSet<object>();
+const TRUSTED_RUNTIME_PATHS = Object.freeze({
+  repositoryRoot: "/workspace/subshield",
+  gitExecutable: "/usr/bin/git",
+  githubCliExecutable: "/usr/bin/gh",
+  githubCliConfigDir: "/home/subshield/.config/gh",
+});
 
 export const REGULATORY_MERGE_HOSTED_POLICY = Object.freeze({
   repository: EXPECTED_REPOSITORY,
@@ -69,6 +75,11 @@ export interface RegulatoryMergeCheckEvidence {
   status: string;
   conclusion: string;
   completedAt: string;
+  pullRequestNumber: number;
+  baseRef: string;
+  baseRepository: string;
+  headRef: string;
+  headRepository: string;
 }
 
 export interface RegulatoryMergeCodexEvidence {
@@ -104,6 +115,12 @@ export interface RegulatoryMergeHostedSnapshot {
   headRefSha: string;
   headParents: string[];
   mergeCommitSha: string | null;
+  squashMergeAllowed: boolean;
+  mergeCommitAllowed: false;
+  rebaseMergeAllowed: false;
+  reviewedHeadTreeSha: string;
+  mergeCommitParents: string[];
+  mergeCommitTreeSha: string | null;
   files: RegulatoryMergeFileEvidence[];
   checks: RegulatoryMergeCheckEvidence[];
   codexEvidence: RegulatoryMergeCodexEvidence;
@@ -127,13 +144,6 @@ export interface RegulatoryImplementationMergeAdapter {
     prNumber: number,
     expectedHeadSha: string
   ): Promise<RegulatoryMergeMutation>;
-}
-
-export interface RegulatoryImplementationMergeProductionOptions {
-  repositoryRoot: string;
-  gitExecutable: string;
-  githubCliExecutable: string;
-  githubCliConfigDir: string;
 }
 
 interface FileIdentity {
@@ -406,14 +416,13 @@ function containsLaterFinding(body: string): boolean {
   );
 }
 
-export async function createRegulatoryImplementationMergeProductionAdapter(
-  options: RegulatoryImplementationMergeProductionOptions
-): Promise<RegulatoryImplementationMergeAdapter> {
+export async function createRegulatoryImplementationMergeProductionAdapter(): Promise<RegulatoryImplementationMergeAdapter> {
+  const runtimePaths = TRUSTED_RUNTIME_PATHS;
   const commandEnvironment: NodeJS.ProcessEnv = Object.freeze({
     NODE_ENV: "production",
     PATH: "",
-    HOME: options.githubCliConfigDir,
-    GH_CONFIG_DIR: options.githubCliConfigDir,
+    HOME: runtimePaths.githubCliConfigDir,
+    GH_CONFIG_DIR: runtimePaths.githubCliConfigDir,
     LANG: "C",
     LC_ALL: "C",
     GIT_CONFIG_NOSYSTEM: "1",
@@ -422,27 +431,27 @@ export async function createRegulatoryImplementationMergeProductionAdapter(
 
   async function collectIdentity(): Promise<ProtectedIdentity> {
     const [git, githubCli, repository, config] = await Promise.all([
-      regularFileIdentity(options.gitExecutable, true),
-      regularFileIdentity(options.githubCliExecutable, true),
-      directoryIdentity(options.repositoryRoot, false),
-      protectedConfigIdentity(options.githubCliConfigDir),
+      regularFileIdentity(runtimePaths.gitExecutable, true),
+      regularFileIdentity(runtimePaths.githubCliExecutable, true),
+      directoryIdentity(runtimePaths.repositoryRoot, false),
+      protectedConfigIdentity(runtimePaths.githubCliConfigDir),
     ]);
     const [rootResult, originResult] = await Promise.all([
       runCommand(
-        options.gitExecutable,
-        ["-C", options.repositoryRoot, "rev-parse", "--show-toplevel"],
-        options.repositoryRoot,
+        runtimePaths.gitExecutable,
+        ["-C", runtimePaths.repositoryRoot, "rev-parse", "--show-toplevel"],
+        runtimePaths.repositoryRoot,
         commandEnvironment
       ),
       runCommand(
-        options.gitExecutable,
-        ["-C", options.repositoryRoot, "config", "--get", "remote.origin.url"],
-        options.repositoryRoot,
+        runtimePaths.gitExecutable,
+        ["-C", runtimePaths.repositoryRoot, "config", "--get", "remote.origin.url"],
+        runtimePaths.repositoryRoot,
         commandEnvironment
       ),
     ]);
     if (
-      rootResult.stdout.trim() !== options.repositoryRoot ||
+      rootResult.stdout.trim() !== runtimePaths.repositoryRoot ||
       originResult.stdout.trim() !== EXPECTED_ORIGIN
     ) {
       throw new Error("Protected repository identity was invalid");
@@ -470,9 +479,9 @@ export async function createRegulatoryImplementationMergeProductionAdapter(
 
   async function githubApi(args: readonly string[]): Promise<unknown> {
     const result = await runCommand(
-      options.githubCliExecutable,
+      runtimePaths.githubCliExecutable,
       ["api", ...args],
-      options.repositoryRoot,
+      runtimePaths.repositoryRoot,
       commandEnvironment
     );
     return parseJson(result.stdout);
@@ -497,7 +506,10 @@ export async function createRegulatoryImplementationMergeProductionAdapter(
     if (
       asString(repository.full_name, "repository identity") !== EXPECTED_REPOSITORY ||
       asString(repository.default_branch, "repository default branch") !== EXPECTED_DEFAULT_BRANCH ||
-      repository.delete_branch_on_merge !== false
+      repository.delete_branch_on_merge !== false ||
+      repository.allow_squash_merge !== true ||
+      repository.allow_merge_commit !== false ||
+      repository.allow_rebase_merge !== false
     ) {
       throw new Error("Protected repository identity was invalid");
     }
@@ -648,6 +660,8 @@ export async function createRegulatoryImplementationMergeProductionAdapter(
     const headReference = asRecord(headReferenceValue, "head reference");
     const headObject = asRecord(headReference.object, "head reference");
     const headCommit = asRecord(headCommitValue, "head commit");
+    const headTree = asRecord(headCommit.commit, "head commit metadata");
+    const reviewedTree = asRecord(headTree.tree, "head commit tree");
     const parents = asArray(headCommit.parents, "head commit parents").map((value) =>
       asString(asRecord(value, "head commit parent").sha, "head commit parent")
     );
@@ -671,6 +685,30 @@ export async function createRegulatoryImplementationMergeProductionAdapter(
           throw new Error("Required hosted workflow evidence was ambiguous");
         }
         const selectedRun = candidateRuns[0];
+        const associations = asArray(selectedRun.pull_requests, "workflow pull requests");
+        if (associations.length !== 1) {
+          throw new Error("Required hosted workflow pull request evidence was ambiguous");
+        }
+        const association = asRecord(associations[0], "workflow pull request");
+        const associationBase = asRecord(association.base, "workflow pull request base");
+        const associationHead = asRecord(association.head, "workflow pull request head");
+        const associationBaseRepository = asRecord(
+          associationBase.repo,
+          "workflow pull request base repository"
+        );
+        const associationHeadRepository = asRecord(
+          associationHead.repo,
+          "workflow pull request head repository"
+        );
+        if (
+          association.number !== prNumber ||
+          associationBase.ref !== EXPECTED_DEFAULT_BRANCH ||
+          associationBaseRepository.full_name !== EXPECTED_REPOSITORY ||
+          associationHead.ref !== headBranch ||
+          associationHeadRepository.full_name !== EXPECTED_REPOSITORY
+        ) {
+          throw new Error("Required hosted workflow pull request evidence was foreign");
+        }
         const selectedRunId = asSafeInteger(selectedRun.id, "workflow run");
         const selectedAttempt = asSafeInteger(selectedRun.run_attempt, "workflow attempt");
         const jobValues = await paginated(
@@ -697,6 +735,17 @@ export async function createRegulatoryImplementationMergeProductionAdapter(
           status: asString(job.status, "workflow job"),
           conclusion: asString(job.conclusion, "workflow job"),
           completedAt: exactIsoInstant(job.completed_at, "workflow completion"),
+          pullRequestNumber: asSafeInteger(association.number, "workflow pull request"),
+          baseRef: asString(associationBase.ref, "workflow pull request base"),
+          baseRepository: asString(
+            associationBaseRepository.full_name,
+            "workflow pull request base repository"
+          ),
+          headRef: asString(associationHead.ref, "workflow pull request head"),
+          headRepository: asString(
+            associationHeadRepository.full_name,
+            "workflow pull request head repository"
+          ),
         };
       checkEvidence.push(evidence);
     }
@@ -789,10 +838,28 @@ export async function createRegulatoryImplementationMergeProductionAdapter(
       })
     );
 
+    const mergeCommitSha = asOptionalString(pr.merge_commit_sha, "merge commit");
+    let mergeCommitParents: string[] = [];
+    let mergeCommitTreeSha: string | null = null;
+    if (pr.merged === true && mergeCommitSha) {
+      const mergeCommit = asRecord(
+        await githubApi([`repos/${EXPECTED_REPOSITORY}/commits/${mergeCommitSha}`]),
+        "merge commit"
+      );
+      mergeCommitParents = asArray(mergeCommit.parents, "merge commit parents").map(
+        (value) => asString(asRecord(value, "merge commit parent").sha, "merge commit parent")
+      );
+      const metadata = asRecord(mergeCommit.commit, "merge commit metadata");
+      mergeCommitTreeSha = asString(
+        asRecord(metadata.tree, "merge commit tree").sha,
+        "merge commit tree"
+      );
+    }
+
     const snapshot: RegulatoryMergeHostedSnapshot = {
       repositoryFullName: asString(repository.full_name, "repository"),
       defaultBranch: asString(repository.default_branch, "repository"),
-      deleteBranchOnMerge: false,
+      deleteBranchOnMerge: repository.delete_branch_on_merge as false,
       viewerLogin: actor.login,
       viewerPermission: actor.permission,
       number: asSafeInteger(pr.number, "pull request"),
@@ -808,7 +875,13 @@ export async function createRegulatoryImplementationMergeProductionAdapter(
       headSha,
       headRefSha: asString(headObject.sha, "head reference"),
       headParents: parents,
-      mergeCommitSha: asOptionalString(pr.merge_commit_sha, "merge commit"),
+      mergeCommitSha,
+      squashMergeAllowed: repository.allow_squash_merge === true,
+      mergeCommitAllowed: repository.allow_merge_commit as false,
+      rebaseMergeAllowed: repository.allow_rebase_merge as false,
+      reviewedHeadTreeSha: asString(reviewedTree.sha, "head commit tree"),
+      mergeCommitParents,
+      mergeCommitTreeSha,
       files: files.sort((left, right) => left.path.localeCompare(right.path)),
       checks: checkEvidence,
       codexEvidence: {

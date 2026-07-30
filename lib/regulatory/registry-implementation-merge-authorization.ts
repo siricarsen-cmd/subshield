@@ -461,7 +461,10 @@ export function validateRegulatoryMergeHostedSnapshot(
     snapshot.draft ||
     snapshot.autoMergeEnabled ||
     snapshot.merged ||
-    snapshot.deleteBranchOnMerge !== false
+    snapshot.deleteBranchOnMerge !== false ||
+    snapshot.squashMergeAllowed !== true ||
+    snapshot.mergeCommitAllowed !== false ||
+    snapshot.rebaseMergeAllowed !== false
   ) {
     errors.push("pull-request-state-refused");
   }
@@ -476,6 +479,9 @@ export function validateRegulatoryMergeHostedSnapshot(
     snapshot.headBranch !== plan.targetBranch ||
     snapshot.headSha !== receipt.commitSha ||
     snapshot.headRefSha !== receipt.commitSha ||
+    !SHA_RE.test(snapshot.reviewedHeadTreeSha) ||
+    snapshot.mergeCommitParents.length !== 0 ||
+    snapshot.mergeCommitTreeSha !== null ||
     canonicalJson(snapshot.headParents) !==
       canonicalJson([plan.baseCommitSha])
   ) {
@@ -524,6 +530,11 @@ export function validateRegulatoryMergeHostedSnapshot(
         check.headSha === receipt.commitSha &&
         check.status === "completed" &&
         check.conclusion === "success" &&
+        check.pullRequestNumber === receipt.pullRequest.number &&
+        check.baseRef === REGULATORY_MERGE_HOSTED_POLICY.defaultBranch &&
+        check.baseRepository === REGULATORY_MERGE_HOSTED_POLICY.repository &&
+        check.headRef === plan.targetBranch &&
+        check.headRepository === REGULATORY_MERGE_HOSTED_POLICY.repository &&
         parseExactIsoInstant(check.completedAt) !== null
       );
     });
@@ -650,7 +661,20 @@ export function validateRegulatoryImplementationMergeAuthorization(
       errors.push("authorization-policy-invalid");
     }
     if (
+      typeof record.authorizationId !== "string" ||
+      !record.authorizationId.startsWith("regulatory-implementation-merge:") ||
+      typeof record.planId !== "string" ||
+      !record.planId.startsWith("regulatory-registry-implementation:") ||
+      typeof record.bundleId !== "string" ||
+      !record.bundleId.startsWith("regulatory-implementation-pr:") ||
+      typeof record.executionReceiptId !== "string" ||
+      !record.executionReceiptId.startsWith("regulatory-implementation-execution:") ||
       !Number.isSafeInteger(record.pullRequestNumber) ||
+      Number(record.pullRequestNumber) < 1 ||
+      record.pullRequestUrl !==
+        `https://github.com/${REGULATORY_MERGE_HOSTED_POLICY.repository}/pull/${record.pullRequestNumber}` ||
+      typeof record.headBranch !== "string" ||
+      record.headBranch.length === 0 ||
       !SHA_RE.test(String(record.reviewedBaseSha)) ||
       !SHA_RE.test(String(record.hostedHeadSha))
     ) {
@@ -1160,6 +1184,9 @@ export function validateRegulatoryImplementationMergeAuditRecord(
     }
     if (
       record.schemaVersion !== 1 ||
+      typeof record.auditId !== "string" ||
+      !record.auditId.startsWith("regulatory-implementation-merge-audit:") ||
+      record.auditId.length <= "regulatory-implementation-merge-audit:".length ||
       !KEY_ID_RE.test(String(record.keyId)) ||
       parseExactIsoInstant(record.recordedAt) === null ||
       authentication.algorithm !== "HMAC-SHA-256" ||
@@ -1309,7 +1336,14 @@ function exactPostmergeState(
       snapshot.headSha === authorization.hostedHeadSha &&
       snapshot.headRefSha === authorization.hostedHeadSha &&
       SHA_RE.test(snapshot.mergeCommitSha ?? "") &&
-      snapshot.remoteMainSha === snapshot.mergeCommitSha
+      snapshot.remoteMainSha === snapshot.mergeCommitSha &&
+      snapshot.squashMergeAllowed === true &&
+      snapshot.mergeCommitAllowed === false &&
+      snapshot.rebaseMergeAllowed === false &&
+      snapshot.mergeCommitParents.length === 1 &&
+      snapshot.mergeCommitParents[0] === authorization.reviewedBaseSha &&
+      SHA_RE.test(snapshot.reviewedHeadTreeSha) &&
+      snapshot.mergeCommitTreeSha === snapshot.reviewedHeadTreeSha
   );
 }
 
@@ -1436,6 +1470,20 @@ export async function executeRegulatoryImplementationMerge(
         authorization,
         "merge-refused-before-consumption",
         "premerge-evidence-drift",
+        "not-requested"
+      );
+      return await terminalResult(authorization, binding, outcome);
+    }
+
+    const immediateFreshnessError = authorizationFreshnessError(
+      authorization,
+      binding
+    );
+    if (immediateFreshnessError) {
+      outcome = buildHostedOutcome(
+        authorization,
+        "merge-refused-before-consumption",
+        immediateFreshnessError,
         "not-requested"
       );
       return await terminalResult(authorization, binding, outcome);
