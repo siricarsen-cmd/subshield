@@ -81,6 +81,7 @@ jobs:
           gzip -dc /tmp/pr65-fixes.patch.gz > /tmp/pr65-fixes.patch
           test "$(sha256sum /tmp/pr65-fixes.patch | cut -d' ' -f1)" = 'f4fa49cb3cb57f335add82cfdbde6d823cee3f1acdd7f63cc236c21267d5c105'
 
+          grep '^diff --git ' /tmp/pr65-fixes.patch
           git apply --check /tmp/pr65-fixes.patch
           git apply /tmp/pr65-fixes.patch
           rm -f "${workflow}"
@@ -88,13 +89,16 @@ jobs:
           printf '%s\n' \
             'lib/regulatory/__tests__/registry-implementation-merge-authorization.test.mjs' \
             'lib/regulatory/__tests__/registry-implementation-merge-production-adapter.test.mjs' \
-            'lib/regulatory/__tests__/registry-implementation-merge-test-runtime.loader.mjs' \
             'lib/regulatory/registry-implementation-merge-authorization.ts' \
             'lib/regulatory/registry-implementation-merge-production-adapter.ts' \
             'package.json' > /tmp/expected-final-files
           git diff --name-only "${base}" | sort > /tmp/actual-final-files
           diff -u /tmp/expected-final-files /tmp/actual-final-files
           git diff --check
+
+          if grep -R -q 'registry-implementation-merge-test-runtime.loader.mjs' package.json lib/regulatory/__tests__; then
+            test -f lib/regulatory/__tests__/registry-implementation-merge-test-runtime.loader.mjs
+          fi
 
           npm ci
           npm run test:regulatory:implementation-merge-authorization
