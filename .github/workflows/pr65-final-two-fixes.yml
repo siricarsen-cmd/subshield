@@ -1,0 +1,103 @@
+name: PR65 Final Two Fixes
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply-final-fixes:
+    if: github.event.pull_request.head.ref == 'feat/regulatory-implementation-merge-authorization'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/regulatory-implementation-merge-authorization
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Apply, validate, and self-remove
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=67696d91411b041c9e1046b46cb8a241bb788ac6
+          test "$(git rev-parse HEAD^)" = "$BASE"
+          test "$(git diff --name-only "$BASE" HEAD)" = ".github/workflows/pr65-final-two-fixes.yml"
+
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"expected one match in {path}, found {count}")
+              p.write_text(text.replace(old, new, 1))
+
+          auth = "lib/regulatory/registry-implementation-merge-authorization.ts"
+          adapter = "lib/regulatory/registry-implementation-merge-production-adapter.ts"
+          auth_test = "lib/regulatory/__tests__/registry-implementation-merge-authorization.test.mjs"
+          adapter_test = "lib/regulatory/__tests__/registry-implementation-merge-production-adapter.test.mjs"
+
+          replace_once(
+              auth,
+              "const LIVE_BINDINGS = new WeakMap<object, AuthorizationBinding>();\nconst CONSUMED_AUTHORIZATIONS = new WeakSet<object>();",
+              "const LIVE_BINDINGS = new WeakMap<object, AuthorizationBinding>();\nconst IN_FLIGHT_AUTHORIZATIONS = new WeakSet<object>();\nconst CONSUMED_AUTHORIZATIONS = new WeakSet<object>();",
+          )
+          replace_once(
+              auth,
+              "      LIVE_BINDINGS.has(value as object) &&\n      !CONSUMED_AUTHORIZATIONS.has(value as object) &&",
+              "      LIVE_BINDINGS.has(value as object) &&\n      !IN_FLIGHT_AUTHORIZATIONS.has(value as object) &&\n      !CONSUMED_AUTHORIZATIONS.has(value as object) &&",
+          )
+          replace_once(
+              auth,
+              "  const binding = LIVE_BINDINGS.get(authorization);\n  if (!binding) {\n    return invalidExecutionResult([\"unused-original-live-authorization-required\"]);\n  }\n\n  let outcome:",
+              "  const binding = LIVE_BINDINGS.get(authorization);\n  if (!binding) {\n    return invalidExecutionResult([\"unused-original-live-authorization-required\"]);\n  }\n\n  // Claim synchronously before the first await so concurrent callers cannot\n  // share one authorization or its copied audit key.\n  IN_FLIGHT_AUTHORIZATIONS.add(authorization);\n\n  let outcome:",
+          )
+          replace_once(
+              auth,
+              "      freshIdentity = await binding.adapter.authenticate();\n      freshSnapshot = await binding.adapter.inspectExactPullRequest(\n        authorization.pullRequestNumber\n      );",
+              "      freshSnapshot = await binding.adapter.inspectExactPullRequest(\n        authorization.pullRequestNumber\n      );\n      // Authenticate after the complete hosted inspection so the final\n      // freshness check follows the last protected-path/authentication await.\n      freshIdentity = await binding.adapter.authenticate();",
+          )
+          replace_once(
+              auth,
+              "  } finally {\n    CONSUMED_AUTHORIZATIONS.add(authorization);",
+              "  } finally {\n    IN_FLIGHT_AUTHORIZATIONS.delete(authorization);\n    CONSUMED_AUTHORIZATIONS.add(authorization);",
+          )
+          replace_once(
+              adapter,
+              "    await authenticate();\n    try {\n      const response = asRecord(\n        await githubApi([",
+              "    // Authentication is performed by the authorization orchestrator\n    // immediately before its final trusted freshness check. Do not insert an\n    // additional await between that check and starting the guarded PUT.\n    try {\n      const response = asRecord(\n        await githubApi([",
+          )
+
+          concurrency_test = '''\n  const concurrentClock = createClock();\n  const concurrentAuthorization = await createTimedAuthorization(concurrentClock);\n  if (concurrentAuthorization.result.status !== "authorization-created") {\n    throw new Error("concurrent authorization fixture required");\n  }\n  const firstConcurrentExecution = executeRegulatoryImplementationMerge(\n    plan,\n    bundle,\n    receipt,\n    concurrentAuthorization.result.authorization\n  );\n  check(\n    !isLiveRegulatoryImplementationMergeAuthorization(\n      concurrentAuthorization.result.authorization\n    ),\n    "authorization is claimed synchronously before the first await"\n  );\n  const secondConcurrentExecution = executeRegulatoryImplementationMerge(\n    plan,\n    bundle,\n    receipt,\n    concurrentAuthorization.result.authorization\n  );\n  const concurrentResults = await Promise.all([\n    firstConcurrentExecution,\n    secondConcurrentExecution,\n  ]);\n  equal(\n    concurrentResults.filter((result) => result.status === "terminal").length,\n    1,\n    "exactly one concurrent execution owns the live authorization"\n  );\n  equal(\n    concurrentResults.filter(\n      (result) => result.status === "authorization-refused"\n    ).length,\n    1,\n    "the concurrent loser refuses immediately"\n  );\n  equal(\n    (await concurrentAuthorization.runtime.state()).calls.filter(\n      (call) => call.tool === "gh" && call.argv.includes("PUT")\n    ).length,\n    1,\n    "concurrent execution issues exactly one merge request"\n  );\n\n'''
+          replace_once(auth_test, "  const retentionRoot = await newAuditRoot();", concurrency_test + "  const retentionRoot = await newAuditRoot();")
+
+          replace_once(
+              adapter_test,
+              "  const mutation = await adapter.requestExpectedHeadSquashMerge(\n    57,\n    \"b\".repeat(40)\n  );\n  equal(mutation.kind, \"accepted\", \"expected-head squash request is accepted\");\n  const post = await adapter.inspectExactPullRequest(57);",
+              "  const authenticatedUserCallsBeforeMerge = ghCalls.filter(\n    (call) => call.argv.includes(\"user\")\n  ).length;\n  const mutation = await adapter.requestExpectedHeadSquashMerge(\n    57,\n    \"b\".repeat(40)\n  );\n  equal(mutation.kind, \"accepted\", \"expected-head squash request is accepted\");\n  const stateImmediatelyAfterMutation = await runtime.state();\n  equal(\n    stateImmediatelyAfterMutation.calls.filter(\n      (call) => call.tool === \"gh\" && call.argv.includes(\"user\")\n    ).length,\n    authenticatedUserCallsBeforeMerge,\n    \"guarded merge begins without a post-freshness authentication await\"\n  );\n  const post = await adapter.inspectExactPullRequest(57);",
+          )
+          PY
+
+          rm .github/workflows/pr65-final-two-fixes.yml
+          test "$(git diff --name-only | sort)" = "$(printf '%s\n' \
+            lib/regulatory/__tests__/registry-implementation-merge-authorization.test.mjs \
+            lib/regulatory/__tests__/registry-implementation-merge-production-adapter.test.mjs \
+            lib/regulatory/registry-implementation-merge-authorization.ts \
+            lib/regulatory/registry-implementation-merge-production-adapter.ts | sort)"
+          git diff --check
+          npm ci
+          npm run test:regulatory:implementation-merge-authorization
+          npm run test:regulatory:implementation-merge-production-adapter
+          npx tsc --noEmit
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Fix final merge authorization races"
+          git push origin HEAD:feat/regulatory-implementation-merge-authorization
