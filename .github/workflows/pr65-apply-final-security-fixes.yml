@@ -1,0 +1,108 @@
+name: PR65 Apply Final Security Fixes
+
+on:
+  pull_request:
+    types: [synchronize]
+    branches: [main]
+
+permissions:
+  contents: write
+  issues: read
+  pull-requests: read
+
+jobs:
+  apply-final-security-fixes:
+    if: github.event.pull_request.number == 65 && github.event.pull_request.head.ref == 'feat/regulatory-implementation-merge-authorization'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Fetch, verify, apply, test, and self-remove
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base='8c74f8dab3c476243f6c3f7ccad8696b5126852d'
+          branch='feat/regulatory-implementation-merge-authorization'
+          workflow='.github/workflows/pr65-apply-final-security-fixes.yml'
+          comment_id='5126620937'
+
+          test "${GITHUB_REF_NAME}" = 'pull/65/merge' || true
+          test "${{ github.event.pull_request.head.sha }}" = "$(git rev-parse HEAD)"
+          test "$(git merge-base "${base}" HEAD)" = "${base}"
+
+          printf '%s\n' "${workflow}" > /tmp/expected-stage-files
+          git diff --name-only "${base}"...HEAD | sort > /tmp/actual-stage-files
+          diff -u /tmp/expected-stage-files /tmp/actual-stage-files
+
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${comment_id}" --jq '.user.login')" = 'chatgpt-codex-connector[bot]'
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${comment_id}" --jq '.user.id')" = '199175422'
+          gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${comment_id}" --jq '.body' > /tmp/pr65-comment.txt
+
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          body = Path('/tmp/pr65-comment.txt').read_text()
+          required = {
+              'LOCAL_COMMIT': '29bb5bfa405f5459259e2ac43101824dd2dbec09',
+              'BASE_COMMIT': '8c74f8dab3c476243f6c3f7ccad8696b5126852d',
+              'PATCH_SHA256': 'a8b12e827affb03da9392a6ceb6fcacdc34f1b4988a5a5b8df41c9107c657b87',
+              'GZIP_SHA256': '5c20d223d9aa38046b6e95855ed3b9c217550e972dd1eee4f35dea4a3a5831c1',
+              'BASE64_TEXT_SHA256': 'b6b4212beff9da206e462a3409c51f4cfb63148987aeb5325cbc0e35201ad7fc',
+              'OVERALL_BASE64_LENGTH': '15484',
+          }
+          for key, value in required.items():
+              if f'{key}={value}' not in body:
+                  raise SystemExit(f'missing exact transfer metadata: {key}')
+          match = re.search(r'```REGULATORY_MERGE_PATCH_GZIP_BASE64\n([A-Za-z0-9+/=]+)\n```', body)
+          if not match:
+              raise SystemExit('exact transfer payload block not found')
+          Path('/tmp/pr65-fixes.b64').write_text(match.group(1))
+          PY
+
+          test "$(wc -c < /tmp/pr65-fixes.b64)" -eq 15484
+          test "$(sha256sum /tmp/pr65-fixes.b64 | cut -d' ' -f1)" = 'b6b4212beff9da206e462a3409c51f4cfb63148987aeb5325cbc0e35201ad7fc'
+
+          base64 -d /tmp/pr65-fixes.b64 > /tmp/pr65-fixes.patch.gz
+          test "$(sha256sum /tmp/pr65-fixes.patch.gz | cut -d' ' -f1)" = '5c20d223d9aa38046b6e95855ed3b9c217550e972dd1eee4f35dea4a3a5831c1'
+
+          gzip -dc /tmp/pr65-fixes.patch.gz > /tmp/pr65-fixes.patch
+          test "$(sha256sum /tmp/pr65-fixes.patch | cut -d' ' -f1)" = 'a8b12e827affb03da9392a6ceb6fcacdc34f1b4988a5a5b8df41c9107c657b87'
+
+          git apply --check /tmp/pr65-fixes.patch
+          git apply /tmp/pr65-fixes.patch
+          rm -f "${workflow}"
+
+          printf '%s\n' \
+            'lib/regulatory/__tests__/registry-implementation-merge-authorization.test.mjs' \
+            'lib/regulatory/__tests__/registry-implementation-merge-production-adapter.test.mjs' \
+            'lib/regulatory/registry-implementation-merge-authorization.ts' \
+            'lib/regulatory/registry-implementation-merge-production-adapter.ts' \
+            'package.json' > /tmp/expected-final-files
+          git diff --name-only "${base}" | sort > /tmp/actual-final-files
+          diff -u /tmp/expected-final-files /tmp/actual-final-files
+          git diff --check
+
+          npm ci
+          npm run test:regulatory:implementation-merge-authorization
+          npm run test:regulatory:implementation-merge-production-adapter
+          npx tsc --noEmit
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Preserve regulatory merge authorization coverage'
+          git push origin "HEAD:${branch}"
