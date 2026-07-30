@@ -1,0 +1,87 @@
+name: PR65 Apply Review Fixes
+
+on:
+  push:
+    branches:
+      - feat/regulatory-implementation-merge-authorization
+    paths:
+      - .pr65-transfer/**
+      - .github/workflows/pr65-apply-review-fixes.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-review-fixes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Verify and apply correction patch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base='d4d7a80c54a533dd796635356b189ffa03ae470a'
+          branch='feat/regulatory-implementation-merge-authorization'
+          part1='.pr65-transfer/part1.b64'
+          part2='.pr65-transfer/part2.b64'
+          workflow='.github/workflows/pr65-apply-review-fixes.yml'
+
+          test "${GITHUB_REF_NAME}" = "${branch}"
+          test "$(wc -c < "${part1}")" -eq 3900
+          test "$(wc -c < "${part2}")" -eq 3900
+          test "$(sha256sum "${part1}" | cut -d' ' -f1)" = '5621568a1294d086f18ce692a674d1651cc7e4ebe10a9ecadf856db4ba08f048'
+          test "$(sha256sum "${part2}" | cut -d' ' -f1)" = '59fbccd8f13815f0319b6e77153b57f263a6cb44f89dd4ca30318f6f6eb171f0'
+
+          printf '%s\n' \
+            '.github/workflows/pr65-apply-review-fixes.yml' \
+            '.pr65-transfer/part1.b64' \
+            '.pr65-transfer/part2.b64' > /tmp/expected-stage-files
+          git diff --name-only "${base}"...HEAD | sort > /tmp/actual-stage-files
+          diff -u /tmp/expected-stage-files /tmp/actual-stage-files
+
+          cat "${part1}" "${part2}" > /tmp/pr65-fixes.b64
+          test "$(wc -c < /tmp/pr65-fixes.b64)" -eq 7800
+          test "$(sha256sum /tmp/pr65-fixes.b64 | cut -d' ' -f1)" = '3a18d5bd29141f05a1e6d1e23c2ac950023e1442c7f7ebcb5dcda9d159a3902e'
+
+          base64 -d /tmp/pr65-fixes.b64 > /tmp/pr65-fixes.patch.gz
+          test "$(sha256sum /tmp/pr65-fixes.patch.gz | cut -d' ' -f1)" = 'e1dc4d26f7bdf7e602d9fd8fdc2e707126838d494df95ddd7848ca08894a837c'
+
+          gzip -dc /tmp/pr65-fixes.patch.gz > /tmp/pr65-fixes.patch
+          test "$(sha256sum /tmp/pr65-fixes.patch | cut -d' ' -f1)" = '442d2b16317c1d21ce1c44b9b0fa158a6873db86ff359d103d76fc3edb3db4e8'
+
+          git apply --check /tmp/pr65-fixes.patch
+          git apply /tmp/pr65-fixes.patch
+          rm -rf .pr65-transfer
+          rm -f "${workflow}"
+
+          printf '%s\n' \
+            'lib/regulatory/__tests__/registry-implementation-merge-authorization.test.mjs' \
+            'lib/regulatory/__tests__/registry-implementation-merge-production-adapter.test.mjs' \
+            'lib/regulatory/registry-implementation-merge-authorization.ts' \
+            'lib/regulatory/registry-implementation-merge-production-adapter.ts' \
+            'package.json' > /tmp/expected-final-files
+          git diff --name-only "${base}" | sort > /tmp/actual-final-files
+          diff -u /tmp/expected-final-files /tmp/actual-final-files
+          git diff --check
+
+          npm ci
+          npm run test:regulatory:implementation-merge-authorization
+          npm run test:regulatory:implementation-merge-production-adapter
+          npx tsc --noEmit
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Fix regulatory merge authorization review findings'
+          git push origin "HEAD:${branch}"
