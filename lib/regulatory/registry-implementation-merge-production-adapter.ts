@@ -13,7 +13,8 @@ const SHA256_RE = /^sha256:[a-f0-9]{64}$/;
 const SAFE_PERMISSIONS = new Set(["ADMIN", "MAINTAIN", "WRITE"]);
 const QUALIFYING_FINDING_RE = /\b(?:p1|p2|correctness|security|test[- ]quality)\b/i;
 const CLEAN_REVIEW_RE = /codex review:\s*did(?:n't| not) find any major issues\.\s*bravo\./i;
-const REVIEWED_COMMIT_RE = /reviewed commit:\s*([a-f0-9]{10,40})\b/i;
+const REVIEWED_COMMIT_RE = /reviewed commit:\s*([a-f0-9]{40})\b/i;
+const LIVE_PRODUCTION_ADAPTERS = new WeakSet<object>();
 
 export const REGULATORY_MERGE_HOSTED_POLICY = Object.freeze({
   repository: EXPECTED_REPOSITORY,
@@ -76,6 +77,7 @@ export interface RegulatoryMergeCodexEvidence {
 export interface RegulatoryMergeHostedSnapshot {
   repositoryFullName: string;
   defaultBranch: string;
+  deleteBranchOnMerge: false;
   viewerLogin: string;
   viewerPermission: string;
   number: number;
@@ -282,6 +284,25 @@ async function directoryIdentity(path: string, privateDirectory: boolean): Promi
   };
 }
 
+async function protectedConfigIdentity(path: string): Promise<FileIdentity> {
+  const directory = await directoryIdentity(path, true);
+  const hostsPath = resolve(path, "hosts.yml");
+  if (hostsPath === path || !hostsPath.startsWith(`${path}/`)) {
+    throw new Error("Protected configuration identity was invalid");
+  }
+  const file = await regularFileIdentity(hostsPath, false);
+  const contents = await readFile(hostsPath);
+  if (contents.byteLength > MAX_OUTPUT_BYTES) {
+    throw new Error("Protected configuration identity was invalid");
+  }
+  return {
+    path,
+    fingerprint: sha256(
+      `${directory.fingerprint}\0${file.fingerprint}\0${sha256(contents)}`
+    ),
+  };
+}
+
 function genericCommandError(): Error {
   return new Error("Protected repository command failed");
 }
@@ -394,7 +415,7 @@ export async function createRegulatoryImplementationMergeProductionAdapter(
       regularFileIdentity(options.gitExecutable, true),
       regularFileIdentity(options.githubCliExecutable, true),
       directoryIdentity(options.repositoryRoot, false),
-      directoryIdentity(options.githubCliConfigDir, true),
+      protectedConfigIdentity(options.githubCliConfigDir),
     ]);
     const [rootResult, originResult] = await Promise.all([
       runCommand(
@@ -465,7 +486,8 @@ export async function createRegulatoryImplementationMergeProductionAdapter(
     const login = normalizeLogin(asString(user.login, "authenticated GitHub login"));
     if (
       asString(repository.full_name, "repository identity") !== EXPECTED_REPOSITORY ||
-      asString(repository.default_branch, "repository default branch") !== EXPECTED_DEFAULT_BRANCH
+      asString(repository.default_branch, "repository default branch") !== EXPECTED_DEFAULT_BRANCH ||
+      repository.delete_branch_on_merge !== false
     ) {
       throw new Error("Protected repository identity was invalid");
     }
@@ -713,8 +735,8 @@ export async function createRegulatoryImplementationMergeProductionAdapter(
 
     const cleanCandidates = botComments.filter((candidate) => {
       const prefix = extractReviewPrefix(candidate.body);
-      if (!prefix || prefix.length < 10) return false;
-      const matches = pullCommits.filter((commitSha) => commitSha.startsWith(prefix));
+      if (!prefix || prefix !== headSha) return false;
+      const matches = pullCommits.filter((commitSha) => commitSha === prefix);
       return (
         matches.length === 1 &&
         matches[0] === headSha &&
@@ -752,6 +774,7 @@ export async function createRegulatoryImplementationMergeProductionAdapter(
     const snapshot: RegulatoryMergeHostedSnapshot = {
       repositoryFullName: asString(repository.full_name, "repository"),
       defaultBranch: asString(repository.default_branch, "repository"),
+      deleteBranchOnMerge: false,
       viewerLogin: actor.login,
       viewerPermission: actor.permission,
       number: asSafeInteger(pr.number, "pull request"),
@@ -835,11 +858,19 @@ export async function createRegulatoryImplementationMergeProductionAdapter(
     }
   }
 
-  return deepFreeze({
+  const adapter = deepFreeze({
     authenticate,
     inspectExactPullRequest,
     requestExpectedHeadSquashMerge,
   });
+  LIVE_PRODUCTION_ADAPTERS.add(adapter);
+  return adapter;
+}
+
+export function isLiveRegulatoryImplementationMergeProductionAdapter(
+  value: unknown
+): value is RegulatoryImplementationMergeAdapter {
+  return Boolean(value && typeof value === "object" && LIVE_PRODUCTION_ADAPTERS.has(value));
 }
 
 export const regulatoryImplementationMergeProductionAdapterTestSurface =
@@ -849,4 +880,11 @@ export const regulatoryImplementationMergeProductionAdapterTestSurface =
     containsLaterFinding,
     sha256,
     checksumPattern: SHA256_RE,
+    registerAdapter(adapter: RegulatoryImplementationMergeAdapter) {
+      if (process.env.SUBSHIELD_REGULATORY_MERGE_TEST !== "1") {
+        throw new Error("Test adapter registration is unavailable");
+      }
+      LIVE_PRODUCTION_ADAPTERS.add(adapter);
+      return adapter;
+    },
   });

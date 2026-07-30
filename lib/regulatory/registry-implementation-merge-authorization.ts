@@ -24,6 +24,7 @@ import {
 } from "./registry-implementation-pr-bundle";
 import {
   REGULATORY_MERGE_HOSTED_POLICY,
+  isLiveRegulatoryImplementationMergeProductionAdapter,
   type RegulatoryImplementationMergeAdapter,
   type RegulatoryMergeHostedSnapshot,
   type RegulatoryMergeMutation,
@@ -46,7 +47,7 @@ const CONTROLLED_BOUNDARY = Object.freeze({
 
 type ControlledBoundary = typeof CONTROLLED_BOUNDARY;
 
-export interface RegulatoryImplementationMergeClock {
+interface RegulatoryImplementationMergeClock {
   wallNow(): number;
   monotonicNow(): bigint;
 }
@@ -92,7 +93,6 @@ export interface CreateRegulatoryImplementationMergeAuthorizationRequest {
   auditKeyId: string;
   auditKey: Uint8Array;
   adapter: RegulatoryImplementationMergeAdapter;
-  clock?: RegulatoryImplementationMergeClock;
 }
 
 export type RegulatoryImplementationMergeAuthorizationResult = Readonly<
@@ -460,7 +460,8 @@ export function validateRegulatoryMergeHostedSnapshot(
     snapshot.state !== "open" ||
     snapshot.draft ||
     snapshot.autoMergeEnabled ||
-    snapshot.merged
+    snapshot.merged ||
+    snapshot.deleteBranchOnMerge !== false
   ) {
     errors.push("pull-request-state-refused");
   }
@@ -710,6 +711,9 @@ export async function createRegulatoryImplementationMergeAuthorization(
     ) {
       return refusalResult(["original-live-evidence-required"]);
     }
+    if (!isLiveRegulatoryImplementationMergeProductionAdapter(request.adapter)) {
+      return refusalResult(["original-production-adapter-required"]);
+    }
     const validationErrors = [
       ...validateRegulatoryRegistryImplementationPlan(plan),
       ...validateRegulatoryImplementationPullRequestBundle(bundle, plan),
@@ -727,7 +731,13 @@ export async function createRegulatoryImplementationMergeAuthorization(
     ) {
       return refusalResult(["authorization-policy-invalid"]);
     }
-    const clock = request.clock ?? SYSTEM_CLOCK;
+    const testClock = (request as CreateRegulatoryImplementationMergeAuthorizationRequest & {
+      clock?: RegulatoryImplementationMergeClock;
+    }).clock;
+    const clock =
+      process.env.SUBSHIELD_REGULATORY_MERGE_TEST === "1" && testClock
+        ? testClock
+        : SYSTEM_CLOCK;
     const wallNow = clock.wallNow();
     const authorizedAtMs = parseExactIsoInstant(request.authorizedAt);
     if (
@@ -953,7 +963,7 @@ function validateHostedOutcome(value: unknown): string[] {
   try {
     const record = exactRecord(value);
     if (!record) return ["outcome-not-object"];
-    const allowedKeys = new Set([
+    const baseKeys = [
       "schemaVersion",
       "outcomeId",
       "authorizationId",
@@ -961,13 +971,14 @@ function validateHostedOutcome(value: unknown): string[] {
       "status",
       "code",
       "mutation",
-      "receipt",
       "outcomeChecksum",
       "applicationStatus",
       "customerFacingStatus",
       "deploymentStatus",
-    ]);
-    if (Object.keys(record).some((key) => !allowedKeys.has(key))) {
+    ];
+    const status = String(record.status);
+    const successful = status === "merge-succeeded" || status === "already-merged-exact";
+    if (!hasExactKeys(record, successful ? [...baseKeys, "receipt"] : baseKeys)) {
       return ["outcome-shape-invalid"];
     }
     const errors: string[] = [];
@@ -981,7 +992,34 @@ function validateHostedOutcome(value: unknown): string[] {
     ) {
       errors.push("outcome-policy-invalid");
     }
-    const status = String(record.status);
+    const supportedStatuses = new Set([
+      "authorization-refused",
+      "merge-refused-before-consumption",
+      "github-deterministic-refusal",
+      "already-merged-exact",
+      "ambiguous-hosted-mutation",
+      "merge-succeeded",
+    ]);
+    const mutation = String(record.mutation);
+    const supportedMutations = new Set(["not-requested", "refused", "accepted", "ambiguous"]);
+    const relationshipValid =
+      ((status === "authorization-refused" || status === "merge-refused-before-consumption") && mutation === "not-requested") ||
+      (status === "github-deterministic-refusal" && mutation === "refused") ||
+      (status === "already-merged-exact" && mutation === "refused") ||
+      (status === "ambiguous-hosted-mutation" && (mutation === "accepted" || mutation === "ambiguous")) ||
+      (status === "merge-succeeded" && (mutation === "accepted" || mutation === "ambiguous"));
+    if (
+      !supportedStatuses.has(status) ||
+      !supportedMutations.has(mutation) ||
+      !relationshipValid ||
+      typeof record.outcomeId !== "string" ||
+      !record.outcomeId.startsWith("regulatory-implementation-merge-outcome:") ||
+      typeof record.authorizationId !== "string" ||
+      !record.authorizationId.startsWith("regulatory-implementation-merge:") ||
+      !SHA256_RE.test(String(record.authorizationChecksum))
+    ) {
+      errors.push("outcome-identity-invalid");
+    }
     const hasReceipt = record.receipt !== undefined;
     if ((status === "merge-succeeded" || status === "already-merged-exact") !== hasReceipt) {
       errors.push("outcome-receipt-relationship-invalid");
@@ -1034,7 +1072,7 @@ function buildAuditRecord(
 
 export function validateRegulatoryImplementationMergeAuditRecord(
   value: unknown,
-  key: Uint8Array
+  key?: Uint8Array
 ): string[] {
   try {
     const record = exactRecord(value);
@@ -1064,7 +1102,9 @@ export function validateRegulatoryImplementationMergeAuditRecord(
       !authorization ||
       !outcome ||
       outcome.authorizationId !== authorization.authorizationId ||
-      outcome.authorizationChecksum !== authorization.authorizationChecksum
+      outcome.authorizationChecksum !== authorization.authorizationChecksum ||
+      record.keyId !== authorization.auditKeyId ||
+      authentication.keyId !== authorization.auditKeyId
     ) {
       errors.push("audit-relationship-invalid");
     }
@@ -1087,15 +1127,17 @@ export function validateRegulatoryImplementationMergeAuditRecord(
     ) {
       errors.push("audit-checksum-invalid");
     }
-    const expectedMac = createHmac("sha256", key)
-      .update(canonicalJson(omitKeys(record, ["authentication"])))
-      .digest();
-    const actualMac = Buffer.from(String(authentication.mac), "hex");
-    if (
-      actualMac.length !== expectedMac.length ||
-      !timingSafeEqual(actualMac, expectedMac)
-    ) {
-      errors.push("audit-hmac-invalid");
+    if (key) {
+      const expectedMac = createHmac("sha256", key)
+        .update(canonicalJson(omitKeys(record, ["authentication"])))
+        .digest();
+      const actualMac = Buffer.from(String(authentication.mac), "hex");
+      if (
+        actualMac.length !== expectedMac.length ||
+        !timingSafeEqual(actualMac, expectedMac)
+      ) {
+        errors.push("audit-hmac-invalid");
+      }
     }
     return uniqueSorted(errors);
   } catch {
@@ -1502,14 +1544,9 @@ export function validateRegulatoryImplementationMergeExecutionResult(
         errors.push("result-shape-invalid");
       }
       errors.push(...validateHostedOutcome(record.outcome));
-      if (auditKey) {
-        errors.push(
-          ...validateRegulatoryImplementationMergeAuditRecord(
-            record.audit,
-            auditKey
-          )
-        );
-      }
+      errors.push(
+        ...validateRegulatoryImplementationMergeAuditRecord(record.audit, auditKey)
+      );
       const audit = exactRecord(record.audit);
       const outcome = exactRecord(record.outcome);
       if (
