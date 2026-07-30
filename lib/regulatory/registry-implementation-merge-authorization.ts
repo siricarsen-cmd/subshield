@@ -74,7 +74,7 @@ export interface RegulatoryImplementationMergeAuthorization
   hostedHeadSha: string;
   headBranch: string;
   authenticatedLogin: "siricarsen-cmd";
-  mergeMethod: "squash";
+  mergeMethod: "fast-forward";
   auditKeyId: string;
   authorizedAt: string;
   evidenceFingerprint: string;
@@ -126,7 +126,7 @@ export interface RegulatoryImplementationMergeReceipt
   reviewedBaseSha: string;
   headBranch: string;
   premergeHeadSha: string;
-  mergeMethod: "squash";
+  mergeMethod: "fast-forward";
   mergeRequestedAt: string;
   hostedVerifiedAt: string;
   mergeCommitSha: string;
@@ -463,9 +463,8 @@ export function validateRegulatoryMergeHostedSnapshot(
     snapshot.autoMergeEnabled ||
     snapshot.merged ||
     snapshot.deleteBranchOnMerge !== false ||
-    snapshot.squashMergeAllowed !== true ||
-    snapshot.mergeCommitAllowed !== false ||
-    snapshot.rebaseMergeAllowed !== false
+    typeof snapshot.repositoryNodeId !== "string" ||
+    snapshot.repositoryNodeId.length < 1
   ) {
     errors.push("pull-request-state-refused");
   }
@@ -1339,9 +1338,6 @@ function exactPostmergeState(
       snapshot.headRefSha === authorization.hostedHeadSha &&
       SHA_RE.test(snapshot.mergeCommitSha ?? "") &&
       snapshot.remoteMainSha === snapshot.mergeCommitSha &&
-      snapshot.squashMergeAllowed === true &&
-      snapshot.mergeCommitAllowed === false &&
-      snapshot.rebaseMergeAllowed === false &&
       snapshot.mergeCommitParents.length === 1 &&
       snapshot.mergeCommitParents[0] === authorization.reviewedBaseSha &&
       SHA_RE.test(snapshot.reviewedHeadTreeSha) &&
@@ -1504,8 +1500,10 @@ export async function executeRegulatoryImplementationMerge(
     const mergeRequestedAt = new Date(binding.clock.wallNow()).toISOString();
     let mutation: RegulatoryMergeMutation;
     try {
-      mutation = await binding.adapter.requestExpectedHeadSquashMerge(
-        authorization.pullRequestNumber,
+      mutation = await binding.adapter.requestAtomicReviewedBaseHeadFastForward(
+        freshSnapshot.repositoryNodeId,
+        authorization.headBranch,
+        authorization.reviewedBaseSha,
         authorization.hostedHeadSha
       );
     } catch {

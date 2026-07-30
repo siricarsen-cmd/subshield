@@ -113,14 +113,14 @@ The adapter must expose only the narrow merge action required for this phase. It
 Requirements:
 
 - GitHub auto-merge is prohibited;
-- use one deterministic repository-approved merge method, preferably squash unless current repository/spec evidence requires another fixed method;
-- pass the exact expected head SHA to GitHub's merge endpoint so a moved head is rejected;
+- use one deterministic repository-approved merge method: an atomic fast-forward is authorized only when the generated head is exactly one commit whose sole parent is the reviewed base;
+- use GitHub's atomic multi-ref update with `beforeOid` guards for both remote `main` at the reviewed base SHA and the generated branch at the exact reviewed head SHA; advance only `main`, keep the generated branch unchanged, and set `force=false` for both updates;
 - do not delete the generated branch automatically;
 - do not rewrite history;
 - do not retry automatically after any ambiguous or partial hosted mutation;
 - do not treat a local command exit alone as proof of merge success.
 
-After the merge request returns, re-fetch the PR and remote `main`. Verify the PR's merged state, exact merged head identity, returned merge commit SHA, and resulting default-branch state. If GitHub reports a partial or ambiguous result, preserve all evidence and return a structured failure requiring operator review.
+After the atomic ref request returns, re-fetch the PR, generated branch, and remote `main`. Verify the PR's indirect merged state, exact merged head identity, unchanged generated branch, resulting default-branch state, and that the fast-forwarded commit retains the reviewed base as its sole parent and the reviewed head tree. If GitHub reports a partial or ambiguous result, preserve all evidence and return a structured failure requiring operator review.
 
 A race in which the PR becomes already merged must be represented explicitly. The implementation must distinguish a verified already-merged exact state from an ambiguous or mismatched merged state and must never attempt destructive recovery.
 

@@ -45,7 +45,7 @@ export const REGULATORY_MERGE_HOSTED_POLICY = Object.freeze({
   codexLogin: "chatgpt-codex-connector[bot]",
   codexAccountId: 199175422,
   codexReviewState: "COMMENTED",
-  mergeMethod: "squash",
+  mergeMethod: "fast-forward",
 });
 
 export interface RegulatoryMergeRuntimeIdentity {
@@ -97,6 +97,7 @@ export interface RegulatoryMergeCodexEvidence {
 
 export interface RegulatoryMergeHostedSnapshot {
   repositoryFullName: string;
+  repositoryNodeId: string;
   defaultBranch: string;
   deleteBranchOnMerge: false;
   viewerLogin: string;
@@ -116,8 +117,8 @@ export interface RegulatoryMergeHostedSnapshot {
   headParents: string[];
   mergeCommitSha: string | null;
   squashMergeAllowed: boolean;
-  mergeCommitAllowed: false;
-  rebaseMergeAllowed: false;
+  mergeCommitAllowed: boolean;
+  rebaseMergeAllowed: boolean;
   reviewedHeadTreeSha: string;
   mergeCommitParents: string[];
   mergeCommitTreeSha: string | null;
@@ -140,8 +141,10 @@ export type RegulatoryMergeMutation = Readonly<
 export interface RegulatoryImplementationMergeAdapter {
   authenticate(): Promise<RegulatoryMergeRuntimeIdentity>;
   inspectExactPullRequest(prNumber: number): Promise<Readonly<RegulatoryMergeHostedSnapshot>>;
-  requestExpectedHeadSquashMerge(
-    prNumber: number,
+  requestAtomicReviewedBaseHeadFastForward(
+    repositoryNodeId: string,
+    headBranch: string,
+    reviewedBaseSha: string,
     expectedHeadSha: string
   ): Promise<RegulatoryMergeMutation>;
 }
@@ -507,9 +510,8 @@ export async function createRegulatoryImplementationMergeProductionAdapter(): Pr
       asString(repository.full_name, "repository identity") !== EXPECTED_REPOSITORY ||
       asString(repository.default_branch, "repository default branch") !== EXPECTED_DEFAULT_BRANCH ||
       repository.delete_branch_on_merge !== false ||
-      repository.allow_squash_merge !== true ||
-      repository.allow_merge_commit !== false ||
-      repository.allow_rebase_merge !== false
+      typeof repository.node_id !== "string" ||
+      repository.node_id.length < 1
     ) {
       throw new Error("Protected repository identity was invalid");
     }
@@ -838,7 +840,13 @@ export async function createRegulatoryImplementationMergeProductionAdapter(): Pr
       })
     );
 
-    const mergeCommitSha = asOptionalString(pr.merge_commit_sha, "merge commit");
+    const remoteMainSha = asString(mainObject.sha, "main reference");
+    const headRefSha = asString(headObject.sha, "head reference");
+    const reportedMergeCommitSha = asOptionalString(pr.merge_commit_sha, "merge commit");
+    const mergeCommitSha =
+      pr.merged === true && reportedMergeCommitSha === null && remoteMainSha === headSha
+        ? headSha
+        : reportedMergeCommitSha;
     let mergeCommitParents: string[] = [];
     let mergeCommitTreeSha: string | null = null;
     if (pr.merged === true && mergeCommitSha) {
@@ -858,6 +866,7 @@ export async function createRegulatoryImplementationMergeProductionAdapter(): Pr
 
     const snapshot: RegulatoryMergeHostedSnapshot = {
       repositoryFullName: asString(repository.full_name, "repository"),
+      repositoryNodeId: asString(repository.node_id, "repository node identity"),
       defaultBranch: asString(repository.default_branch, "repository"),
       deleteBranchOnMerge: repository.delete_branch_on_merge as false,
       viewerLogin: actor.login,
@@ -870,15 +879,15 @@ export async function createRegulatoryImplementationMergeProductionAdapter(): Pr
       merged: pr.merged === true,
       baseBranch: asString(base.ref, "pull request base branch"),
       baseSha,
-      remoteMainSha: asString(mainObject.sha, "main reference"),
+      remoteMainSha,
       headBranch,
       headSha,
-      headRefSha: asString(headObject.sha, "head reference"),
+      headRefSha,
       headParents: parents,
       mergeCommitSha,
       squashMergeAllowed: repository.allow_squash_merge === true,
-      mergeCommitAllowed: repository.allow_merge_commit as false,
-      rebaseMergeAllowed: repository.allow_rebase_merge as false,
+      mergeCommitAllowed: repository.allow_merge_commit === true,
+      rebaseMergeAllowed: repository.allow_rebase_merge === true,
       reviewedHeadTreeSha: asString(reviewedTree.sha, "head commit tree"),
       mergeCommitParents,
       mergeCommitTreeSha,
@@ -908,44 +917,48 @@ export async function createRegulatoryImplementationMergeProductionAdapter(): Pr
     return deepFreeze(snapshot);
   }
 
-  async function requestExpectedHeadSquashMerge(
-    prNumber: number,
+  async function requestAtomicReviewedBaseHeadFastForward(
+    repositoryNodeId: string,
+    headBranch: string,
+    reviewedBaseSha: string,
     expectedHeadSha: string
   ): Promise<RegulatoryMergeMutation> {
     if (
-      !Number.isSafeInteger(prNumber) ||
-      prNumber < 1 ||
+      typeof repositoryNodeId !== "string" ||
+      repositoryNodeId.length < 1 ||
+      !/^regulatory-update\/[a-z0-9._-]+\/[a-f0-9]{12}$/.test(headBranch) ||
+      !COMMIT_SHA_RE.test(reviewedBaseSha) ||
       !COMMIT_SHA_RE.test(expectedHeadSha)
     ) {
       throw new Error("Merge identity was invalid");
     }
+    const mainRef = `refs/heads/${EXPECTED_DEFAULT_BRANCH}`;
+    const headRef = `refs/heads/${headBranch}`;
+    const query = [
+      "mutation{updateRefs(input:{",
+      `repositoryId:${JSON.stringify(repositoryNodeId)},`,
+      "refUpdates:[",
+      `{name:${JSON.stringify(mainRef)},beforeOid:${JSON.stringify(reviewedBaseSha)},afterOid:${JSON.stringify(expectedHeadSha)},force:false},`,
+      `{name:${JSON.stringify(headRef)},beforeOid:${JSON.stringify(expectedHeadSha)},afterOid:${JSON.stringify(expectedHeadSha)},force:false}`,
+      "]}){clientMutationId}}",
+    ].join("");
     // Authentication is performed by the authorization orchestrator
-    // immediately before its final trusted freshness check. Do not insert an
-    // additional await between that check and starting the guarded PUT.
+    // immediately before its final trusted freshness check. Starting this
+    // single atomic mutation is the next asynchronous operation.
     try {
       const response = asRecord(
-        await githubApi([
-          "--method",
-          "PUT",
-          `repos/${EXPECTED_REPOSITORY}/pulls/${prNumber}/merge`,
-          "-f",
-          `merge_method=${REGULATORY_MERGE_HOSTED_POLICY.mergeMethod}`,
-          "-f",
-          `sha=${expectedHeadSha}`,
-        ]),
-        "merge response"
+        await githubApi(["graphql", "-f", `query=${query}`]),
+        "atomic ref response"
       );
-      if (response.merged === true) {
-        const mergeCommitSha = asString(response.sha, "merge response");
-        if (!COMMIT_SHA_RE.test(mergeCommitSha)) {
-          return deepFreeze({ kind: "ambiguous" });
-        }
-        return deepFreeze({ kind: "accepted", mergeCommitSha });
-      }
-      if (response.merged === false) {
+      if (Array.isArray(response.errors) && response.errors.length > 0) {
         return deepFreeze({ kind: "refused" });
       }
-      return deepFreeze({ kind: "ambiguous" });
+      const data = asRecord(response.data, "atomic ref response");
+      const updateRefs = asRecord(data.updateRefs, "atomic ref response");
+      if (!("clientMutationId" in updateRefs)) {
+        return deepFreeze({ kind: "ambiguous" });
+      }
+      return deepFreeze({ kind: "accepted", mergeCommitSha: expectedHeadSha });
     } catch {
       return deepFreeze({ kind: "ambiguous" });
     }
@@ -954,7 +967,7 @@ export async function createRegulatoryImplementationMergeProductionAdapter(): Pr
   const adapter = deepFreeze({
     authenticate,
     inspectExactPullRequest,
-    requestExpectedHeadSquashMerge,
+    requestAtomicReviewedBaseHeadFastForward,
   });
   LIVE_PRODUCTION_ADAPTERS.add(adapter);
   return adapter;
