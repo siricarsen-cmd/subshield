@@ -1,9 +1,9 @@
 name: PR65 Apply Review Fixes
 
 on:
-  push:
+  pull_request:
     branches:
-      - feat/regulatory-implementation-merge-authorization
+      - main
     paths:
       - .pr65-transfer/**
       - .github/workflows/pr65-apply-review-fixes.yml
@@ -13,11 +13,13 @@ permissions:
 
 jobs:
   apply-review-fixes:
+    if: github.event.pull_request.head.ref == 'feat/regulatory-implementation-merge-authorization'
     runs-on: ubuntu-latest
     steps:
-      - name: Check out exact branch
+      - name: Check out exact PR head
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Set up Node
@@ -37,7 +39,7 @@ jobs:
           part2='.pr65-transfer/part2.b64'
           workflow='.github/workflows/pr65-apply-review-fixes.yml'
 
-          test "${GITHUB_REF_NAME}" = "${branch}"
+          test "${GITHUB_HEAD_REF}" = "${branch}"
           test "$(wc -c < "${part1}")" -eq 3900
           test "$(wc -c < "${part2}")" -eq 3900
           test "$(sha256sum "${part1}" | cut -d' ' -f1)" = '5621568a1294d086f18ce692a674d1651cc7e4ebe10a9ecadf856db4ba08f048'
