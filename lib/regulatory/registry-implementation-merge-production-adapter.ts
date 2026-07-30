@@ -21,10 +21,20 @@ export const REGULATORY_MERGE_HOSTED_POLICY = Object.freeze({
   defaultBranch: EXPECTED_DEFAULT_BRANCH,
   canonicalOrigin: EXPECTED_ORIGIN,
   operatorLogin: "siricarsen-cmd",
-  workflowId: 320336946,
-  workflowName: "Regulatory Grounding Foundation",
-  workflowPath: ".github/workflows/regulatory-grounding.yml",
-  jobName: "Official sources / types / analyzer regression",
+  workflows: Object.freeze([
+    Object.freeze({
+      workflowId: 320336946,
+      workflowName: "Regulatory Grounding Foundation",
+      workflowPath: ".github/workflows/regulatory-grounding.yml",
+      jobName: "Official sources / types / analyzer regression",
+    }),
+    Object.freeze({
+      workflowId: 320319820,
+      workflowName: "Analyzer Accuracy Benchmarks",
+      workflowPath: ".github/workflows/analyzer-accuracy.yml",
+      jobName: "QA-B / QA-C / QA-D / QA-E1",
+    }),
+  ]),
   workflowEvent: "pull_request",
   codexLogin: "chatgpt-codex-connector[bot]",
   codexAccountId: 199175422,
@@ -598,36 +608,39 @@ export async function createRegulatoryImplementationMergeProductionAdapter(
       throw new Error("Pull request commit identity was invalid");
     }
 
-    const [
-      repositoryValue,
-      mainReferenceValue,
-      headReferenceValue,
-      headCommitValue,
-      fileValues,
-      workflowRunValues,
-      reviewValues,
-      issueCommentValues,
-      pullCommitValues,
-      unresolvedThreadCount,
-      actor,
-    ] = await Promise.all([
-      githubApi([`repos/${EXPECTED_REPOSITORY}`]),
-      githubApi([`repos/${EXPECTED_REPOSITORY}/git/ref/heads/${EXPECTED_DEFAULT_BRANCH}`]),
-      githubApi([
-        `repos/${EXPECTED_REPOSITORY}/git/ref/heads/${encodeURIComponent(headBranch)}`,
-      ]),
-      githubApi([`repos/${EXPECTED_REPOSITORY}/commits/${headSha}`]),
-      paginated(`repos/${EXPECTED_REPOSITORY}/pulls/${prNumber}/files?per_page=100`),
-      paginated(
-        `repos/${EXPECTED_REPOSITORY}/actions/workflows/${REGULATORY_MERGE_HOSTED_POLICY.workflowId}/runs?event=pull_request&head_sha=${headSha}&per_page=100`,
-        "workflow_runs"
-      ),
-      paginated(`repos/${EXPECTED_REPOSITORY}/pulls/${prNumber}/reviews?per_page=100`),
-      paginated(`repos/${EXPECTED_REPOSITORY}/issues/${prNumber}/comments?per_page=100`),
-      paginated(`repos/${EXPECTED_REPOSITORY}/pulls/${prNumber}/commits?per_page=100`),
-      readReviewThreads(prNumber),
-      authenticate(),
+    const repositoryValue = await githubApi([`repos/${EXPECTED_REPOSITORY}`]);
+    const mainReferenceValue = await githubApi([
+      `repos/${EXPECTED_REPOSITORY}/git/ref/heads/${EXPECTED_DEFAULT_BRANCH}`,
     ]);
+    const headReferenceValue = await githubApi([
+      `repos/${EXPECTED_REPOSITORY}/git/ref/heads/${encodeURIComponent(headBranch)}`,
+    ]);
+    const headCommitValue = await githubApi([
+      `repos/${EXPECTED_REPOSITORY}/commits/${headSha}`,
+    ]);
+    const fileValues = await paginated(
+      `repos/${EXPECTED_REPOSITORY}/pulls/${prNumber}/files?per_page=100`
+    );
+    const workflowRunPages = [];
+    for (const workflow of REGULATORY_MERGE_HOSTED_POLICY.workflows) {
+      workflowRunPages.push(
+        await paginated(
+          `repos/${EXPECTED_REPOSITORY}/actions/workflows/${workflow.workflowId}/runs?event=pull_request&head_sha=${headSha}&per_page=100`,
+          "workflow_runs"
+        )
+      );
+    }
+    const reviewValues = await paginated(
+      `repos/${EXPECTED_REPOSITORY}/pulls/${prNumber}/reviews?per_page=100`
+    );
+    const issueCommentValues = await paginated(
+      `repos/${EXPECTED_REPOSITORY}/issues/${prNumber}/comments?per_page=100`
+    );
+    const pullCommitValues = await paginated(
+      `repos/${EXPECTED_REPOSITORY}/pulls/${prNumber}/commits?per_page=100`
+    );
+    const unresolvedThreadCount = await readReviewThreads(prNumber);
+    const actor = await authenticate();
 
     const repository = asRecord(repositoryValue, "repository");
     const mainReference = asRecord(mainReferenceValue, "main reference");
@@ -639,51 +652,54 @@ export async function createRegulatoryImplementationMergeProductionAdapter(
       asString(asRecord(value, "head commit parent").sha, "head commit parent")
     );
 
-    const candidateRuns = workflowRunValues
-      .map((value) => asRecord(value, "workflow run"))
-      .filter(
-        (run) =>
-          run.workflow_id === REGULATORY_MERGE_HOSTED_POLICY.workflowId &&
-          run.name === REGULATORY_MERGE_HOSTED_POLICY.workflowName &&
-          run.path === REGULATORY_MERGE_HOSTED_POLICY.workflowPath &&
-          run.event === REGULATORY_MERGE_HOSTED_POLICY.workflowEvent &&
-          run.head_sha === headSha
-      );
-    if (candidateRuns.length === 0) {
-      throw new Error("Required hosted workflow evidence was missing");
+    const checkEvidence: RegulatoryMergeCheckEvidence[] = [];
+    for (const [index, policy] of REGULATORY_MERGE_HOSTED_POLICY.workflows.entries()) {
+        const candidateRuns = workflowRunPages[index]
+          .map((value) => asRecord(value, "workflow run"))
+          .filter(
+            (run) =>
+              run.workflow_id === policy.workflowId &&
+              run.name === policy.workflowName &&
+              run.path === policy.workflowPath &&
+              run.event === REGULATORY_MERGE_HOSTED_POLICY.workflowEvent &&
+              run.head_sha === headSha
+          );
+        if (candidateRuns.length === 0) {
+          throw new Error("Required hosted workflow evidence was missing");
+        }
+        if (candidateRuns.length !== 1) {
+          throw new Error("Required hosted workflow evidence was ambiguous");
+        }
+        const selectedRun = candidateRuns[0];
+        const selectedRunId = asSafeInteger(selectedRun.id, "workflow run");
+        const selectedAttempt = asSafeInteger(selectedRun.run_attempt, "workflow attempt");
+        const jobValues = await paginated(
+          `repos/${EXPECTED_REPOSITORY}/actions/runs/${selectedRunId}/attempts/${selectedAttempt}/jobs?per_page=100`,
+          "jobs"
+        );
+        const matchingJobs = jobValues
+          .map((value) => asRecord(value, "workflow job"))
+          .filter((job) => job.name === policy.jobName);
+        if (matchingJobs.length !== 1) {
+          throw new Error("Required hosted job evidence was ambiguous");
+        }
+        const job = matchingJobs[0];
+        const evidence: RegulatoryMergeCheckEvidence = {
+          workflowId: asSafeInteger(selectedRun.workflow_id, "workflow run"),
+          workflowName: asString(selectedRun.name, "workflow run"),
+          workflowPath: asString(selectedRun.path, "workflow run"),
+          workflowRunId: selectedRunId,
+          attempt: selectedAttempt,
+          jobId: asSafeInteger(job.id, "workflow job"),
+          jobName: asString(job.name, "workflow job"),
+          event: asString(selectedRun.event, "workflow run"),
+          headSha: asString(selectedRun.head_sha, "workflow run"),
+          status: asString(job.status, "workflow job"),
+          conclusion: asString(job.conclusion, "workflow job"),
+          completedAt: exactIsoInstant(job.completed_at, "workflow completion"),
+        };
+      checkEvidence.push(evidence);
     }
-    if (candidateRuns.length !== 1) {
-      throw new Error("Required hosted workflow evidence was ambiguous");
-    }
-    const selectedRun = candidateRuns[0];
-    const selectedRunId = asSafeInteger(selectedRun.id, "workflow run");
-    const selectedAttempt = asSafeInteger(selectedRun.run_attempt, "workflow attempt");
-
-    const jobValues = await paginated(
-      `repos/${EXPECTED_REPOSITORY}/actions/runs/${selectedRunId}/attempts/${selectedAttempt}/jobs?per_page=100`,
-      "jobs"
-    );
-    const matchingJobs = jobValues
-      .map((value) => asRecord(value, "workflow job"))
-      .filter((job) => job.name === REGULATORY_MERGE_HOSTED_POLICY.jobName);
-    if (matchingJobs.length !== 1) {
-      throw new Error("Required hosted job evidence was ambiguous");
-    }
-    const job = matchingJobs[0];
-    const checkEvidence: RegulatoryMergeCheckEvidence = {
-      workflowId: asSafeInteger(selectedRun.workflow_id, "workflow run"),
-      workflowName: asString(selectedRun.name, "workflow run"),
-      workflowPath: asString(selectedRun.path, "workflow run"),
-      workflowRunId: selectedRunId,
-      attempt: selectedAttempt,
-      jobId: asSafeInteger(job.id, "workflow job"),
-      jobName: asString(job.name, "workflow job"),
-      event: asString(selectedRun.event, "workflow run"),
-      headSha: asString(selectedRun.head_sha, "workflow run"),
-      status: asString(job.status, "workflow job"),
-      conclusion: asString(job.conclusion, "workflow job"),
-      completedAt: exactIsoInstant(job.completed_at, "workflow completion"),
-    };
 
     const pullCommits = pullCommitValues.map((value) =>
       asString(asRecord(value, "pull request commit").sha, "pull request commit")
@@ -741,7 +757,9 @@ export async function createRegulatoryImplementationMergeProductionAdapter(
         matches.length === 1 &&
         matches[0] === headSha &&
         Date.parse(candidate.createdAt) >= Date.parse(reviewSubmittedAt) &&
-        Date.parse(candidate.createdAt) >= Date.parse(checkEvidence.completedAt)
+        checkEvidence.every(
+          (check) => Date.parse(candidate.createdAt) >= Date.parse(check.completedAt)
+        )
       );
     });
     if (cleanCandidates.length === 0) {
@@ -792,7 +810,7 @@ export async function createRegulatoryImplementationMergeProductionAdapter(
       headParents: parents,
       mergeCommitSha: asOptionalString(pr.merge_commit_sha, "merge commit"),
       files: files.sort((left, right) => left.path.localeCompare(right.path)),
-      checks: [checkEvidence],
+      checks: checkEvidence,
       codexEvidence: {
         login: REGULATORY_MERGE_HOSTED_POLICY.codexLogin,
         accountId: REGULATORY_MERGE_HOSTED_POLICY.codexAccountId,
@@ -880,11 +898,4 @@ export const regulatoryImplementationMergeProductionAdapterTestSurface =
     containsLaterFinding,
     sha256,
     checksumPattern: SHA256_RE,
-    registerAdapter(adapter: RegulatoryImplementationMergeAdapter) {
-      if (process.env.SUBSHIELD_REGULATORY_MERGE_TEST !== "1") {
-        throw new Error("Test adapter registration is unavailable");
-      }
-      LIVE_PRODUCTION_ADAPTERS.add(adapter);
-      return adapter;
-    },
   });

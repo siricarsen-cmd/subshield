@@ -53,8 +53,8 @@ interface RegulatoryImplementationMergeClock {
 }
 
 const SYSTEM_CLOCK: RegulatoryImplementationMergeClock = Object.freeze({
-  wallNow: Date.now,
-  monotonicNow: process.hrtime.bigint.bind(process.hrtime),
+  wallNow: () => Date.now(),
+  monotonicNow: () => process.hrtime.bigint(),
 });
 
 export interface RegulatoryImplementationMergeAuthorization
@@ -507,20 +507,27 @@ export function validateRegulatoryMergeHostedSnapshot(
     }
   }
 
-  const [check] = snapshot.checks;
-  if (
-    snapshot.checks.length !== 1 ||
-    !check ||
-    check.workflowId !== REGULATORY_MERGE_HOSTED_POLICY.workflowId ||
-    check.workflowName !== REGULATORY_MERGE_HOSTED_POLICY.workflowName ||
-    check.workflowPath !== REGULATORY_MERGE_HOSTED_POLICY.workflowPath ||
-    check.jobName !== REGULATORY_MERGE_HOSTED_POLICY.jobName ||
-    check.event !== REGULATORY_MERGE_HOSTED_POLICY.workflowEvent ||
-    check.headSha !== receipt.commitSha ||
-    check.status !== "completed" ||
-    check.conclusion !== "success" ||
-    parseExactIsoInstant(check.completedAt) === null
-  ) {
+  const checksValid =
+    snapshot.checks.length === REGULATORY_MERGE_HOSTED_POLICY.workflows.length &&
+    REGULATORY_MERGE_HOSTED_POLICY.workflows.every((policy) => {
+      const matches = snapshot.checks.filter(
+        (check) =>
+          check.workflowId === policy.workflowId &&
+          check.workflowName === policy.workflowName &&
+          check.workflowPath === policy.workflowPath &&
+          check.jobName === policy.jobName
+      );
+      const check = matches[0];
+      return (
+        matches.length === 1 &&
+        check.event === REGULATORY_MERGE_HOSTED_POLICY.workflowEvent &&
+        check.headSha === receipt.commitSha &&
+        check.status === "completed" &&
+        check.conclusion === "success" &&
+        parseExactIsoInstant(check.completedAt) !== null
+      );
+    });
+  if (!checksValid) {
     errors.push("hosted-checks-refused");
   }
 
@@ -542,9 +549,11 @@ export function validateRegulatoryMergeHostedSnapshot(
   if (
     parseExactIsoInstant(codex.attestationCreatedAt)! <
       parseExactIsoInstant(codex.reviewSubmittedAt)! ||
-    (check &&
-      parseExactIsoInstant(codex.attestationCreatedAt)! <
-        parseExactIsoInstant(check.completedAt)!)
+    snapshot.checks.some(
+      (check) =>
+        parseExactIsoInstant(codex.attestationCreatedAt)! <
+        parseExactIsoInstant(check.completedAt)!
+    )
   ) {
     errors.push("security-review-stale");
   }
@@ -731,13 +740,7 @@ export async function createRegulatoryImplementationMergeAuthorization(
     ) {
       return refusalResult(["authorization-policy-invalid"]);
     }
-    const testClock = (request as CreateRegulatoryImplementationMergeAuthorizationRequest & {
-      clock?: RegulatoryImplementationMergeClock;
-    }).clock;
-    const clock =
-      process.env.SUBSHIELD_REGULATORY_MERGE_TEST === "1" && testClock
-        ? testClock
-        : SYSTEM_CLOCK;
+    const clock = SYSTEM_CLOCK;
     const wallNow = clock.wallNow();
     const authorizedAtMs = parseExactIsoInstant(request.authorizedAt);
     if (
@@ -923,6 +926,21 @@ export function validateRegulatoryImplementationMergeReceipt(
       errors.push("receipt-policy-invalid");
     }
     if (
+      typeof record.receiptId !== "string" ||
+      !record.receiptId.startsWith("regulatory-implementation-merge-receipt:") ||
+      typeof record.authorizationId !== "string" ||
+      !record.authorizationId.startsWith("regulatory-implementation-merge:") ||
+      typeof record.planId !== "string" ||
+      !record.planId.startsWith("regulatory-registry-implementation:") ||
+      typeof record.bundleId !== "string" ||
+      !record.bundleId.startsWith("regulatory-implementation-pr:") ||
+      typeof record.executionReceiptId !== "string" ||
+      !record.executionReceiptId.startsWith("regulatory-implementation-execution:") ||
+      !Number.isSafeInteger(record.pullRequestNumber) ||
+      Number(record.pullRequestNumber) < 1 ||
+      record.pullRequestUrl !==
+        `https://github.com/${REGULATORY_MERGE_HOSTED_POLICY.repository}/pull/${record.pullRequestNumber}` ||
+      typeof record.headBranch !== "string" || !record.headBranch ||
       !SHA_RE.test(String(record.reviewedBaseSha)) ||
       !SHA_RE.test(String(record.premergeHeadSha)) ||
       !SHA_RE.test(String(record.mergeCommitSha)) ||
@@ -1026,6 +1044,14 @@ function validateHostedOutcome(value: unknown): string[] {
     }
     if (hasReceipt) {
       errors.push(...validateRegulatoryImplementationMergeReceipt(record.receipt));
+      const receipt = exactRecord(record.receipt);
+      if (
+        !receipt ||
+        receipt.authorizationId !== record.authorizationId ||
+        receipt.authorizationChecksum !== record.authorizationChecksum
+      ) {
+        errors.push("outcome-receipt-relationship-invalid");
+      }
     }
     if (
       record.outcomeChecksum !==
@@ -1093,11 +1119,15 @@ export function validateRegulatoryImplementationMergeAuditRecord(
     if (!hasExactKeys(record, expectedKeys)) return ["audit-shape-invalid"];
     const authentication = exactRecord(record.authentication);
     if (!authentication) return ["audit-authentication-shape-invalid"];
+    if (!hasExactKeys(authentication, ["algorithm", "keyId", "mac"])) {
+      return ["audit-authentication-shape-invalid"];
+    }
     const errors: string[] = [];
     errors.push(...validateRegulatoryImplementationMergeAuthorization(record.authorization));
     errors.push(...validateHostedOutcome(record.outcome));
     const authorization = exactRecord(record.authorization);
     const outcome = exactRecord(record.outcome);
+    const outcomeReceipt = outcome ? exactRecord(outcome.receipt) : null;
     if (
       !authorization ||
       !outcome ||
@@ -1107,6 +1137,26 @@ export function validateRegulatoryImplementationMergeAuditRecord(
       authentication.keyId !== authorization.auditKeyId
     ) {
       errors.push("audit-relationship-invalid");
+    }
+    if (
+      outcomeReceipt &&
+      authorization &&
+      (outcomeReceipt.authorizationId !== authorization.authorizationId ||
+        outcomeReceipt.authorizationChecksum !== authorization.authorizationChecksum ||
+        outcomeReceipt.planId !== authorization.planId ||
+        outcomeReceipt.planChecksum !== authorization.planChecksum ||
+        outcomeReceipt.bundleId !== authorization.bundleId ||
+        outcomeReceipt.bundleChecksum !== authorization.bundleChecksum ||
+        outcomeReceipt.executionReceiptId !== authorization.executionReceiptId ||
+        outcomeReceipt.executionReceiptChecksum !==
+          authorization.executionReceiptChecksum ||
+        outcomeReceipt.pullRequestNumber !== authorization.pullRequestNumber ||
+        outcomeReceipt.pullRequestUrl !== authorization.pullRequestUrl ||
+        outcomeReceipt.reviewedBaseSha !== authorization.reviewedBaseSha ||
+        outcomeReceipt.headBranch !== authorization.headBranch ||
+        outcomeReceipt.premergeHeadSha !== authorization.hostedHeadSha)
+    ) {
+      errors.push("audit-receipt-relationship-invalid");
     }
     if (
       record.schemaVersion !== 1 ||
@@ -1529,18 +1579,23 @@ export function validateRegulatoryImplementationMergeExecutionResult(
         errors.push("result-shape-invalid");
       }
     } else if (record.status === "terminal") {
-      const allowedKeys = [
+      const commonKeys = [
         "status",
         "outcome",
         "audit",
         "auditRetention",
-        "auditPath",
         "applicationStatus",
         "customerFacingStatus",
         "deploymentStatus",
         "resultChecksum",
       ];
-      if (Object.keys(record).some((key) => !allowedKeys.includes(key))) {
+      const exactKeys =
+        record.auditRetention === "retained"
+          ? [...commonKeys, "auditPath"]
+          : record.auditRetention === "failed"
+            ? commonKeys
+            : [];
+      if (exactKeys.length === 0 || !hasExactKeys(record, exactKeys)) {
         errors.push("result-shape-invalid");
       }
       errors.push(...validateHostedOutcome(record.outcome));

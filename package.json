@@ -25,7 +25,7 @@
     "test:regulatory:implementation-executor": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/registry-implementation-executor.test.mjs",
     "test:regulatory:implementation-production-adapter": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/registry-implementation-production-adapter.test.mjs",
     "test:regulatory:implementation-invocation": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/registry-implementation-invocation.test.mjs",
-    "test:regulatory:implementation-merge-authorization": "SUBSHIELD_REGULATORY_MERGE_TEST=1 node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/registry-implementation-merge-authorization.test.mjs",
+    "test:regulatory:implementation-merge-authorization": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/registry-implementation-merge-authorization.test.mjs",
     "test:regulatory:implementation-merge-production-adapter": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/registry-implementation-merge-production-adapter.test.mjs",
     "test:regulatory:ingestion": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/ingestion.test.mjs && npm run test:regulatory:stored-pairs",
     "test:regulatory:stored-pairs": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/__tests__/verified-stored-update-pair.test.mjs",
