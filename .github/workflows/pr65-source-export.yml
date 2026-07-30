@@ -1,0 +1,30 @@
+name: PR65 Source Export
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    if: github.event.pull_request.head.ref == 'feat/regulatory-implementation-merge-authorization'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/regulatory-implementation-merge-authorization
+      - name: Package exact source
+        run: |
+          tar -czf /tmp/pr65-source.tar.gz \
+            AGENTS.md package.json package-lock.json tsconfig.json next.config.ts \
+            docs/accuracy \
+            lib/regulatory \
+            lib/analyzer/__tests__/ts-relative-import.loader.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr65-source
+          path: /tmp/pr65-source.tar.gz
+          if-no-files-found: error
+          retention-days: 1
