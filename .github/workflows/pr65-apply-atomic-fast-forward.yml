@@ -1,0 +1,66 @@
+name: PR65 Apply Atomic Fast Forward
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.ref == 'feat/regulatory-implementation-merge-authorization'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/regulatory-implementation-merge-authorization
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Verify, apply, test, and self-remove
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=30a2169b6fdbd0dc2c0655e8ef7cda40a7f84543
+          EXPECTED_STAGING=$(printf '%s\n' \
+            .github/workflows/pr65-apply-atomic-fast-forward.yml \
+            .github/workflows/pr65-source-export.yml \
+            .pr65-transfer/atomic-fast-forward.part1 \
+            .pr65-transfer/atomic-fast-forward.part2 | sort)
+          test "$(git diff --name-only "$BASE" HEAD | sort)" = "$EXPECTED_STAGING"
+
+          cat .pr65-transfer/atomic-fast-forward.part1 .pr65-transfer/atomic-fast-forward.part2 > /tmp/patch.b64
+          test "$(wc -c < /tmp/patch.b64)" -eq 10436
+          test "$(sha256sum /tmp/patch.b64 | cut -d' ' -f1)" = 84e7d3418fce351b1e37e9ea1d8c0dbc3b3f637a46210ff50d6154837d659cb7
+          base64 -d /tmp/patch.b64 > /tmp/patch.gz
+          test "$(sha256sum /tmp/patch.gz | cut -d' ' -f1)" = fd9d3dce4b3182249e8cfbd2ba45317582fcbbfa09d63f7b83f63d443ce37438
+          gzip -dc /tmp/patch.gz > /tmp/patch.diff
+          test "$(sha256sum /tmp/patch.diff | cut -d' ' -f1)" = b04dcb3d14dec204f4fe21ebd53333d084daf94fef67ea7fc0c90099e1761d6d
+          git apply --check /tmp/patch.diff
+          git apply /tmp/patch.diff
+
+          rm -rf .pr65-transfer
+          rm .github/workflows/pr65-source-export.yml
+          rm .github/workflows/pr65-apply-atomic-fast-forward.yml
+
+          EXPECTED_FINAL=$(printf '%s\n' \
+            docs/accuracy/regulatory-implementation-merge-authorization.md \
+            lib/regulatory/__tests__/registry-implementation-merge-authorization.test.mjs \
+            lib/regulatory/__tests__/registry-implementation-merge-production-adapter.test.mjs \
+            lib/regulatory/registry-implementation-merge-authorization.ts \
+            lib/regulatory/registry-implementation-merge-production-adapter.ts | sort)
+          test "$(git diff --name-only "$BASE" | sort)" = "$EXPECTED_FINAL"
+          git diff --check
+          npm ci
+          npm run test:regulatory:implementation-merge-authorization
+          npm run test:regulatory:implementation-merge-production-adapter
+          npx tsc --noEmit
+
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Use atomic reviewed-base fast-forward merge"
+          git push origin HEAD:feat/regulatory-implementation-merge-authorization
