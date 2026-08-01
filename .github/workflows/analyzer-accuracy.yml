@@ -166,7 +166,7 @@ jobs:
         id: gate
         shell: bash
         run: |
-          if [ "$(git log -1 --pretty=%s)" = "Publish PR 65 receipt fast-forward invariant" ]; then
+          if [ "$(git log -1 --pretty=%s)" = "Publish PR 65 receipt fast-forward invariant v2" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -198,37 +198,39 @@ jobs:
           source_path.write_text(''.join(source_lines), encoding='utf-8')
 
           test_path = Path('lib/regulatory/__tests__/registry-implementation-merge-authorization.test.mjs')
-          test = test_path.read_text(encoding='utf-8')
-          anchor = '''  check(
-            !("registerAdapter" in regulatoryImplementationMergeProductionAdapterTestSurface),
-            "no exported registration seam can grant adapter authority"
-          );
-          '''
-          anchor = anchor.replace('\n            ', '\n    ').replace('\n          );', '\n  );')
-          if test.count(anchor) != 1:
-              raise SystemExit(f'receipt regression insertion anchor count: {test.count(anchor)}')
-          if 'receipt rejects checksum-recomputed non-head fast-forward evidence' in test:
+          test_lines = test_path.read_text(encoding='utf-8').splitlines(keepends=True)
+          register_lines = [
+              i for i, line in enumerate(test_lines)
+              if '!("registerAdapter" in regulatoryImplementationMergeProductionAdapterTestSurface)' in line
+          ]
+          if len(register_lines) != 1:
+              raise SystemExit(f'register-adapter assertion count: {len(register_lines)}')
+          insertion_index = next(
+              i for i in range(register_lines[0] - 1, -1, -1)
+              if test_lines[i].strip() == 'check('
+          )
+          if any('receipt rejects checksum-recomputed non-head fast-forward evidence' in line for line in test_lines):
               raise SystemExit('receipt fast-forward regression already exists')
-          regression = '''  const mismatchedFastForwardReceipt = structuredClone(success.outcome.receipt);
-          mismatchedFastForwardReceipt.mergeCommitSha = "d".repeat(40);
-          mismatchedFastForwardReceipt.postmergeRemoteMainSha =
-            mismatchedFastForwardReceipt.mergeCommitSha;
-          delete mismatchedFastForwardReceipt.receiptChecksum;
-          mismatchedFastForwardReceipt.receiptChecksum =
-            regulatoryImplementationMergeAuthorizationTestSurface.sha256Canonical(
-              mismatchedFastForwardReceipt
-            );
-          check(
-            validateRegulatoryImplementationMergeReceipt(
-              mismatchedFastForwardReceipt
-            ).includes("receipt-hosted-identity-invalid"),
-            "receipt rejects checksum-recomputed non-head fast-forward evidence"
-          );
-
-          '''
-          regression = regression.replace('\n          ', '\n  ').replace('\n            ', '\n    ').replace('\n              ', '\n      ')
-          test = test.replace(anchor, regression + anchor, 1)
-          test_path.write_text(test, encoding='utf-8')
+          regression = [
+              '  const mismatchedFastForwardReceipt = structuredClone(success.outcome.receipt);\n',
+              '  mismatchedFastForwardReceipt.mergeCommitSha = "d".repeat(40);\n',
+              '  mismatchedFastForwardReceipt.postmergeRemoteMainSha =\n',
+              '    mismatchedFastForwardReceipt.mergeCommitSha;\n',
+              '  delete mismatchedFastForwardReceipt.receiptChecksum;\n',
+              '  mismatchedFastForwardReceipt.receiptChecksum =\n',
+              '    regulatoryImplementationMergeAuthorizationTestSurface.sha256Canonical(\n',
+              '      mismatchedFastForwardReceipt\n',
+              '    );\n',
+              '  check(\n',
+              '    validateRegulatoryImplementationMergeReceipt(\n',
+              '      mismatchedFastForwardReceipt\n',
+              '    ).includes("receipt-hosted-identity-invalid"),\n',
+              '    "receipt rejects checksum-recomputed non-head fast-forward evidence"\n',
+              '  );\n',
+              '\n',
+          ]
+          test_lines[insertion_index:insertion_index] = regression
+          test_path.write_text(''.join(test_lines), encoding='utf-8')
           PY
 
       - name: Install locked dependencies
