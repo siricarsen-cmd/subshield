@@ -1,1 +1,0 @@
-One-use trigger for PR #65 concurrent squash-race correction. Remove after the publisher completes.
