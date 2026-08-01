@@ -1,25 +1,41 @@
 name: PR 65 cursor fix publisher
 
 on:
-  push:
+  pull_request:
+    types:
+      - synchronize
     branches:
-      - feat/regulatory-implementation-merge-authorization
+      - main
 
 permissions:
   contents: write
 
 jobs:
   publish-cursor-fix:
-    if: github.event.head_commit.message == 'Trigger PR 65 cursor fix publisher'
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'feat/regulatory-implementation-merge-authorization'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Check out exact branch head
+      - name: Check out exact pull request head
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
+      - name: Gate one-use publisher
+        id: gate
+        shell: bash
+        run: |
+          if [ "$(git log -1 --pretty=%s)" = "Trigger PR 65 cursor fix publisher via pull request" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Apply exact cursor fix and regression coverage
+        if: steps.gate.outputs.run == 'true'
         shell: bash
         run: |
           python - <<'PY'
@@ -153,7 +169,7 @@ jobs:
             check(
               secondReviewThreadQuery.includes("$after:String!") &&
                 secondReviewThreadQuery.includes("after:$after") &&
-                secondReviewThreadCalls[1].argv.filter(
+                reviewThreadCalls[1].argv.filter(
                   (value) => value === "after=cursor-1"
                 ).length === 1,
               "later review-thread request uses the exact returned cursor"
@@ -166,12 +182,15 @@ jobs:
           PY
 
       - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
         run: npm ci
 
       - name: Run focused adapter regression suite
+        if: steps.gate.outputs.run == 'true'
         run: npm run test:regulatory:implementation-merge-production-adapter
 
       - name: Verify exact scope and publish
+        if: steps.gate.outputs.run == 'true'
         shell: bash
         run: |
           set -euo pipefail
