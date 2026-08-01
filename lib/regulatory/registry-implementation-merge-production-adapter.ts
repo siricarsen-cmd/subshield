@@ -552,28 +552,32 @@ export async function createRegulatoryImplementationMergeProductionAdapter(): Pr
   }
 
   async function readReviewThreads(prNumber: number): Promise<number> {
-    const query = [
-      "query($number:Int!,$after:String){",
-      'repository(owner:"siricarsen-cmd",name:"subshield"){',
-      "pullRequest(number:$number){",
-      "reviewThreads(first:100,after:$after){",
-      "nodes{isResolved}",
-      "pageInfo{hasNextPage endCursor}",
-      "}}}}",
-    ].join("");
     let cursor: string | null = null;
     let unresolved = 0;
     let pageCount = 0;
     do {
       pageCount += 1;
       if (pageCount > 500) throw new Error("Review thread pagination was incomplete");
+      const query = [
+        cursor
+          ? "query($number:Int!,$after:String!){"
+          : "query($number:Int!){",
+        'repository(owner:"siricarsen-cmd",name:"subshield"){',
+        "pullRequest(number:$number){",
+        cursor
+          ? "reviewThreads(first:100,after:$after){"
+          : "reviewThreads(first:100){",
+        "nodes{isResolved}",
+        "pageInfo{hasNextPage endCursor}",
+        "}}}}",
+      ].join("");
       const args = [
         "graphql",
         "-f",
         `query=${query}`,
         "-F",
         `number=${prNumber}`,
-        ...(cursor ? ["-f", `after=${cursor}`] : ["-f", "after="]),
+        ...(cursor ? ["-f", `after=${cursor}`] : []),
       ];
       const value = asRecord(await githubApi(args));
       const data = asRecord(value.data, "review thread response");
