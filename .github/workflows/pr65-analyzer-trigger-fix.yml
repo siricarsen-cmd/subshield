@@ -1,0 +1,184 @@
+name: PR 65 concurrent squash race publisher
+
+on:
+  pull_request:
+    types: [synchronize]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'feat/regulatory-implementation-merge-authorization'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - id: gate
+        shell: bash
+        run: |
+          if [ "$(git log -1 --pretty=%s)" = "Trigger PR 65 squash fix via registered publisher" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Apply race fix and negative regression
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path('lib/regulatory/registry-implementation-merge-authorization.ts')
+          source = source_path.read_text(encoding='utf-8')
+
+          sha_anchor = '      SHA_RE.test(snapshot.mergeCommitSha ?? "") &&\n'
+          if source.count(sha_anchor) != 1:
+              raise SystemExit('merge SHA anchor mismatch')
+          source = source.replace(
+              sha_anchor,
+              sha_anchor + '      snapshot.mergeCommitSha === authorization.hostedHeadSha &&\n',
+              1,
+          )
+
+          old_refusal = '''    if (mutation.kind === "refused") {
+      if (exactPostmergeState(postmergeSnapshot, authorization)) {
+        const receipt = buildMergeReceipt(
+          authorization,
+          binding,
+          postmergeSnapshot,
+          mergeRequestedAt,
+          hostedVerifiedAt
+        );
+        outcome = buildHostedOutcome(
+          authorization,
+          "already-merged-exact",
+          "already-merged-race",
+          "refused",
+          receipt
+        );
+      } else {
+        outcome = buildHostedOutcome(
+          authorization,
+          "github-deterministic-refusal",
+          "deterministic-refusal",
+          "refused"
+        );
+      }
+      return await terminalResult(authorization, binding, outcome);
+    }
+          '''
+          new_refusal = '''    if (mutation.kind === "refused") {
+      if (exactPostmergeState(postmergeSnapshot, authorization)) {
+        const receipt = buildMergeReceipt(
+          authorization,
+          binding,
+          postmergeSnapshot,
+          mergeRequestedAt,
+          hostedVerifiedAt
+        );
+        outcome = buildHostedOutcome(
+          authorization,
+          "already-merged-exact",
+          "already-merged-race",
+          "refused",
+          receipt
+        );
+      } else if (postmergeSnapshot.merged) {
+        outcome = buildHostedOutcome(
+          authorization,
+          "ambiguous-hosted-mutation",
+          "concurrent-non-fast-forward-merge",
+          "refused"
+        );
+      } else {
+        outcome = buildHostedOutcome(
+          authorization,
+          "github-deterministic-refusal",
+          "deterministic-refusal",
+          "refused"
+        );
+      }
+      return await terminalResult(authorization, binding, outcome);
+    }
+          '''
+          old_refusal = old_refusal.rstrip() + '\n'
+          new_refusal = new_refusal.rstrip() + '\n'
+          if source.count(old_refusal) != 1:
+              raise SystemExit('refused mutation branch mismatch')
+          source = source.replace(old_refusal, new_refusal, 1)
+          source_path.write_text(source, encoding='utf-8')
+
+          test_path = Path('lib/regulatory/__tests__/registry-implementation-merge-authorization.test.mjs')
+          test = test_path.read_text(encoding='utf-8')
+
+          old_race = '      if (state.alreadyMerged) { state.mainSha = state.headSha; state.merged = true; state.mergeSha = state.headSha; }\n'
+          new_race = '''      if (state.alreadyMerged) {
+        const raceSha = state.concurrentSquash ? state.otherSha : state.headSha;
+        state.mainSha = raceSha;
+        state.merged = true;
+        state.mergeSha = raceSha;
+      }
+          '''.rstrip() + '\n'
+          if test.count(old_race) != 1:
+              raise SystemExit('already-merged fixture mismatch')
+          test = test.replace(old_race, new_race, 1)
+
+          option_anchor = '    alreadyMerged: options.alreadyMerged === true,\n'
+          if test.count(option_anchor) != 1:
+              raise SystemExit('adapter option anchor mismatch')
+          test = test.replace(
+              option_anchor,
+              option_anchor + '    concurrentSquash: options.concurrentSquash === true,\n',
+              1,
+          )
+
+          case_anchor = '''    [
+      "already merged race",
+      { mutationKind: "refused", alreadyMerged: true },
+      "already-merged-exact",
+    ],
+          '''.rstrip() + '\n'
+          case_replacement = case_anchor + '''    [
+      "concurrent squash race",
+      { mutationKind: "refused", alreadyMerged: true, concurrentSquash: true },
+      "ambiguous-hosted-mutation",
+    ],
+          '''.rstrip() + '\n'
+          if test.count(case_anchor) != 1:
+              raise SystemExit('already-merged test case mismatch')
+          test = test.replace(case_anchor, case_replacement, 1)
+          test_path.write_text(test, encoding='utf-8')
+          PY
+
+      - if: steps.gate.outputs.run == 'true'
+        run: npm ci
+
+      - if: steps.gate.outputs.run == 'true'
+        run: npm run test:regulatory:implementation-merge-authorization
+
+      - if: steps.gate.outputs.run == 'true'
+        run: npm run test:regulatory:implementation-merge-production-adapter
+
+      - name: Verify and publish exact two-file correction
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$'lib/regulatory/__tests__/registry-implementation-merge-authorization.test.mjs\nlib/regulatory/registry-implementation-merge-authorization.ts'
+          actual="$(git diff --name-only | sort)"
+          test "$actual" = "$expected"
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/regulatory/registry-implementation-merge-authorization.ts lib/regulatory/__tests__/registry-implementation-merge-authorization.test.mjs
+          git commit -m "Refuse concurrent squash as fast-forward race"
+          git push origin HEAD:feat/regulatory-implementation-merge-authorization
