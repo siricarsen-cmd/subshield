@@ -1049,7 +1049,7 @@ function validateHostedOutcome(value: unknown): string[] {
       ((status === "authorization-refused" || status === "merge-refused-before-consumption") && mutation === "not-requested") ||
       (status === "github-deterministic-refusal" && mutation === "refused") ||
       (status === "already-merged-exact" && mutation === "refused") ||
-      (status === "ambiguous-hosted-mutation" && (mutation === "accepted" || mutation === "ambiguous")) ||
+      (status === "ambiguous-hosted-mutation" && (mutation === "accepted" || mutation === "ambiguous" || mutation === "refused")) ||
       (status === "merge-succeeded" && (mutation === "accepted" || mutation === "ambiguous"));
     if (
       !supportedStatuses.has(status) ||
@@ -1337,6 +1337,7 @@ function exactPostmergeState(
       snapshot.headSha === authorization.hostedHeadSha &&
       snapshot.headRefSha === authorization.hostedHeadSha &&
       SHA_RE.test(snapshot.mergeCommitSha ?? "") &&
+      snapshot.mergeCommitSha === authorization.hostedHeadSha &&
       snapshot.remoteMainSha === snapshot.mergeCommitSha &&
       snapshot.mergeCommitParents.length === 1 &&
       snapshot.mergeCommitParents[0] === authorization.reviewedBaseSha &&
@@ -1541,6 +1542,13 @@ export async function executeRegulatoryImplementationMerge(
           "already-merged-race",
           "refused",
           receipt
+        );
+      } else if (postmergeSnapshot.merged) {
+        outcome = buildHostedOutcome(
+          authorization,
+          "ambiguous-hosted-mutation",
+          "concurrent-non-fast-forward-merge",
+          "refused"
         );
       } else {
         outcome = buildHostedOutcome(
