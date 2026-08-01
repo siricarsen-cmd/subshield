@@ -1,0 +1,119 @@
+name: PR 65 analyzer trigger fix publisher
+
+on:
+  pull_request:
+    types: [synchronize]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'feat/regulatory-implementation-merge-authorization'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - id: gate
+        shell: bash
+        run: |
+          if [ "$(git log -1 --pretty=%s)" = "Trigger PR 65 analyzer workflow coverage fix" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Apply exact workflow trigger and regression coverage
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          workflow_path = Path('.github/workflows/analyzer-accuracy.yml')
+          workflow = workflow_path.read_text(encoding='utf-8')
+          anchor = '      - "lib/analyzer/**"\n'
+          additions = (
+              '      - "lib/regulatory/benchmark-applicability-mappings.ts"\n'
+              '      - "lib/regulatory/historical-grounding-policy.ts"\n'
+              '      - "lib/regulatory/source-coverage-citation-packages.ts"\n'
+          )
+          if workflow.count(anchor) != 1:
+              raise SystemExit('analyzer workflow path anchor did not match exactly once')
+          if any(path in workflow for path in [
+              'lib/regulatory/benchmark-applicability-mappings.ts',
+              'lib/regulatory/historical-grounding-policy.ts',
+              'lib/regulatory/source-coverage-citation-packages.ts',
+          ]):
+              raise SystemExit('analyzer workflow already contains generated regulatory paths')
+          workflow = workflow.replace(anchor, anchor + additions, 1)
+          workflow_path.write_text(workflow, encoding='utf-8')
+
+          test_path = Path('lib/regulatory/__tests__/registry-implementation-merge-production-adapter.test.mjs')
+          test = test_path.read_text(encoding='utf-8')
+          anchor = '} finally {\n'
+          if test.count(anchor) != 1:
+              raise SystemExit('adapter test finalizer anchor did not match exactly once')
+          regression = '''  const analyzerWorkflow = await readFile(
+            path.join(process.cwd(), ".github", "workflows", "analyzer-accuracy.yml"),
+            "utf8"
+          );
+          const implementationPlanSource = await readFile(
+            path.join(process.cwd(), "lib", "regulatory", "registry-implementation-plan.ts"),
+            "utf8"
+          );
+          const targetFileBlock = implementationPlanSource.match(
+            /const TARGET_FILE_BY_KIND:[\\s\\S]*?= \\{([\\s\\S]*?)\\n\\};/
+          );
+          check(Boolean(targetFileBlock), "implementation-plan target file policy is discoverable");
+          const generatedTargetFiles = [
+            ...targetFileBlock[1].matchAll(/:\\s*"([^"]+\\.ts)"/g),
+          ].map((match) => match[1]);
+          equal(
+            [...generatedTargetFiles].sort(),
+            [
+              "lib/regulatory/benchmark-applicability-mappings.ts",
+              "lib/regulatory/historical-grounding-policy.ts",
+              "lib/regulatory/source-coverage-citation-packages.ts",
+            ].sort(),
+            "implementation plan exposes exactly the generated registry target files"
+          );
+          for (const targetFile of generatedTargetFiles) {
+            check(
+              analyzerWorkflow.includes(`      - "${targetFile}"`),
+              `Analyzer Accuracy pull-request trigger covers generated target: ${targetFile}`
+            );
+          }
+
+          '''
+          test = test.replace(anchor, regression + anchor, 1)
+          test_path.write_text(test, encoding='utf-8')
+          PY
+
+      - if: steps.gate.outputs.run == 'true'
+        run: npm ci
+
+      - if: steps.gate.outputs.run == 'true'
+        run: npm run test:regulatory:implementation-merge-production-adapter
+
+      - name: Commit and push exact correction
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$'.github/workflows/analyzer-accuracy.yml\nlib/regulatory/__tests__/registry-implementation-merge-production-adapter.test.mjs'
+          actual="$(git diff --name-only | sort)"
+          test "$actual" = "$expected"
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/analyzer-accuracy.yml lib/regulatory/__tests__/registry-implementation-merge-production-adapter.test.mjs
+          git commit -m "Trigger analyzer checks for generated regulatory PRs"
+          git push origin HEAD:feat/regulatory-implementation-merge-authorization
