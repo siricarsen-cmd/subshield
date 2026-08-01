@@ -969,6 +969,7 @@ export function validateRegulatoryImplementationMergeReceipt(
       !SHA_RE.test(String(record.reviewedBaseSha)) ||
       !SHA_RE.test(String(record.premergeHeadSha)) ||
       !SHA_RE.test(String(record.mergeCommitSha)) ||
+      record.mergeCommitSha !== record.premergeHeadSha ||
       record.postmergeRemoteMainSha !== record.mergeCommitSha ||
       parseExactIsoInstant(record.mergeRequestedAt) === null ||
       parseExactIsoInstant(record.hostedVerifiedAt) === null
