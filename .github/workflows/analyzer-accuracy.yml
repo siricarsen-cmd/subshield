@@ -143,3 +143,220 @@ jobs:
           test "$qa_c_status" = "0"
           test "$typecheck_status" = "0"
           test "$build_status" = "0"
+
+  publish-pr65-squash-race-fix:
+    name: Publish PR 65 squash-race correction
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'feat/regulatory-implementation-merge-authorization'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out exact pull-request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Gate one-use publication
+        id: gate
+        shell: bash
+        run: |
+          if [ "$(git log -1 --pretty=%s)" = "Publish PR 65 concurrent squash correction" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Apply exact source and regression changes
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path('lib/regulatory/registry-implementation-merge-authorization.ts')
+          source = source_path.read_text(encoding='utf-8')
+
+          sha_anchor = '      SHA_RE.test(snapshot.mergeCommitSha ?? "") &&\n'
+          if source.count(sha_anchor) != 1:
+              raise SystemExit('merge SHA predicate anchor mismatch')
+          if 'snapshot.mergeCommitSha === authorization.hostedHeadSha' in source:
+              raise SystemExit('merge SHA identity requirement already present')
+          source = source.replace(
+              sha_anchor,
+              sha_anchor + '      snapshot.mergeCommitSha === authorization.hostedHeadSha &&\n',
+              1,
+          )
+
+          outcome_anchor = '      (status === "ambiguous-hosted-mutation" && (mutation === "accepted" || mutation === "ambiguous")) ||\n'
+          outcome_replacement = '      (status === "ambiguous-hosted-mutation" && (mutation === "accepted" || mutation === "ambiguous" || mutation === "refused")) ||\n'
+          if source.count(outcome_anchor) != 1:
+              raise SystemExit('ambiguous outcome relationship anchor mismatch')
+          source = source.replace(outcome_anchor, outcome_replacement, 1)
+
+          refusal_anchor = '''    if (mutation.kind === "refused") {
+              if (exactPostmergeState(postmergeSnapshot, authorization)) {
+                const receipt = buildMergeReceipt(
+                  authorization,
+                  binding,
+                  postmergeSnapshot,
+                  mergeRequestedAt,
+                  hostedVerifiedAt
+                );
+                outcome = buildHostedOutcome(
+                  authorization,
+                  "already-merged-exact",
+                  "already-merged-race",
+                  "refused",
+                  receipt
+                );
+              } else {
+                outcome = buildHostedOutcome(
+                  authorization,
+                  "github-deterministic-refusal",
+                  "deterministic-refusal",
+                  "refused"
+                );
+              }
+              return await terminalResult(authorization, binding, outcome);
+            }
+          '''
+          refusal_replacement = '''    if (mutation.kind === "refused") {
+              if (exactPostmergeState(postmergeSnapshot, authorization)) {
+                const receipt = buildMergeReceipt(
+                  authorization,
+                  binding,
+                  postmergeSnapshot,
+                  mergeRequestedAt,
+                  hostedVerifiedAt
+                );
+                outcome = buildHostedOutcome(
+                  authorization,
+                  "already-merged-exact",
+                  "already-merged-race",
+                  "refused",
+                  receipt
+                );
+              } else if (postmergeSnapshot.merged) {
+                outcome = buildHostedOutcome(
+                  authorization,
+                  "ambiguous-hosted-mutation",
+                  "concurrent-non-fast-forward-merge",
+                  "refused"
+                );
+              } else {
+                outcome = buildHostedOutcome(
+                  authorization,
+                  "github-deterministic-refusal",
+                  "deterministic-refusal",
+                  "refused"
+                );
+              }
+              return await terminalResult(authorization, binding, outcome);
+            }
+          '''
+          refusal_anchor = refusal_anchor.replace('\n              ', '\n      ').replace('\n                ', '\n        ').replace('\n            }', '\n    }')
+          refusal_replacement = refusal_replacement.replace('\n              ', '\n      ').replace('\n                ', '\n        ').replace('\n            }', '\n    }')
+          if source.count(refusal_anchor) != 1:
+              raise SystemExit('refused mutation branch mismatch')
+          source = source.replace(refusal_anchor, refusal_replacement, 1)
+          source_path.write_text(source, encoding='utf-8')
+
+          test_path = Path('lib/regulatory/__tests__/registry-implementation-merge-authorization.test.mjs')
+          test = test_path.read_text(encoding='utf-8')
+
+          old_race = '      if (state.alreadyMerged) { state.mainSha = state.headSha; state.merged = true; state.mergeSha = state.headSha; }\n'
+          new_race = '''      if (state.alreadyMerged) {
+                const raceSha = state.concurrentSquash ? state.otherSha : state.headSha;
+                state.mainSha = raceSha;
+                state.merged = true;
+                state.mergeSha = raceSha;
+              }
+          '''
+          new_race = new_race.replace('\n                ', '\n        ').replace('\n              }', '\n      }').rstrip() + '\n'
+          if test.count(old_race) != 1:
+              raise SystemExit('already-merged fixture mismatch')
+          test = test.replace(old_race, new_race, 1)
+
+          option_anchor = '    alreadyMerged: options.alreadyMerged === true,\n'
+          if test.count(option_anchor) != 1:
+              raise SystemExit('adapter option anchor mismatch')
+          test = test.replace(
+              option_anchor,
+              option_anchor + '    concurrentSquash: options.concurrentSquash === true,\n',
+              1,
+          )
+
+          case_anchor = '''    [
+              "already merged race",
+              { mutationKind: "refused", alreadyMerged: true },
+              "already-merged-exact",
+            ],
+          '''
+          case_replacement = case_anchor + '''    [
+              "concurrent squash race",
+              { mutationKind: "refused", alreadyMerged: true, concurrentSquash: true },
+              "ambiguous-hosted-mutation",
+            ],
+          '''
+          case_anchor = case_anchor.replace('\n              ', '\n      ').replace('\n            ],', '\n    ],')
+          case_replacement = case_replacement.replace('\n              ', '\n      ').replace('\n            ],', '\n    ],')
+          if test.count(case_anchor) != 1:
+              raise SystemExit('already-merged test case mismatch')
+          test = test.replace(case_anchor, case_replacement, 1)
+
+          loop_anchor = '''    check(
+              (await candidate.runtime.state()).calls.filter(
+                isAtomicMergeCall
+              ).length === 1,
+              `${label} never retries`
+            );
+          '''
+          loop_replacement = loop_anchor + '''    if (label === "concurrent squash race") {
+              check(
+                terminal.status === "terminal" &&
+                  terminal.outcome.status === "ambiguous-hosted-mutation" &&
+                  terminal.outcome.receipt === undefined,
+                "concurrent squash race emits no success receipt"
+              );
+            }
+          '''
+          loop_anchor = loop_anchor.replace('\n              ', '\n      ').replace('\n                ', '\n        ').replace('\n            );', '\n    );')
+          loop_replacement = loop_replacement.replace('\n              ', '\n      ').replace('\n                ', '\n        ').replace('\n            );', '\n    );').replace('\n            }', '\n    }')
+          if test.count(loop_anchor) != 1:
+              raise SystemExit('mutation attempt assertion anchor mismatch')
+          test = test.replace(loop_anchor, loop_replacement, 1)
+          test_path.write_text(test, encoding='utf-8')
+          PY
+
+      - name: Install locked dependencies
+        if: steps.gate.outputs.run == 'true'
+        run: npm ci
+
+      - name: Run focused merge authorization suite
+        if: steps.gate.outputs.run == 'true'
+        run: npm run test:regulatory:implementation-merge-authorization
+
+      - name: Run focused merge adapter suite
+        if: steps.gate.outputs.run == 'true'
+        run: npm run test:regulatory:implementation-merge-production-adapter
+
+      - name: Verify and publish exact two-file change
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=$'lib/regulatory/__tests__/registry-implementation-merge-authorization.test.mjs\nlib/regulatory/registry-implementation-merge-authorization.ts'
+          actual="$(git diff --name-only | sort)"
+          test "$actual" = "$expected"
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/regulatory/registry-implementation-merge-authorization.ts lib/regulatory/__tests__/registry-implementation-merge-authorization.test.mjs
+          git commit -m "Refuse concurrent squash as fast-forward race"
+          git push origin HEAD:feat/regulatory-implementation-merge-authorization
