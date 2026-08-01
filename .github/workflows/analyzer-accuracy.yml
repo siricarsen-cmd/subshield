@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - "lib/analyzer/**"
+      - "lib/regulatory/benchmark-applicability-mappings.ts"
+      - "lib/regulatory/historical-grounding-policy.ts"
+      - "lib/regulatory/source-coverage-citation-packages.ts"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/analyzer-accuracy.yml"
