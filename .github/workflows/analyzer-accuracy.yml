@@ -3,10 +3,14 @@ name: Analyzer Accuracy Benchmarks
 on:
   pull_request:
     paths:
-      - ".github/workflows/analyzer-accuracy.yml"
-      - ".github/workflows/one-time-next-security-update.yml"
+      - "lib/analyzer/**"
+      - "lib/regulatory/benchmark-applicability-mappings.ts"
+      - "lib/regulatory/historical-grounding-policy.ts"
+      - "lib/regulatory/source-coverage-citation-packages.ts"
       - "package.json"
       - "package-lock.json"
+      - ".github/workflows/analyzer-accuracy.yml"
+      - ".github/workflows/one-time-next-security-update.yml"
       - "app/api/analyze-contract/route.ts"
 
 permissions:
