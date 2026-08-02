@@ -13,9 +13,8 @@ import { normalizeAuditId } from '@/lib/audit-id';
 
 export const runtime = 'nodejs';
 // OCR fallback (rasterize + tesseract.js) can legitimately take tens of
-// seconds on a scanned PDF. Raise the function's max duration accordingly -
-// confirm this matches your actual Vercel plan (Hobby caps at 10s regardless
-// of this value; Pro/Enterprise can go higher) before deploying.
+// seconds on a scanned PDF. The deployed Vercel plan/project's current Fluid
+// Compute and function-duration settings must support this configured limit.
 export const maxDuration = 60;
 
 // Mirrors the dashboard's client-side cap (app/dashboard/page.tsx) so a direct
