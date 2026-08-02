@@ -88,6 +88,9 @@ jobs:
           }
           trap report_failure ERR
 
+          phase="configure patched nested dependency overrides"
+          npm pkg set "overrides.next.sharp=0.35.3" "overrides.next.postcss=8.5.22"
+
           phase="install patched packages and regenerate lockfile"
           npm install --save-exact next@16.2.12 eslint-config-next@16.2.12 sharp@0.35.3
 
@@ -143,7 +146,7 @@ jobs:
           npm audit --omit=dev --audit-level=high
 
           phase="exact-version and diff verification"
-          node -e "const p=require('./package.json'); if(p.dependencies.next!=='16.2.12'||p.dependencies.sharp!=='0.35.3'||p.devDependencies['eslint-config-next']!=='16.2.12') process.exit(1)"
+          node -e "const p=require('./package.json'); if(p.dependencies.next!=='16.2.12'||p.dependencies.sharp!=='0.35.3'||p.devDependencies['eslint-config-next']!=='16.2.12'||p.overrides?.next?.sharp!=='0.35.3'||p.overrides?.next?.postcss!=='8.5.22') process.exit(1)"
           git diff --check
           changed="$(git diff --name-only | sort)"
           expected="$(printf '%s\n' 'app/api/analyze-contract/route.ts' 'package-lock.json' 'package.json' | sort)"
@@ -156,6 +159,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add package.json package-lock.json app/api/analyze-contract/route.ts .github/workflows/analyzer-accuracy.yml .github/workflows/one-time-next-security-update.yml
           git diff --cached --check
-          git commit -m "chore: update Next.js and Sharp security patches"
+          git commit -m "chore: update Next.js and nested security dependencies"
           git push origin HEAD:${{ github.head_ref }}
           trap - ERR
