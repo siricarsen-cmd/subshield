@@ -109,10 +109,12 @@ jobs:
           npm ci
 
           phase="full repository lint diagnostic"
+          trap - ERR
           set +e
           npm run lint 2>&1 | tee /tmp/full-repository-lint.txt
           full_lint_status=${PIPESTATUS[0]}
           set -e
+          trap report_failure ERR
           echo "Full repository lint exit status: ${full_lint_status}"
           if [ "$full_lint_status" -ne 0 ]; then
             echo "Inherited full-repository lint debt is recorded; patch-local lint remains blocking."
