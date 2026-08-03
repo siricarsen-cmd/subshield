@@ -1,16 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-// --- TEMPORARY HARDCODED KEYS ---
-const supabaseUrl = "https://fqwkvyypjnxkiojbubdf.supabase.co";
-const supabaseAnonKey = "sb_publishable_o4tvWZUZF3eLv6nfjRs95A_KdNMAvHA";
-// --------------------------------
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient();
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
