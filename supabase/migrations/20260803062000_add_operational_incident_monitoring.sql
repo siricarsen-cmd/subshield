@@ -16,6 +16,7 @@ create table if not exists public.operational_incidents (
       'analyzer_ocr_timeout',
       'analyzer_ocr_failed',
       'stripe_webhook_configuration_failed',
+      'stripe_webhook_unexpected_failure',
       'stripe_checkout_missing_email',
       'stripe_checkout_credit_fulfillment_failed',
       'stripe_invoice_lookup_failed',
@@ -53,6 +54,7 @@ begin
     when 'analyzer_processing_failed_credit_unconfirmed' then 'critical'
     when 'analyzer_unexpected_failure' then 'critical'
     when 'stripe_webhook_configuration_failed' then 'critical'
+    when 'stripe_webhook_unexpected_failure' then 'critical'
     when 'stripe_checkout_missing_email' then 'critical'
     when 'stripe_checkout_credit_fulfillment_failed' then 'critical'
     when 'stripe_invoice_lookup_failed' then 'critical'
