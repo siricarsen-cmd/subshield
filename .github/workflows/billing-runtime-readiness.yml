@@ -10,6 +10,7 @@ on:
       - "app/api/delete-review/**"
       - "app/api/webhooks/stripe/**"
       - "lib/app-base-url.ts"
+      - "lib/billing-portal-customer.ts"
       - "lib/stripe.ts"
       - "lib/server-credit-database.ts"
       - "lib/checkout-session.ts"
@@ -18,6 +19,7 @@ on:
       - "lib/stripe-credit-grants.ts"
       - "lib/stripe-plans.ts"
       - "lib/stripe-subscription-invoice.ts"
+      - "lib/__tests__/billing-portal-customer.test.mjs"
       - "lib/__tests__/billing-runtime-readiness.test.mjs"
       - "lib/__tests__/credit-fulfillment.test.mjs"
       - "package.json"
@@ -62,6 +64,12 @@ jobs:
           ./lib/analyzer/__tests__/ts-relative-import.loader.mjs
           lib/__tests__/credit-fulfillment.test.mjs
 
+      - name: Preserve duplicate-customer billing portal behavior
+        run: >-
+          node --experimental-loader
+          ./lib/analyzer/__tests__/ts-relative-import.loader.mjs
+          lib/__tests__/billing-portal-customer.test.mjs
+
       - name: Lint changed TypeScript files
         run: >-
           npx eslint
@@ -72,6 +80,7 @@ jobs:
           app/api/delete-review/route.ts
           app/api/webhooks/stripe/route.ts
           lib/app-base-url.ts
+          lib/billing-portal-customer.ts
           lib/stripe.ts
           lib/server-credit-database.ts
 

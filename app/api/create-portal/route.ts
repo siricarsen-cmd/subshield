@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
 import { resolveAppBaseUrl } from "@/lib/app-base-url";
+import { selectBillingPortalCustomerId } from "@/lib/billing-portal-customer";
 
 export async function POST(req: Request) {
   try {
@@ -18,20 +19,20 @@ export async function POST(req: Request) {
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error || !user) throw new Error("Unauthorized request");
+    if (!user.email || !user.email_confirmed_at) {
+      throw new Error("No verified billing email was found for this account.");
+    }
 
     const stripe = getStripe();
 
-    // 3. Ask Stripe to find the customer profile attached to this verified email
-    const customers = await stripe.customers.list({
-      email: user.email,
-      limit: 1,
-    });
-
-    if (customers.data.length === 0) {
+    // 3. Select the matching Stripe Customer that owns a manageable
+    // subscription. Checkout may create multiple customers for one email, so
+    // choosing only the newest match can hide an older active subscription.
+    const customerId = await selectBillingPortalCustomerId(stripe, user.email);
+    if (!customerId) {
       throw new Error("No active billing profile found for this email address.");
     }
 
-    const customerId = customers.data[0].id;
     const baseUrl = resolveAppBaseUrl();
 
     // 4. Generate the secure Stripe Customer Portal link
