@@ -6,8 +6,10 @@ on:
       - ".nvmrc"
       - "package.json"
       - "package-lock.json"
+      - "vercel.json"
       - ".github/workflows/**"
       - "scripts/check-node-runtime-policy.mjs"
+      - "scripts/check-vercel-runtime-policy.mjs"
       - "next.config.ts"
       - "app/**"
       - "lib/**"
@@ -32,8 +34,10 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Validate runtime policy contract
-        run: node scripts/check-node-runtime-policy.mjs
+      - name: Validate runtime policy contracts
+        run: |
+          node scripts/check-node-runtime-policy.mjs
+          node scripts/check-vercel-runtime-policy.mjs
 
       - name: Install locked dependencies
         run: npm ci
