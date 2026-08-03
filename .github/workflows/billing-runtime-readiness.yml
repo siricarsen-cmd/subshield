@@ -9,10 +9,17 @@ on:
       - "app/api/create-portal/**"
       - "app/api/delete-review/**"
       - "app/api/webhooks/stripe/**"
+      - "app/login/**"
+      - "app/dashboard/**"
+      - "app/report/**"
+      - "app/forgot-password/**"
+      - "app/reset-password/**"
+      - "app/success/**"
       - "lib/app-base-url.ts"
       - "lib/billing-portal-customer.ts"
       - "lib/stripe.ts"
       - "lib/server-credit-database.ts"
+      - "lib/supabase/client.ts"
       - "lib/checkout-session.ts"
       - "lib/credit-fulfillment.ts"
       - "lib/review-credit-lifecycle.ts"
@@ -22,6 +29,7 @@ on:
       - "lib/__tests__/billing-portal-customer.test.mjs"
       - "lib/__tests__/billing-runtime-readiness.test.mjs"
       - "lib/__tests__/credit-fulfillment.test.mjs"
+      - "lib/__tests__/public-supabase-config.test.mjs"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/billing-runtime-readiness.yml"
@@ -58,6 +66,12 @@ jobs:
           ./lib/analyzer/__tests__/ts-relative-import.loader.mjs
           lib/__tests__/billing-runtime-readiness.test.mjs
 
+      - name: Validate public Supabase environment configuration
+        run: >-
+          node --experimental-loader
+          ./lib/analyzer/__tests__/ts-relative-import.loader.mjs
+          lib/__tests__/public-supabase-config.test.mjs
+
       - name: Preserve checkout, subscription, and credit behavior
         run: >-
           node --experimental-loader
@@ -83,6 +97,7 @@ jobs:
           lib/billing-portal-customer.ts
           lib/stripe.ts
           lib/server-credit-database.ts
+          lib/supabase/client.ts
 
       - name: Validate TypeScript
         run: npx tsc --noEmit

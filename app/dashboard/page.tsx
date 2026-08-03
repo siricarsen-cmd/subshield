@@ -4,7 +4,8 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UploadCloud, FileText, CheckCircle, AlertCircle, Loader2, Building2, CreditCard, LayoutDashboard, LogOut, Trash2, X } from "lucide-react";
-import { createClient, type User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
 import {
   canSubmitReview,
   hasGeneratedReport,
@@ -12,10 +13,7 @@ import {
 } from "@/lib/review-launch-policy";
 import { normalizeAuditId } from "@/lib/audit-id";
 
-// Uses environment variables first, falls back to your temporary bypass keys if needed
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fqwkvyypjnxkiojbubdf.supabase.co";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_o4tvWZUZF3eLv6nfjRs95A_KdNMAvHA";
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient();
 
 const ALLOWED_EXTENSIONS = ["pdf", "docx", "txt"];
 // DOCX MIME reporting is inconsistent across browsers/OS (sometimes

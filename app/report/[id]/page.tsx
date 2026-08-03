@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, ShieldAlert, AlertTriangle, CheckCircle, Copy, Activity, Info, Download } from 'lucide-react';
@@ -9,11 +9,7 @@ import type { AnalyzerResult, Finding } from '@/lib/analyzer/types';
 import { getReportAccessDecision } from '@/lib/review-launch-policy';
 import { normalizeAuditId } from '@/lib/audit-id';
 
-// --- KEYS ---
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fqwkvyypjnxkiojbubdf.supabase.co";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_o4tvWZUZF3eLv6nfjRs95A_KdNMAvHA";
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient();
 
 // The report row's ai_results can be an older shape (criticalTraps) or the
 // current AnalyzerResult shape (primaryTraps) - see the fallback in
