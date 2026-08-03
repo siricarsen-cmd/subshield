@@ -41,7 +41,7 @@ function normalizeAppOrigin(
 }
 
 export function resolveAppBaseUrl(
-  environment: AppBaseUrlEnvironment = process.env,
+  environment: AppBaseUrlEnvironment = process.env as AppBaseUrlEnvironment,
 ): string {
   const configuredBaseUrl = environment.NEXT_PUBLIC_BASE_URL?.trim();
 
