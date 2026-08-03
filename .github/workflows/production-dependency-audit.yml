@@ -49,13 +49,25 @@ jobs:
 
           abort "npm directory must be root" unless npm["directory"] == "/"
           abort "npm schedule must be weekly" unless npm.dig("schedule", "interval") == "weekly"
-          abort "npm PR limit must stay bounded" unless npm["open-pull-requests-limit"] == 3
+          abort "npm PR limit must stay bounded" unless npm["open-pull-requests-limit"] == 6
           abort "npm minor/patch groups are missing" unless npm.fetch("groups").keys.sort == ["development-minor-patch", "production-minor-patch"]
 
           npm.fetch("groups").each_value do |group|
             abort "npm groups must apply only to version updates" unless group["applies-to"] == "version-updates"
             abort "npm groups must exclude majors" unless group["update-types"].sort == ["minor", "patch"]
           end
+
+          expected_production_exclusions = [
+            "@napi-rs/*", "@supabase/*", "mammoth", "next", "pdf-parse",
+            "pdf2json", "pdfjs-dist", "react", "react-dom", "sharp",
+            "stripe", "tesseract.js"
+          ].sort
+          production_group = npm.fetch("groups").fetch("production-minor-patch")
+          abort "High-attention production dependencies must remain individual" unless production_group.fetch("exclude-patterns").sort == expected_production_exclusions
+
+          expected_development_exclusions = ["eslint-config-next", "typescript"].sort
+          development_group = npm.fetch("groups").fetch("development-minor-patch")
+          abort "High-attention development dependencies must remain individual" unless development_group.fetch("exclude-patterns").sort == expected_development_exclusions
 
           abort "GitHub Actions directory must be root" unless actions["directory"] == "/"
           abort "GitHub Actions schedule must be monthly" unless actions.dig("schedule", "interval") == "monthly"
