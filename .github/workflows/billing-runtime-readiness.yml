@@ -3,12 +3,13 @@ name: Billing Runtime Readiness
 on:
   pull_request:
     paths:
+      - "app/api/auth/claim/**"
       - "app/api/create-checkout/**"
       - "app/api/create-portal/**"
       - "app/api/webhooks/stripe/**"
       - "lib/app-base-url.ts"
       - "lib/stripe.ts"
-      - "lib/stripe-webhook-database.ts"
+      - "lib/server-credit-database.ts"
       - "lib/checkout-session.ts"
       - "lib/credit-fulfillment.ts"
       - "lib/stripe-credit-grants.ts"
@@ -61,12 +62,13 @@ jobs:
       - name: Lint changed TypeScript files
         run: >-
           npx eslint
+          app/api/auth/claim/route.ts
           app/api/create-checkout/route.ts
           app/api/create-portal/route.ts
           app/api/webhooks/stripe/route.ts
           lib/app-base-url.ts
           lib/stripe.ts
-          lib/stripe-webhook-database.ts
+          lib/server-credit-database.ts
 
       - name: Validate TypeScript
         run: npx tsc --noEmit
