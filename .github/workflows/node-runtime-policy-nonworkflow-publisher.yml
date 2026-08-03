@@ -1,0 +1,83 @@
+name: One-use Node Runtime Metadata Publisher
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/node-runtime-policy-nonworkflow-publisher.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: node-runtime-policy-metadata-publisher
+  cancel-in-progress: false
+
+jobs:
+  publish-runtime-metadata:
+    if: github.head_ref == 'chore/align-node-runtime-policy'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out runtime-policy branch
+        uses: actions/checkout@v4
+        with:
+          ref: chore/align-node-runtime-policy
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Generate repository runtime metadata
+        shell: bash
+        run: |
+          python <<'PY'
+          import json
+          import pathlib
+          import re
+
+          root = pathlib.Path('.')
+          (root / '.nvmrc').write_text('24\n')
+
+          package_path = root / 'package.json'
+          package = json.loads(package_path.read_text())
+          package['engines'] = {'node': '>=22 <25'}
+          package_path.write_text(json.dumps(package, indent=2) + '\n')
+
+          scripts = root / 'scripts'
+          scripts.mkdir(exist_ok=True)
+          (scripts / 'check-node-runtime-policy.mjs').write_text('''import assert from "node:assert/strict";\nimport fs from "node:fs";\nimport path from "node:path";\n\nconst root = process.cwd();\nconst read = (file) => fs.readFileSync(path.join(root, file), "utf8");\n\nassert.equal(read(".nvmrc").trim(), "24", ".nvmrc must select Node 24");\n\nconst packageJson = JSON.parse(read("package.json"));\nassert.equal(packageJson.engines?.node, ">=22 <25", "package.json must support Node >=22 <25");\n\nconst packageLock = JSON.parse(read("package-lock.json"));\nassert.equal(packageLock.packages?.[""]?.engines?.node, ">=22 <25", "package-lock root engines must match package.json");\n\nconst workflowDirectory = path.join(root, ".github", "workflows");\nconst compatibilityName = "node-runtime-compatibility.yml";\nlet primaryRuntimeWorkflows = 0;\nlet compatibilityWorkflows = 0;\n\nfor (const name of fs.readdirSync(workflowDirectory).filter((entry) => entry.endsWith(".yml"))) {\n  if (name.startsWith("node-runtime-policy-")) continue;\n  const text = fs.readFileSync(path.join(workflowDirectory, name), "utf8");\n  if (!text.includes("actions/setup-node@")) continue;\n\n  if (name === compatibilityName) {\n    assert.match(text, /node-version:\\s*22\\b/, "compatibility workflow must use Node 22");\n    assert.doesNotMatch(text, /node-version:\\s*24\\b/, "compatibility workflow must remain Node 22 only");\n    compatibilityWorkflows += 1;\n    continue;\n  }\n\n  assert.doesNotMatch(text, /node-version:\\s*22\\b/, `${name} must not use Node 22 as a primary runtime`);\n  assert.match(text, /node-version:\\s*24\\b/, `${name} must use Node 24`);\n  primaryRuntimeWorkflows += 1;\n}\n\nassert.equal(compatibilityWorkflows, 1, "exactly one Node 22 compatibility workflow is required");\nassert.ok(primaryRuntimeWorkflows >= 6, "expected all established primary workflows to use Node 24");\nconsole.log(`Runtime policy valid: ${primaryRuntimeWorkflows} primary Node 24 workflows and one Node 22 compatibility lane.`);\n''')
+
+          runbook_path = root / 'docs/dependency-update-runbook.md'
+          runbook = runbook_path.read_text()
+          replacement = '''## Runtime-version boundary\n\nNode.js 24 is SubShield's primary CI and Vercel production major. Local development defaults to Node 24 through `.nvmrc`. The repository declares Node `>=22 <25`: Node 22 remains a temporary compatibility lane while it is supported, and Node 25 or newer is unsupported until a separate compatibility audit approves it.\n\nEvery dependency and runtime-sensitive update must retain:\n\n- all primary exact-head workflows on Node.js 24;\n- the explicit Node.js 22 compatibility workflow; and\n- an exact-head Vercel Preview build on the configured Node.js 24.x production environment.\n\nDo not change the supported runtime range, remove the compatibility lane, or adopt Node 25+ inside an unrelated dependency or feature pull request.\n'''
+          updated, count = re.subn(
+              r'## Runtime-version boundary\n.*?(?=\n## Permissions and secrets)',
+              replacement.rstrip(),
+              runbook,
+              flags=re.S,
+          )
+          if count != 1:
+              raise SystemExit(f'Expected one runtime-version boundary section, found {count}')
+          runbook_path.write_text(updated)
+          PY
+
+      - name: Regenerate and validate lockfile
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if(p.engines?.node!=='>=22 <25'||l.packages?.['']?.engines?.node!=='>=22 <25') process.exit(1)"
+          npm ci
+          npm audit --omit=dev --audit-level=high
+          git diff --check
+
+      - name: Commit runtime metadata only
+        run: |
+          git config user.name "subshield-runtime-policy-bot"
+          git config user.email "subshield-runtime-policy-bot@users.noreply.github.com"
+          git add .nvmrc package.json package-lock.json docs/dependency-update-runbook.md scripts/check-node-runtime-policy.mjs
+          git commit -m "chore: declare supported Node runtime policy"
+          git push origin HEAD:chore/align-node-runtime-policy
