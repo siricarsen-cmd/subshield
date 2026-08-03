@@ -16,7 +16,7 @@ let cachedUrl: string | undefined;
 let cachedServiceRoleKey: string | undefined;
 
 export function requireStripeWebhookDatabaseEnv(
-  environment: StripeWebhookDatabaseEnvironment = process.env,
+  environment: StripeWebhookDatabaseEnvironment = process.env as StripeWebhookDatabaseEnvironment,
 ): StripeWebhookDatabaseConfig {
   const url = environment.SUPABASE_URL?.trim();
   if (!url) {
@@ -45,7 +45,7 @@ export function requireStripeWebhookDatabaseEnv(
 }
 
 export function getStripeWebhookCreditDatabase(
-  environment: StripeWebhookDatabaseEnvironment = process.env,
+  environment: StripeWebhookDatabaseEnvironment = process.env as StripeWebhookDatabaseEnvironment,
 ): CreditDatabase {
   const { url, serviceRoleKey } = requireStripeWebhookDatabaseEnv(environment);
 
