@@ -1,23 +1,23 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { CreditDatabase } from "./credit-fulfillment";
 
-interface ServerCreditDatabaseEnvironment {
+interface ServerSupabaseEnvironment {
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
 }
 
-interface ServerCreditDatabaseConfig {
+interface ServerSupabaseConfig {
   url: string;
   serviceRoleKey: string;
 }
 
-let cachedDatabase: CreditDatabase | undefined;
+let cachedClient: SupabaseClient | undefined;
 let cachedUrl: string | undefined;
 let cachedServiceRoleKey: string | undefined;
 
 export function requireServerCreditDatabaseEnv(
-  environment: ServerCreditDatabaseEnvironment = process.env as ServerCreditDatabaseEnvironment,
-): ServerCreditDatabaseConfig {
+  environment: ServerSupabaseEnvironment = process.env as ServerSupabaseEnvironment,
+): ServerSupabaseConfig {
   const url = environment.SUPABASE_URL?.trim();
   if (!url) {
     throw new Error("Missing required environment variable: SUPABASE_URL.");
@@ -44,24 +44,30 @@ export function requireServerCreditDatabaseEnv(
   return { url: parsedUrl.origin, serviceRoleKey };
 }
 
-export function getServerCreditDatabase(
-  environment: ServerCreditDatabaseEnvironment = process.env as ServerCreditDatabaseEnvironment,
-): CreditDatabase {
+export function getServerSupabaseClient(
+  environment: ServerSupabaseEnvironment = process.env as ServerSupabaseEnvironment,
+): SupabaseClient {
   const { url, serviceRoleKey } = requireServerCreditDatabaseEnv(environment);
 
   if (environment !== process.env) {
-    return createClient(url, serviceRoleKey) as unknown as CreditDatabase;
+    return createClient(url, serviceRoleKey);
   }
 
   if (
-    !cachedDatabase
+    !cachedClient
     || cachedUrl !== url
     || cachedServiceRoleKey !== serviceRoleKey
   ) {
-    cachedDatabase = createClient(url, serviceRoleKey) as unknown as CreditDatabase;
+    cachedClient = createClient(url, serviceRoleKey);
     cachedUrl = url;
     cachedServiceRoleKey = serviceRoleKey;
   }
 
-  return cachedDatabase;
+  return cachedClient;
+}
+
+export function getServerCreditDatabase(
+  environment: ServerSupabaseEnvironment = process.env as ServerSupabaseEnvironment,
+): CreditDatabase {
+  return getServerSupabaseClient(environment) as unknown as CreditDatabase;
 }
