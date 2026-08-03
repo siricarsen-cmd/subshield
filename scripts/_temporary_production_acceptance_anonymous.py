@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
-import os
+import sys
 import time
 from pathlib import Path
 
@@ -13,6 +13,7 @@ spec = importlib.util.spec_from_file_location("production_acceptance", MODULE_PA
 if spec is None or spec.loader is None:
     raise RuntimeError("Acceptance runner module could not be loaded.")
 runner = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = runner
 spec.loader.exec_module(runner)
 
 
