@@ -61,8 +61,8 @@ jobs:
             echo "ACCEPTANCE_USER_ID=${user_id}"
           } >> "${GITHUB_ENV}"
 
-      - name: Run authenticated production acceptance
-        run: python scripts/_temporary_production_acceptance_anonymous.py
+      - name: Run focused scanned PDF production acceptance
+        run: python scripts/_temporary_scanned_production_acceptance.py
 
       - name: Upload sanitized acceptance result
         if: always() && hashFiles('acceptance-result.json') != ''
