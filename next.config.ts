@@ -1,6 +1,19 @@
 import type { NextConfig } from "next";
+import {
+  BASELINE_SECURITY_HEADERS,
+  GLOBAL_SECURITY_HEADER_SOURCE,
+} from "./lib/security-headers";
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  async headers() {
+    return [
+      {
+        source: GLOBAL_SECURITY_HEADER_SOURCE,
+        headers: BASELINE_SECURITY_HEADERS.map((header) => ({ ...header })),
+      },
+    ];
+  },
   // The official Next.js 16 syntax to protect the library from Turbopack.
   // tesseract.js/pdfjs-dist/@napi-rs/canvas all do dynamic, filesystem-relative
   // requires (worker scripts, native canvas bindings) that Turbopack/webpack
