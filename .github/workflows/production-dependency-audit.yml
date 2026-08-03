@@ -1,0 +1,75 @@
+name: Production Dependency Audit
+
+on:
+  pull_request:
+    paths:
+      - ".github/dependabot.yml"
+      - ".github/workflows/production-dependency-audit.yml"
+      - "docs/dependency-update-runbook.md"
+  schedule:
+    - cron: "17 16 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-dependency-audit:
+    name: Locked install / config / production audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Validate Dependabot configuration contract
+        shell: bash
+        run: |
+          ruby <<'RUBY'
+          require "yaml"
+
+          config = YAML.safe_load(File.read(".github/dependabot.yml"), aliases: false)
+          abort "Dependabot version must be 2" unless config["version"] == 2
+
+          updates = config.fetch("updates")
+          abort "Expected exactly npm and github-actions update entries" unless updates.length == 2
+
+          ecosystems = updates.map { |entry| entry["package-ecosystem"] }.sort
+          abort "Unexpected Dependabot ecosystems: #{ecosystems.inspect}" unless ecosystems == ["github-actions", "npm"]
+
+          npm = updates.find { |entry| entry["package-ecosystem"] == "npm" }
+          actions = updates.find { |entry| entry["package-ecosystem"] == "github-actions" }
+
+          abort "npm directory must be root" unless npm["directory"] == "/"
+          abort "npm schedule must be weekly" unless npm.dig("schedule", "interval") == "weekly"
+          abort "npm PR limit must stay bounded" unless npm["open-pull-requests-limit"] == 3
+          abort "npm minor/patch groups are missing" unless npm.fetch("groups").keys.sort == ["development-minor-patch", "production-minor-patch"]
+
+          npm.fetch("groups").each_value do |group|
+            abort "npm groups must apply only to version updates" unless group["applies-to"] == "version-updates"
+            abort "npm groups must exclude majors" unless group["update-types"].sort == ["minor", "patch"]
+          end
+
+          abort "GitHub Actions directory must be root" unless actions["directory"] == "/"
+          abort "GitHub Actions schedule must be monthly" unless actions.dig("schedule", "interval") == "monthly"
+          abort "GitHub Actions PR limit must stay bounded" unless actions["open-pull-requests-limit"] == 2
+
+          actions_group = actions.fetch("groups").fetch("actions-minor-patch")
+          abort "Actions group must apply only to version updates" unless actions_group["applies-to"] == "version-updates"
+          abort "Actions group must exclude majors" unless actions_group["update-types"].sort == ["minor", "patch"]
+
+          puts "Dependabot configuration contract is valid."
+          RUBY
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
