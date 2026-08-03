@@ -1,0 +1,185 @@
+name: Production Smoke Health
+
+on:
+  pull_request:
+    paths:
+      - "app/api/health/**"
+      - "lib/production-health.ts"
+      - "lib/app-base-url.ts"
+      - "lib/__tests__/production-health.test.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/production-smoke-health.yml"
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  health-contract:
+    if: github.event_name == 'pull_request'
+    name: Contract / types / builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Validate safe production health contract
+        run: >-
+          node --experimental-loader
+          ./lib/analyzer/__tests__/ts-relative-import.loader.mjs
+          lib/__tests__/production-health.test.mjs
+
+      - name: Lint changed TypeScript files
+        run: npx eslint app/api/health/route.ts lib/production-health.ts
+
+      - name: Validate TypeScript
+        run: npx tsc --noEmit
+
+      - name: Preserve analyzer accuracy
+        run: npm run test:accuracy
+
+      - name: Preserve regulatory grounding
+        run: npm run test:regulatory
+
+      - name: Build production application
+        env:
+          VERCEL_ENV: production
+          NEXT_PUBLIC_BASE_URL: https://www.subshield.net
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+          STRIPE_SECRET_KEY: sk_test_ci_placeholder
+          STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+          NEXT_PUBLIC_STRIPE_PRICE_SINGLE_REVIEW_CYCLE: price_ci_single
+          NEXT_PUBLIC_STRIPE_PRICE_ACTIVE_BIDDER_PLAN: price_ci_active
+          NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE_PLAN: price_ci_enterprise
+          OPENAI_API_KEY: sk-ci-placeholder
+          RESEND_API_KEY: re_ci_placeholder
+          CONTACT_FROM_EMAIL: ci@example.com
+          CONTACT_TO_EMAIL: ci@example.com
+        run: npm run build
+
+      - name: Build Preview without server secrets
+        env:
+          VERCEL_ENV: preview
+          VERCEL_URL: subshield-health-preview-ci.vercel.app
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+          NEXT_PUBLIC_STRIPE_PRICE_SINGLE_REVIEW_CYCLE: price_ci_single
+          NEXT_PUBLIC_STRIPE_PRICE_ACTIVE_BIDDER_PLAN: price_ci_active
+          NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE_PLAN: price_ci_enterprise
+        run: |
+          rm -rf .next
+          npm run build
+
+  production-smoke:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    name: Public production availability
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Verify safe health endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          health_code="$(curl \
+            --silent \
+            --show-error \
+            --retry 2 \
+            --retry-delay 2 \
+            --max-time 20 \
+            --dump-header /tmp/health.headers \
+            --output /tmp/health.json \
+            --write-out '%{http_code}' \
+            https://www.subshield.net/api/health)"
+          test "$health_code" = "200"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path("/tmp/health.json").read_text())
+          if payload != {"status": "ok"}:
+              raise SystemExit(f"Unexpected health response: {payload!r}")
+          PY
+
+          health_headers="$(tr -d '\r' < /tmp/health.headers | tr '[:upper:]' '[:lower:]')"
+          grep -Fq "cache-control: no-store, max-age=0" <<< "$health_headers"
+          grep -Fq "x-robots-tag: noindex, nofollow, noarchive" <<< "$health_headers"
+
+      - name: Verify public pages and browser security headers
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for path in / /login /pricing /forgot-password; do
+            code="$(curl \
+              --silent \
+              --show-error \
+              --retry 2 \
+              --retry-delay 2 \
+              --max-time 20 \
+              --output /dev/null \
+              --write-out '%{http_code}' \
+              "https://www.subshield.net${path}")"
+            test "$code" = "200"
+          done
+
+          curl \
+            --silent \
+            --show-error \
+            --retry 2 \
+            --retry-delay 2 \
+            --max-time 20 \
+            --dump-header /tmp/login.headers \
+            --output /dev/null \
+            https://www.subshield.net/login
+
+          headers="$(tr -d '\r' < /tmp/login.headers | tr '[:upper:]' '[:lower:]')"
+          grep -Fq "content-security-policy: frame-ancestors 'none'" <<< "$headers"
+          grep -Fq "permissions-policy: camera=(), microphone=(), geolocation=(), browsing-topics=()" <<< "$headers"
+          grep -Fq "referrer-policy: strict-origin-when-cross-origin" <<< "$headers"
+          grep -Fq "strict-transport-security: max-age=63072000" <<< "$headers"
+          grep -Fq "x-content-type-options: nosniff" <<< "$headers"
+          grep -Fq "x-frame-options: deny" <<< "$headers"
+          if grep -Eq '^x-powered-by:' <<< "$headers"; then
+            echo "Unexpected X-Powered-By header"
+            exit 1
+          fi
+
+      - name: Verify canonical apex redirect
+        shell: bash
+        run: |
+          set -euo pipefail
+          apex_code="$(curl \
+            --silent \
+            --show-error \
+            --retry 2 \
+            --retry-delay 2 \
+            --max-time 20 \
+            --dump-header /tmp/apex.headers \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            https://subshield.net/)"
+          test "$apex_code" = "308"
+
+          location="$(tr -d '\r' < /tmp/apex.headers | awk 'BEGIN { IGNORECASE=1 } /^location:/ { print $2; exit }')"
+          test "$location" = "https://www.subshield.net/"
