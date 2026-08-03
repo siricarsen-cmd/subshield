@@ -5,8 +5,11 @@ on:
     paths:
       - "app/api/health/**"
       - "lib/production-health.ts"
+      - "lib/operational-incidents.ts"
       - "lib/app-base-url.ts"
       - "lib/__tests__/production-health.test.mjs"
+      - "lib/__tests__/operational-incidents.test.mjs"
+      - "supabase/migrations/*operational_incident*"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/production-smoke-health.yml"
@@ -46,8 +49,19 @@ jobs:
           ./lib/analyzer/__tests__/ts-relative-import.loader.mjs
           lib/__tests__/production-health.test.mjs
 
+      - name: Validate sanitized operational incident contract
+        run: >-
+          node --experimental-loader
+          ./lib/analyzer/__tests__/ts-relative-import.loader.mjs
+          lib/__tests__/operational-incidents.test.mjs
+
       - name: Lint changed TypeScript files
-        run: npx eslint app/api/health/route.ts lib/production-health.ts
+        run: >-
+          npx eslint
+          app/api/health/route.ts
+          app/api/health/operations/route.ts
+          lib/production-health.ts
+          lib/operational-incidents.ts
 
       - name: Validate TypeScript
         run: npx tsc --noEmit
@@ -97,7 +111,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Verify safe health endpoint
+      - name: Verify safe configuration health endpoint
         shell: bash
         run: |
           set -euo pipefail
@@ -124,6 +138,34 @@ jobs:
           health_headers="$(tr -d '\r' < /tmp/health.headers | tr '[:upper:]' '[:lower:]')"
           grep -Eq '^cache-control: .*no-store' <<< "$health_headers"
           grep -Fq "x-robots-tag: noindex, nofollow, noarchive" <<< "$health_headers"
+
+      - name: Verify sanitized operational health endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          operations_code="$(curl \
+            --silent \
+            --show-error \
+            --retry 2 \
+            --retry-delay 2 \
+            --max-time 20 \
+            --dump-header /tmp/operations.headers \
+            --output /tmp/operations.json \
+            --write-out '%{http_code}' \
+            https://www.subshield.net/api/health/operations)"
+          test "$operations_code" = "200"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path("/tmp/operations.json").read_text())
+          if payload != {"status": "ok"}:
+              raise SystemExit(f"Unexpected operational health response: {payload!r}")
+          PY
+
+          operations_headers="$(tr -d '\r' < /tmp/operations.headers | tr '[:upper:]' '[:lower:]')"
+          grep -Eq '^cache-control: .*no-store' <<< "$operations_headers"
+          grep -Fq "x-robots-tag: noindex, nofollow, noarchive" <<< "$operations_headers"
 
       - name: Verify public pages and browser security headers
         shell: bash
