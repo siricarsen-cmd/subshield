@@ -43,11 +43,20 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Validate request-time secrets and application URLs
-        run: node --experimental-strip-types lib/__tests__/billing-runtime-readiness.test.mjs
+        run: >-
+          node --experimental-loader
+          ./lib/analyzer/__tests__/ts-relative-import.loader.mjs
+          lib/__tests__/billing-runtime-readiness.test.mjs
 
       - name: Preserve checkout, subscription, and credit behavior
-        run: node --experimental-strip-types lib/__tests__/credit-fulfillment.test.mjs
+        run: >-
+          node --experimental-loader
+          ./lib/analyzer/__tests__/ts-relative-import.loader.mjs
+          lib/__tests__/credit-fulfillment.test.mjs
 
       - name: Lint changed TypeScript files
         run: >-
