@@ -32,14 +32,12 @@ jobs:
           ' .github/workflows/apply-public-supabase-config.yml > /tmp/apply-public-supabase-config.py
           python /tmp/apply-public-supabase-config.py
 
-      - name: Remove temporary workflows and push product-code result
+      - name: Push application and test changes only
         shell: bash
         run: |
-          git rm \
-            .github/workflows/apply-public-supabase-config.yml \
-            .github/workflows/trigger-public-supabase-config.yml
+          git checkout -- .github/workflows/billing-runtime-readiness.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app lib .github/workflows/billing-runtime-readiness.yml
+          git add app lib
           git commit -m "fix: require public Supabase environment configuration"
           git push origin HEAD:fix/public-supabase-env-config
