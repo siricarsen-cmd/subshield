@@ -101,7 +101,7 @@ export default function TermsPage() {
             </div>
             <div className="space-y-1.5">
               <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">Active Bidder Plan</h3>
-              <p>A $249 monthly subscription provides 3 review credits for each successfully paid eligible monthly billing cycle. Unused credits remain available in the customer account. Customers can manage or cancel the subscription through the Stripe billing portal.</p>
+              <p>A $249 monthly subscription provides 3 review credits for each successfully paid eligible monthly billing cycle. Unused credits remain available in the customer account. Customers can update their payment method, view invoice history, and schedule cancellation at the end of the current billing period through the Stripe billing portal.</p>
             </div>
             <div className="space-y-1.5">
               <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">Enterprise Credit Pack</h3>
