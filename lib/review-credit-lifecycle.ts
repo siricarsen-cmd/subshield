@@ -114,10 +114,19 @@ export async function executePaidReview<T>(
     throw new ReviewCreditError("A valid review ID is required.", 400, "invalid_audit_id");
   }
 
-  const outcome = await callRpc(database, "reserve_review_credit", {
-    p_user_id: input.userId,
-    p_audit_id: auditId,
-  }) as ReviewReservationOutcome;
+  let outcome: ReviewReservationOutcome;
+  try {
+    outcome = await callRpc(database, "reserve_review_credit", {
+      p_user_id: input.userId,
+      p_audit_id: auditId,
+    }) as ReviewReservationOutcome;
+  } catch {
+    throw new ReviewCreditError(
+      "Review credit could not be reserved.",
+      500,
+      "reservation_failed",
+    );
+  }
 
   if (outcome === "already_completed") {
     return {
