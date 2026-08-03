@@ -116,9 +116,7 @@ export async function POST(req: Request) {
       }
 
       if (resolution.kind === "ineligible") {
-        console.log("[STRIPE WEBHOOK] Subscription invoice ignored", {
-          reason: resolution.reason,
-        });
+        console.log("[STRIPE WEBHOOK] Subscription invoice ignored");
         return new NextResponse(null, { status: 200 });
       }
 
