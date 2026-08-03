@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { requireStripePlanEnv } from "@/lib/stripe-plans";
 import { CheckoutRequestError, createAllowedCheckoutSession } from "@/lib/checkout-session";
+import { resolveAppBaseUrl } from "@/lib/app-base-url";
 
 export async function POST(req: Request) {
   try {
     requireStripePlanEnv();
 
     const { priceId, userId } = await req.json();
-
-    // Use the environment variable for URLs so switching domains is automatic
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://subshield-mu.vercel.app";
+    const baseUrl = resolveAppBaseUrl();
+    const stripe = getStripe();
 
     const session = await createAllowedCheckoutSession(stripe, { priceId, userId, baseUrl });
 
