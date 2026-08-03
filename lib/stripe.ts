@@ -8,7 +8,7 @@ let cachedStripe: Stripe | undefined;
 let cachedSecretKey: string | undefined;
 
 export function requireStripeSecretKey(
-  environment: StripeEnvironment = process.env,
+  environment: StripeEnvironment = process.env as StripeEnvironment,
 ): string {
   const secretKey = environment.STRIPE_SECRET_KEY?.trim();
   if (!secretKey) {
@@ -21,7 +21,7 @@ export function requireStripeSecretKey(
 }
 
 export function getStripe(
-  environment: StripeEnvironment = process.env,
+  environment: StripeEnvironment = process.env as StripeEnvironment,
 ): Stripe {
   const secretKey = requireStripeSecretKey(environment);
 
