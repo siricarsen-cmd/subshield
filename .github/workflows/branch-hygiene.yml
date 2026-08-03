@@ -33,7 +33,7 @@ jobs:
           ref: main
           fetch-depth: 1
 
-      - name: Delete merged and explicitly temporary branches
+      - name: Delete merged and explicitly retired branches
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -90,15 +90,16 @@ jobs:
               --jq '.[] | select(.merged_at != null) | .head.ref'
           )
 
-          temporary_branches=(
+          retired_branches=(
             "automation/pr61-invalidated-binding-cleanup"
             "automation/pr61-monotonic-transfer"
             "automation/pr61-terminal-invalidation"
             "automation/pr61-wallclock-test-isolation"
+            "feat/regulatory-draft-human-review"
             "test/regulatory-live-source-smoke"
           )
 
-          for branch in "${merged_branches[@]}" "${temporary_branches[@]}"; do
+          for branch in "${merged_branches[@]}" "${retired_branches[@]}"; do
             delete_verified_branch "$branch"
           done
 
