@@ -31,68 +31,99 @@ jobs:
       - name: Install fixture and HTTP dependencies
         run: python -m pip install --disable-pip-version-check requests python-docx pillow reportlab
 
-      - name: Create disposable acceptance account through GitHub OIDC
+      - name: Create isolated owner and intruder accounts through GitHub OIDC
         shell: bash
         env:
           ACCEPTANCE_ADMIN_URL: https://fqwkvyypjnxkiojbubdf.supabase.co/functions/v1/subshield-production-acceptance-admin
         run: |
           set -euo pipefail
+
           oidc_json="$(curl --silent --show-error --fail \
             --header "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=subshield-production-acceptance")"
           oidc_token="$(jq -er '.value' <<<"${oidc_json}")"
-          created="$(curl --silent --show-error --fail-with-body \
-            --request POST \
-            --header "Authorization: Bearer ${oidc_token}" \
-            --header "Content-Type: application/json" \
-            --data "{\"action\":\"create\",\"runId\":\"${GITHUB_RUN_ID}\"}" \
-            "${ACCEPTANCE_ADMIN_URL}")"
-          email="$(jq -er '.email' <<<"${created}")"
-          password="$(jq -er '.password' <<<"${created}")"
-          user_id="$(jq -er '.userId' <<<"${created}")"
-          credits="$(jq -er '.credits' <<<"${created}")"
-          test "${credits}" = "8"
-          echo "::add-mask::${email}"
-          echo "::add-mask::${password}"
-          echo "::add-mask::${user_id}"
+          echo "::add-mask::${oidc_token}"
+
+          create_user() {
+            local slot="$1"
+            local credits="$2"
+            curl --silent --show-error --fail-with-body \
+              --request POST \
+              --header "Authorization: Bearer ${oidc_token}" \
+              --header "Content-Type: application/json" \
+              --data "{\"action\":\"create\",\"runId\":\"${GITHUB_RUN_ID}\",\"slot\":\"${slot}\",\"credits\":${credits}}" \
+              "${ACCEPTANCE_ADMIN_URL}"
+          }
+
+          owner="$(create_user owner 3)"
+          intruder="$(create_user intruder 0)"
+
+          owner_email="$(jq -er '.email' <<<"${owner}")"
+          owner_password="$(jq -er '.password' <<<"${owner}")"
+          owner_id="$(jq -er '.userId' <<<"${owner}")"
+          intruder_email="$(jq -er '.email' <<<"${intruder}")"
+          intruder_password="$(jq -er '.password' <<<"${intruder}")"
+          intruder_id="$(jq -er '.userId' <<<"${intruder}")"
+
+          for secret in \
+            "${owner_email}" "${owner_password}" "${owner_id}" \
+            "${intruder_email}" "${intruder_password}" "${intruder_id}"; do
+            echo "::add-mask::${secret}"
+          done
+
           {
-            echo "ACCEPTANCE_EMAIL=${email}"
-            echo "ACCEPTANCE_PASSWORD=${password}"
-            echo "ACCEPTANCE_USER_ID=${user_id}"
+            echo "ACCEPTANCE_ADMIN_URL=${ACCEPTANCE_ADMIN_URL}"
+            echo "ACCEPTANCE_OIDC_TOKEN=${oidc_token}"
+            echo "ACCEPTANCE_OWNER_EMAIL=${owner_email}"
+            echo "ACCEPTANCE_OWNER_PASSWORD=${owner_password}"
+            echo "ACCEPTANCE_OWNER_ID=${owner_id}"
+            echo "ACCEPTANCE_INTRUDER_EMAIL=${intruder_email}"
+            echo "ACCEPTANCE_INTRUDER_PASSWORD=${intruder_password}"
+            echo "ACCEPTANCE_INTRUDER_ID=${intruder_id}"
           } >> "${GITHUB_ENV}"
 
-      - name: Run strict scanned PDF production acceptance
-        run: python scripts/_temporary_scanned_production_acceptance.py
+      - name: Run P0-C credit report and deletion acceptance
+        run: python scripts/_temporary_credit_deletion_acceptance.py
 
       - name: Upload sanitized acceptance result
         if: always() && hashFiles('acceptance-result.json') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: authenticated-production-acceptance-${{ github.run_id }}
+          name: p0-c-production-acceptance-${{ github.run_id }}
           path: acceptance-result.json
           if-no-files-found: error
           retention-days: 7
 
-      - name: Remove disposable acceptance account and rows
+      - name: Remove both disposable accounts and all associated rows
         if: always()
         shell: bash
         env:
           ACCEPTANCE_ADMIN_URL: https://fqwkvyypjnxkiojbubdf.supabase.co/functions/v1/subshield-production-acceptance-admin
         run: |
           set -euo pipefail
-          if [[ -z "${ACCEPTANCE_USER_ID:-}" ]]; then
-            echo "No disposable account was created; cleanup is not required."
+
+          if [[ -z "${ACCEPTANCE_OWNER_ID:-}" && -z "${ACCEPTANCE_INTRUDER_ID:-}" ]]; then
+            echo "No disposable accounts were created; cleanup is not required."
             exit 0
           fi
+
           oidc_json="$(curl --silent --show-error --fail \
             --header "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=subshield-production-acceptance")"
           oidc_token="$(jq -er '.value' <<<"${oidc_json}")"
-          cleaned="$(curl --silent --show-error --fail-with-body \
-            --request POST \
-            --header "Authorization: Bearer ${oidc_token}" \
-            --header "Content-Type: application/json" \
-            --data "{\"action\":\"cleanup\",\"userId\":\"${ACCEPTANCE_USER_ID}\"}" \
-            "${ACCEPTANCE_ADMIN_URL}")"
-          test "$(jq -er '.ok' <<<"${cleaned}")" = "true"
-          echo "Disposable acceptance account and rows removed."
+
+          cleanup_user() {
+            local user_id="$1"
+            [[ -z "${user_id}" ]] && return 0
+            cleaned="$(curl --silent --show-error --fail-with-body \
+              --request POST \
+              --header "Authorization: Bearer ${oidc_token}" \
+              --header "Content-Type: application/json" \
+              --data "{\"action\":\"cleanup\",\"userId\":\"${user_id}\"}" \
+              "${ACCEPTANCE_ADMIN_URL}")"
+            test "$(jq -er '.ok' <<<"${cleaned}")" = "true"
+          }
+
+          cleanup_user "${ACCEPTANCE_OWNER_ID:-}"
+          cleanup_user "${ACCEPTANCE_INTRUDER_ID:-}"
+          echo "Disposable acceptance accounts and rows removed."
