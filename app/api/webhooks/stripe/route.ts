@@ -1,20 +1,25 @@
-import { stripe } from "@/lib/stripe";
-import { createClient } from "@supabase/supabase-js";
+import { getStripe } from "@/lib/stripe";
 import { NextResponse } from "next/server";
 import { getStripePlanByPriceId, requireStripePlanEnv, STRIPE_PLANS } from "@/lib/stripe-plans";
-import { fulfillCheckoutCredits, type CreditDatabase } from "@/lib/credit-fulfillment";
+import { fulfillCheckoutCredits } from "@/lib/credit-fulfillment";
 import { shouldFulfillCheckout } from "@/lib/stripe-credit-grants";
 import {
   resolveSubscriptionInvoiceGrant,
   subscriptionInvoiceResponseStatus,
 } from "@/lib/stripe-subscription-invoice";
+import { getStripeWebhookCreditDatabase } from "@/lib/stripe-webhook-database";
 import type Stripe from "stripe";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-const creditDatabase = supabase as unknown as CreditDatabase;
+function requireStripeWebhookSecret(): string {
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  if (!webhookSecret) {
+    throw new Error(
+      "Missing required environment variable: STRIPE_WEBHOOK_SECRET.",
+    );
+  }
+
+  return webhookSecret;
+}
 
 export async function POST(req: Request) {
   try {
@@ -25,12 +30,17 @@ export async function POST(req: Request) {
 
     if (!sig) return new NextResponse("Missing signature", { status: 400 });
 
-    const event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!);
+    const stripe = getStripe();
+    const event = stripe.webhooks.constructEvent(
+      body,
+      sig,
+      requireStripeWebhookSecret(),
+    );
 
-    if (event.type === 'checkout.session.completed') {
+    if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       const email = session.customer_details?.email;
-      
+
       if (!email) {
         console.error("[WEBHOOK FAULT] Payment succeeded but no email found.");
         return new NextResponse("Missing email context", { status: 400 });
@@ -47,13 +57,16 @@ export async function POST(req: Request) {
       if (creditsToAdd > 0 && shouldFulfillCheckout(plan?.mode)) {
         let fulfilled: boolean;
         try {
-          fulfilled = await fulfillCheckoutCredits(creditDatabase, {
-            eventId: event.id,
-            sourceType: "checkout_session",
-            sourceId: session.id,
-            email,
-            credits: creditsToAdd,
-          });
+          fulfilled = await fulfillCheckoutCredits(
+            getStripeWebhookCreditDatabase(),
+            {
+              eventId: event.id,
+              sourceType: "checkout_session",
+              sourceId: session.id,
+              email,
+              credits: creditsToAdd,
+            },
+          );
         } catch (error: unknown) {
           console.error("[DATABASE FAULT] Stripe credit fulfillment failed:", error);
           return new NextResponse("Database error", { status: 500 });
@@ -98,17 +111,20 @@ export async function POST(req: Request) {
       }
 
       try {
-        const fulfilled = await fulfillCheckoutCredits(creditDatabase, {
-          eventId: event.id,
-          sourceType: "invoice",
-          sourceId: invoice.id,
-          email: resolution.email,
-          credits: resolution.credits,
-        });
+        const fulfilled = await fulfillCheckoutCredits(
+          getStripeWebhookCreditDatabase(),
+          {
+            eventId: event.id,
+            sourceType: "invoice",
+            sourceId: invoice.id,
+            email: resolution.email,
+            credits: resolution.credits,
+          },
+        );
         console.log(
           fulfilled
             ? `[SUCCESS] Provisioned ${resolution.credits} subscription credits for invoice ${invoice.id}.`
-            : `[IDEMPOTENT] Invoice ${invoice.id} was already fulfilled.`
+            : `[IDEMPOTENT] Invoice ${invoice.id} was already fulfilled.`,
         );
       } catch (error: unknown) {
         console.error("[DATABASE FAULT] Stripe invoice fulfillment failed:", error);
