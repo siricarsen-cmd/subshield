@@ -41,12 +41,12 @@ export default function FAQPage() {
     {
       icon: CreditCard,
       q: "How do plans and review credits work?",
-      a: "Each plan provides the review credits described on the Pricing page. An available credit is required to run a document review. Revised documents or additional packages may require another credit, depending on the review being submitted. Current plan details are always shown on the Pricing page."
+      a: "One available credit is required for each submitted document analysis. The Single Review Cycle provides 1 credit for $149.99 one time, the Active Bidder Plan provides 3 credits for each successfully paid eligible $249 monthly billing cycle, and the Enterprise Credit Pack provides 30 credits for $1,999 one time. Unused credits remain available in the customer account. A revised or amended document always requires another available credit and a new analysis; SubShield does not provide automated version comparison. Active Bidder customers can use the Stripe billing portal to update a payment method, view invoice history, or schedule cancellation at the end of the current billing period."
     },
     {
       icon: Shield,
       q: "How are my documents and reports handled?",
-      a: "Documents and reports are associated with the signed-in account and are processed to provide the SubShield service. Users can delete saved reviews from the dashboard. When an associated contract file is stored with the review, the deletion workflow also removes that stored file. Additional details are provided in the Privacy Policy."
+      a: "Documents and reports are associated with the signed-in account and are processed to provide the SubShield service. Users can delete saved reviews from the dashboard. When an associated contract file is stored with the review, the deletion workflow also removes that stored file. Limited billing, accounting, fulfillment, security, transaction, and diagnostic records may remain as described in the Privacy Policy."
     },
     {
       icon: ShieldAlert,
