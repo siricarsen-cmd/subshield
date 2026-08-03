@@ -1,10 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import type { CreditDatabase } from "./credit-fulfillment";
 
-type StripeWebhookDatabaseEnvironment = Pick<
-  NodeJS.ProcessEnv,
-  "SUPABASE_URL" | "SUPABASE_SERVICE_ROLE_KEY"
->;
+interface StripeWebhookDatabaseEnvironment {
+  SUPABASE_URL?: string;
+  SUPABASE_SERVICE_ROLE_KEY?: string;
+}
 
 interface StripeWebhookDatabaseConfig {
   url: string;
