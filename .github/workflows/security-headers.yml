@@ -1,0 +1,87 @@
+name: Baseline Security Headers
+
+on:
+  pull_request:
+    paths:
+      - "next.config.ts"
+      - "lib/security-headers.ts"
+      - "lib/__tests__/security-headers.test.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/security-headers.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baseline-security-headers:
+    name: Headers / types / analyzer / builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Validate exact security header configuration
+        run: >-
+          node --experimental-loader
+          ./lib/analyzer/__tests__/ts-relative-import.loader.mjs
+          lib/__tests__/security-headers.test.mjs
+
+      - name: Lint changed TypeScript files
+        run: npx eslint next.config.ts lib/security-headers.ts
+
+      - name: Validate TypeScript
+        run: npx tsc --noEmit
+
+      - name: Preserve analyzer accuracy
+        run: npm run test:accuracy
+
+      - name: Preserve regulatory grounding
+        run: npm run test:regulatory
+
+      - name: Build production application
+        env:
+          VERCEL_ENV: production
+          NEXT_PUBLIC_BASE_URL: https://www.subshield.net
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+          STRIPE_SECRET_KEY: sk_test_ci_placeholder
+          STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+          NEXT_PUBLIC_STRIPE_PRICE_SINGLE_REVIEW_CYCLE: price_ci_single
+          NEXT_PUBLIC_STRIPE_PRICE_ACTIVE_BIDDER_PLAN: price_ci_active
+          NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE_PLAN: price_ci_enterprise
+          OPENAI_API_KEY: sk-ci-placeholder
+          RESEND_API_KEY: re_ci_placeholder
+          CONTACT_FROM_EMAIL: ci@example.com
+          CONTACT_TO_EMAIL: ci@example.com
+        run: npm run build
+
+      - name: Build Preview without server secrets
+        env:
+          VERCEL_ENV: preview
+          VERCEL_URL: subshield-security-headers-preview-ci.vercel.app
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+          NEXT_PUBLIC_STRIPE_PRICE_SINGLE_REVIEW_CYCLE: price_ci_single
+          NEXT_PUBLIC_STRIPE_PRICE_ACTIVE_BIDDER_PLAN: price_ci_active
+          NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE_PLAN: price_ci_enterprise
+        run: |
+          rm -rf .next
+          npm run build
