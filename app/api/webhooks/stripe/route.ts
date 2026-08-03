@@ -7,7 +7,7 @@ import {
   resolveSubscriptionInvoiceGrant,
   subscriptionInvoiceResponseStatus,
 } from "@/lib/stripe-subscription-invoice";
-import { getStripeWebhookCreditDatabase } from "@/lib/stripe-webhook-database";
+import { getServerCreditDatabase } from "@/lib/server-credit-database";
 import type Stripe from "stripe";
 
 function requireStripeWebhookSecret(): string {
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
         let fulfilled: boolean;
         try {
           fulfilled = await fulfillCheckoutCredits(
-            getStripeWebhookCreditDatabase(),
+            getServerCreditDatabase(),
             {
               eventId: event.id,
               sourceType: "checkout_session",
@@ -112,7 +112,7 @@ export async function POST(req: Request) {
 
       try {
         const fulfilled = await fulfillCheckoutCredits(
-          getStripeWebhookCreditDatabase(),
+          getServerCreditDatabase(),
           {
             eventId: event.id,
             sourceType: "invoice",
