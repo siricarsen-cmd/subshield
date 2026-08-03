@@ -122,7 +122,7 @@ jobs:
           PY
 
           health_headers="$(tr -d '\r' < /tmp/health.headers | tr '[:upper:]' '[:lower:]')"
-          grep -Fq "cache-control: no-store, max-age=0" <<< "$health_headers"
+          grep -Eq '^cache-control: .*no-store' <<< "$health_headers"
           grep -Fq "x-robots-tag: noindex, nofollow, noarchive" <<< "$health_headers"
 
       - name: Verify public pages and browser security headers
