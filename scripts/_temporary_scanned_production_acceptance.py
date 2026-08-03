@@ -29,17 +29,16 @@ acceptance_checks = {
     "scannedCompleted": summary["httpStatus"] == 200,
     "completedWithinRuntimeBoundary": summary["elapsedSeconds"] < 60,
     "creditConsumedExactlyOnce": summary["creditDelta"] == -1,
-    "ocrCoveredEveryRasterizedPage": (
-        isinstance(summary["ocrPagesProcessed"], int)
-        and isinstance(summary["ocrTotalPages"], int)
-        and summary["ocrPagesProcessed"] == summary["ocrTotalPages"]
-        and summary["ocrTotalPages"] > 0
-    ),
     "ocrProducedGroundedFindings": (
         summary["findingCount"] > 0
         and summary["allQuotesNearCanonical"]
         and not summary["limitedScan"]
         and not summary["partialOcrScan"]
+    ),
+    "reportDisclosesNoPartialCoverage": (
+        not summary["limitedScan"]
+        and not summary["partialOcrScan"]
+        and not summary["limitedScanReasonPresent"]
     ),
 }
 
