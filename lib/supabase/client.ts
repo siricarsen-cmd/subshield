@@ -1,4 +1,4 @@
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 interface PublicSupabaseConfig {
   url: string;
@@ -56,5 +56,5 @@ export function requirePublicSupabaseConfig(
 
 export function createClient() {
   const { url, anonKey } = requirePublicSupabaseConfig();
-  return createBrowserClient(url, anonKey);
+  return createSupabaseClient(url, anonKey);
 }
