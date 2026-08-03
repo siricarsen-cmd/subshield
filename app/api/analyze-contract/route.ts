@@ -10,6 +10,7 @@ import {
   type ReviewCreditDatabase,
 } from '@/lib/review-credit-lifecycle';
 import { normalizeAuditId } from '@/lib/audit-id';
+import { getServerSupabaseClient } from '@/lib/server-credit-database';
 
 export const runtime = 'nodejs';
 // OCR fallback (rasterize + tesseract.js) can legitimately take tens of
@@ -20,16 +21,6 @@ export const maxDuration = 60;
 // Mirrors the dashboard's client-side cap (app/dashboard/page.tsx) so a direct
 // API call can't bypass it and push an oversized payload into runAnalyzer.
 const MAX_PASTED_TEXT_LENGTH = 200_000;
-
-const serviceDatabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-const authClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-const reviewDatabase = serviceDatabase as unknown as ReviewCreditDatabase;
 
 // This is the active analyzer route, called from app/dashboard/page.tsx on
 // upload (multipart file) or pasted-text submission (JSON body). File uploads
@@ -44,6 +35,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Authentication is required." }, { status: 401 });
     }
 
+    const authClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    );
     const { data: { user }, error: authError } = await authClient.auth.getUser(token);
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized request." }, { status: 401 });
@@ -52,6 +47,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "A verified email is required." }, { status: 403 });
     }
 
+    const reviewDatabase = getServerSupabaseClient() as unknown as ReviewCreditDatabase;
     const contentType = req.headers.get('content-type') || '';
 
     if (contentType.includes('application/json')) {
