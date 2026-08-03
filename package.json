@@ -44,7 +44,7 @@
     "regulatory:review-change-set-draft": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/regulatory/cli/review-change-set-draft.ts"
   },
   "dependencies": {
-    "@napi-rs/canvas": "^0.1.80",
+    "@napi-rs/canvas": "^1.0.3",
     "@supabase/auth-helpers-nextjs": "^0.15.0",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
