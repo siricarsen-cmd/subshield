@@ -1,0 +1,44 @@
+name: Temporary Authenticated Production Acceptance
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+
+jobs:
+  production-acceptance:
+    if: github.head_ref == 'test/production-acceptance-20260803'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out acceptance branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install fixture and HTTP dependencies
+        run: python -m pip install --disable-pip-version-check requests python-docx pillow reportlab
+
+      - name: Run authenticated production acceptance
+        run: python scripts/_temporary_production_acceptance.py
+
+      - name: Upload sanitized acceptance result
+        if: always() && hashFiles('acceptance-result.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: authenticated-production-acceptance-${{ github.run_id }}
+          path: acceptance-result.json
+          if-no-files-found: error
+          retention-days: 7
