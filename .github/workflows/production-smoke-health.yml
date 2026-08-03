@@ -9,6 +9,7 @@ on:
       - "lib/app-base-url.ts"
       - "lib/__tests__/production-health.test.mjs"
       - "lib/__tests__/operational-incidents.test.mjs"
+      - "lib/__tests__/operational-log-sanitization.test.mjs"
       - "supabase/migrations/*operational_incident*"
       - "package.json"
       - "package-lock.json"
@@ -55,11 +56,19 @@ jobs:
           ./lib/analyzer/__tests__/ts-relative-import.loader.mjs
           lib/__tests__/operational-incidents.test.mjs
 
+      - name: Prevent sensitive operational logging regressions
+        run: node lib/__tests__/operational-log-sanitization.test.mjs
+
       - name: Lint changed TypeScript files
         run: >-
           npx eslint
+          app/api/analyze-contract/route.ts
+          app/api/delete-review/route.ts
           app/api/health/route.ts
           app/api/health/operations/route.ts
+          app/api/webhooks/stripe/route.ts
+          lib/analyzer/extract.ts
+          lib/review-credit-lifecycle.ts
           lib/production-health.ts
           lib/operational-incidents.ts
 
