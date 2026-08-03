@@ -1,0 +1,159 @@
+name: Branch Hygiene
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/branch-hygiene.yml"
+  pull_request:
+    types:
+      - closed
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: branch-hygiene
+  cancel-in-progress: false
+
+jobs:
+  cleanup-existing:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    name: Remove verified historical branches
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out main with push credentials
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Delete merged and explicitly temporary branches
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+
+          declare -A seen=()
+          deleted=0
+          missing=0
+          protected=0
+          failures=0
+
+          delete_verified_branch() {
+            local branch="$1"
+
+            if [[ -z "$branch" || -n "${seen[$branch]:-}" ]]; then
+              return
+            fi
+            seen["$branch"]=1
+
+            case "$branch" in
+              "$DEFAULT_BRANCH"|main|backup/*|dependabot/*)
+                echo "PRESERVE $branch"
+                protected=$((protected + 1))
+                return
+                ;;
+            esac
+
+            if ! git check-ref-format --branch "$branch" >/dev/null 2>&1; then
+              echo "REFUSE invalid branch name: $branch" >&2
+              failures=$((failures + 1))
+              return
+            fi
+
+            if ! git ls-remote --exit-code --heads origin "refs/heads/$branch" >/dev/null 2>&1; then
+              echo "ABSENT $branch"
+              missing=$((missing + 1))
+              return
+            fi
+
+            if git push origin --delete "$branch"; then
+              echo "DELETED $branch"
+              deleted=$((deleted + 1))
+            else
+              echo "FAILED $branch" >&2
+              failures=$((failures + 1))
+            fi
+          }
+
+          mapfile -t merged_branches < <(
+            gh api --paginate \
+              "repos/${GITHUB_REPOSITORY}/pulls?state=closed&per_page=100" \
+              --jq '.[] | select(.merged_at != null) | .head.ref'
+          )
+
+          temporary_branches=(
+            "automation/pr61-invalidated-binding-cleanup"
+            "automation/pr61-monotonic-transfer"
+            "automation/pr61-terminal-invalidation"
+            "automation/pr61-wallclock-test-isolation"
+            "test/regulatory-live-source-smoke"
+          )
+
+          for branch in "${merged_branches[@]}" "${temporary_branches[@]}"; do
+            delete_verified_branch "$branch"
+          done
+
+          {
+            echo "## Branch hygiene"
+            echo
+            echo "- Deleted: $deleted"
+            echo "- Already absent: $missing"
+            echo "- Preserved by policy: $protected"
+            echo "- Failures: $failures"
+            echo
+            echo "Permanent exclusions: default branch, main, backup/*, and dependabot/*."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if (( failures > 0 )); then
+            exit 1
+          fi
+
+  cleanup-merged-head:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    name: Remove newly merged branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out main with push credentials
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Delete the exact merged head when allowed
+        shell: bash
+        env:
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+
+          case "$BRANCH_NAME" in
+            ""|"$DEFAULT_BRANCH"|main|backup/*|dependabot/*)
+              echo "Preserved by branch-hygiene policy: $BRANCH_NAME"
+              exit 0
+              ;;
+          esac
+
+          git check-ref-format --branch "$BRANCH_NAME" >/dev/null
+
+          if ! git ls-remote --exit-code --heads origin "refs/heads/$BRANCH_NAME" >/dev/null 2>&1; then
+            echo "Merged branch is already absent: $BRANCH_NAME"
+            exit 0
+          fi
+
+          git push origin --delete "$BRANCH_NAME"
+          echo "Deleted merged branch: $BRANCH_NAME"
