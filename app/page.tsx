@@ -162,7 +162,7 @@ export default function Home() {
               </span>
               <h3 className="text-xl font-black uppercase tracking-tight">Before bid, award, or signature</h3>
               <p className="text-sm text-slate-300 leading-relaxed">
-                Use SubShield before you commit to a prime's subcontract terms, teaming terms, scope, flowdowns, pricing assumptions, or compliance obligations.
+                Use SubShield before you commit to a prime&apos;s subcontract terms, teaming terms, scope, flowdowns, pricing assumptions, or compliance obligations.
               </p>
               
               <div className="pt-4 pb-6 space-y-2">
