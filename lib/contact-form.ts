@@ -3,6 +3,7 @@ export const CONTACT_REASONS = [
   { value: "existing-review-help", label: "Existing Review Help" },
   { value: "document-types", label: "Document Types" },
   { value: "pricing-and-credits", label: "Pricing and Credits" },
+  { value: "billing-or-refund", label: "Billing or Refund Request" },
   { value: "technical-issue", label: "Technical Issue" },
   { value: "privacy-question", label: "Privacy Question" },
   { value: "other", label: "Other" },
