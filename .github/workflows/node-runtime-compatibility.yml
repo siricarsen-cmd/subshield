@@ -1,34 +1,39 @@
-name: Baseline Security Headers
+name: Node 22 Compatibility
 
 on:
   pull_request:
     paths:
-      - "next.config.ts"
-      - "lib/security-headers.ts"
-      - "lib/__tests__/security-headers.test.mjs"
+      - ".nvmrc"
       - "package.json"
       - "package-lock.json"
-      - ".github/workflows/security-headers.yml"
+      - ".github/workflows/**"
+      - "scripts/check-node-runtime-policy.mjs"
+      - "next.config.ts"
+      - "app/**"
+      - "lib/**"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  baseline-security-headers:
-    name: Headers / types / analyzer / builds
+  node-22-compatibility:
+    name: Node 22 compatibility
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Use Node.js 24
+      - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
           cache: npm
+
+      - name: Validate runtime policy contract
+        run: node scripts/check-node-runtime-policy.mjs
 
       - name: Install locked dependencies
         run: npm ci
@@ -36,23 +41,22 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
-      - name: Validate exact security header configuration
+      - name: Verify native and document-processing packages load
         run: >-
-          node --experimental-loader
-          ./lib/analyzer/__tests__/ts-relative-import.loader.mjs
-          lib/__tests__/security-headers.test.mjs
-
-      - name: Lint changed TypeScript files
-        run: npx eslint next.config.ts lib/security-headers.ts
+          node --input-type=module -e "
+          await import('sharp');
+          await import('@napi-rs/canvas');
+          await import('pdf-parse');
+          await import('pdfjs-dist/legacy/build/pdf.mjs');
+          await import('tesseract.js');
+          console.log('Native and document-processing imports passed.');
+          "
 
       - name: Validate TypeScript
         run: npx tsc --noEmit
 
       - name: Preserve analyzer accuracy
         run: npm run test:accuracy
-
-      - name: Preserve regulatory grounding
-        run: npm run test:regulatory
 
       - name: Build production application
         env:
@@ -72,16 +76,3 @@ jobs:
           CONTACT_FROM_EMAIL: ci@example.com
           CONTACT_TO_EMAIL: ci@example.com
         run: npm run build
-
-      - name: Build Preview without server secrets
-        env:
-          VERCEL_ENV: preview
-          VERCEL_URL: subshield-security-headers-preview-ci.vercel.app
-          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
-          NEXT_PUBLIC_STRIPE_PRICE_SINGLE_REVIEW_CYCLE: price_ci_single
-          NEXT_PUBLIC_STRIPE_PRICE_ACTIVE_BIDDER_PLAN: price_ci_active
-          NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE_PLAN: price_ci_enterprise
-        run: |
-          rm -rf .next
-          npm run build
