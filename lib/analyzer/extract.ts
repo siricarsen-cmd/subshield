@@ -16,6 +16,7 @@
 // text (if any) gets handed to runAnalyzer(). The Limited Scan decision itself
 // still happens exclusively in lib/analyzer/text.ts + report.ts.
 
+import { recordOperationalIncident } from "../operational-incidents";
 import { assessExtractionConfidence } from "./text";
 
 const MAX_OCR_PAGES = 6;
@@ -182,7 +183,6 @@ function logExtractionMetrics(
     extractedTextLength: trimmed.length,
     pageCount: pageCount ?? "unknown",
     ocrAttempted,
-    preview: trimmed.slice(0, 300),
   });
 }
 
@@ -250,11 +250,8 @@ export async function extractDocumentText(buffer: Buffer, fileName?: string): Pr
         };
       }
       return { text: result.text, method: "mammoth-docx", ocrAttempted: false, sourceByteLength: buffer.length };
-    } catch (err) {
-      console.error(
-        `[analyzer:extraction] mammoth-docx failed for ${fileName ?? "upload"}:`,
-        err instanceof Error ? err.message : err
-      );
+    } catch {
+      console.warn("[analyzer:extraction] DOCX extraction failed");
       return {
         text: "",
         method: "docx-extraction-failed",
@@ -277,11 +274,10 @@ export async function extractDocumentText(buffer: Buffer, fileName?: string): Pr
     let result: RawExtraction;
     try {
       result = await attempt.run();
-    } catch (err) {
-      console.error(
-        `[analyzer:extraction] ${attempt.method} failed for ${fileName ?? "upload"}:`,
-        err instanceof Error ? err.message : err
-      );
+    } catch {
+      console.warn("[analyzer:extraction] PDF extraction attempt failed", {
+        method: attempt.method,
+      });
       continue;
     }
 
@@ -339,10 +335,14 @@ export async function extractDocumentText(buffer: Buffer, fileName?: string): Pr
       ? `This document appears to be a scanned/image-based PDF with ${totalPages} total pages. OCR processed the first ${pagesProcessed} page(s) (of a ${MAX_OCR_PAGES}-page-per-scan cap) but could not reliably extract enough readable text even from those pages to generate a grounded report.`
       : "This document's text layer could not be reliably read, and OCR did not surface enough readable text either - consistent with a scanned/image-only PDF that could not be reliably OCR processed.";
   } catch (err) {
-    console.error(
-      `[analyzer:extraction] OCR failed for ${fileName ?? "upload"}:`,
-      err instanceof Error ? err.message : err
+    const ocrTimedOut =
+      err instanceof Error && err.message.startsWith("OCR timed out after");
+    await recordOperationalIncident(
+      ocrTimedOut ? "analyzer_ocr_timeout" : "analyzer_ocr_failed",
     );
+    console.error("[analyzer:extraction] OCR failed", {
+      outcome: ocrTimedOut ? "timeout" : "failure",
+    });
     ocrReason =
       "This document's text layer could not be reliably read, and OCR was attempted but failed or timed out - consistent with a scanned/image-only PDF that could not be reliably OCR processed.";
   }
