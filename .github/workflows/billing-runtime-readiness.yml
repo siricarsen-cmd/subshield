@@ -3,6 +3,7 @@ name: Billing Runtime Readiness
 on:
   pull_request:
     paths:
+      - "app/api/analyze-contract/**"
       - "app/api/auth/claim/**"
       - "app/api/create-checkout/**"
       - "app/api/create-portal/**"
@@ -13,6 +14,7 @@ on:
       - "lib/server-credit-database.ts"
       - "lib/checkout-session.ts"
       - "lib/credit-fulfillment.ts"
+      - "lib/review-credit-lifecycle.ts"
       - "lib/stripe-credit-grants.ts"
       - "lib/stripe-plans.ts"
       - "lib/stripe-subscription-invoice.ts"
@@ -63,6 +65,7 @@ jobs:
       - name: Lint changed TypeScript files
         run: >-
           npx eslint
+          app/api/analyze-contract/route.ts
           app/api/auth/claim/route.ts
           app/api/create-checkout/route.ts
           app/api/create-portal/route.ts
