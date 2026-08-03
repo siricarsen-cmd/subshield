@@ -25,23 +25,33 @@ token, user_id, starting_credits = runner.wait_for_session_and_credits(email, pa
 fixture = next(item for item in runner.build_fixtures() if item.key == "scanned_pdf")
 _, summary = runner.analyze_fixture(token, user_id, fixture)
 
+acceptance_checks = {
+    "scannedCompleted": summary["httpStatus"] == 200,
+    "completedWithinRuntimeBoundary": summary["elapsedSeconds"] < 60,
+    "creditConsumedExactlyOnce": summary["creditDelta"] == -1,
+    "ocrCoveredEveryRasterizedPage": (
+        isinstance(summary["ocrPagesProcessed"], int)
+        and isinstance(summary["ocrTotalPages"], int)
+        and summary["ocrPagesProcessed"] == summary["ocrTotalPages"]
+        and summary["ocrTotalPages"] > 0
+    ),
+    "ocrProducedGroundedFindings": (
+        summary["findingCount"] > 0
+        and summary["allQuotesNearCanonical"]
+        and not summary["limitedScan"]
+        and not summary["partialOcrScan"]
+    ),
+}
+
 output = {
     "runId": os.environ.get("GITHUB_RUN_ID", "local"),
     "startingCredits": starting_credits,
     "endingCredits": runner.current_credits(token),
     "results": [summary],
-    "acceptanceChecks": {
-        "scannedCompleted": summary["httpStatus"] == 200,
-        "completedWithinRuntimeBoundary": summary["elapsedSeconds"] < 60,
-        "ocrProducedGroundedFindings": (
-            summary["findingCount"] > 0
-            and summary["allQuotesNearCanonical"]
-            and not summary["limitedScan"]
-        ),
-        "safeLimitedScanFallback": (
-            summary["limitedScan"]
-            and summary["limitedScanReasonPresent"]
-        ),
-    },
+    "consistency": {},
+    "acceptanceChecks": acceptance_checks,
 }
 runner.write_summary(output)
+
+if not all(acceptance_checks.values()):
+    raise SystemExit("Focused scanned-PDF production acceptance did not satisfy every launch gate.")
