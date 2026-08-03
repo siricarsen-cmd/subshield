@@ -6,6 +6,7 @@ on:
       - "app/api/auth/claim/**"
       - "app/api/create-checkout/**"
       - "app/api/create-portal/**"
+      - "app/api/delete-review/**"
       - "app/api/webhooks/stripe/**"
       - "lib/app-base-url.ts"
       - "lib/stripe.ts"
@@ -65,6 +66,7 @@ jobs:
           app/api/auth/claim/route.ts
           app/api/create-checkout/route.ts
           app/api/create-portal/route.ts
+          app/api/delete-review/route.ts
           app/api/webhooks/stripe/route.ts
           lib/app-base-url.ts
           lib/stripe.ts
