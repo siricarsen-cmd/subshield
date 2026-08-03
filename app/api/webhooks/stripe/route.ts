@@ -8,6 +8,7 @@ import {
   subscriptionInvoiceResponseStatus,
 } from "@/lib/stripe-subscription-invoice";
 import { getServerCreditDatabase } from "@/lib/server-credit-database";
+import { recordOperationalIncident } from "@/lib/operational-incidents";
 import type Stripe from "stripe";
 
 function requireStripeWebhookSecret(): string {
@@ -22,27 +23,40 @@ function requireStripeWebhookSecret(): string {
 }
 
 export async function POST(req: Request) {
+  let stripe: ReturnType<typeof getStripe>;
+  let webhookSecret: string;
+
   try {
     requireStripePlanEnv();
+    stripe = getStripe();
+    webhookSecret = requireStripeWebhookSecret();
+  } catch {
+    await recordOperationalIncident("stripe_webhook_configuration_failed");
+    console.error("[STRIPE WEBHOOK] Configuration unavailable");
+    return new NextResponse("Webhook configuration unavailable", { status: 500 });
+  }
 
+  const sig = req.headers.get("stripe-signature");
+  if (!sig) return new NextResponse("Missing signature", { status: 400 });
+
+  let event: Stripe.Event;
+  try {
     const body = await req.text();
-    const sig = req.headers.get("stripe-signature");
+    event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
+  } catch {
+    // Invalid/malformed external requests are ordinary 400 responses. Do not
+    // create an operational incident for unauthenticated probes.
+    return new NextResponse("Webhook signature verification failed", { status: 400 });
+  }
 
-    if (!sig) return new NextResponse("Missing signature", { status: 400 });
-
-    const stripe = getStripe();
-    const event = stripe.webhooks.constructEvent(
-      body,
-      sig,
-      requireStripeWebhookSecret(),
-    );
-
+  try {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       const email = session.customer_details?.email;
 
       if (!email) {
-        console.error("[WEBHOOK FAULT] Payment succeeded but no email found.");
+        await recordOperationalIncident("stripe_checkout_missing_email");
+        console.error("[STRIPE WEBHOOK] Checkout email context missing");
         return new NextResponse("Missing email context", { status: 400 });
       }
 
@@ -67,16 +81,16 @@ export async function POST(req: Request) {
               credits: creditsToAdd,
             },
           );
-        } catch (error: unknown) {
-          console.error("[DATABASE FAULT] Stripe credit fulfillment failed:", error);
+        } catch {
+          await recordOperationalIncident("stripe_checkout_credit_fulfillment_failed");
+          console.error("[STRIPE WEBHOOK] Checkout credit fulfillment failed");
           return new NextResponse("Database error", { status: 500 });
         }
 
-        if (fulfilled) {
-          console.log(`[SUCCESS] Provisioned ${creditsToAdd} pending credits for checkout ${session.id}.`);
-        } else {
-          console.log(`[IDEMPOTENT] Checkout ${session.id} was already fulfilled.`);
-        }
+        console.log("[STRIPE WEBHOOK] Checkout credit fulfillment", {
+          outcome: fulfilled ? "fulfilled" : "idempotent",
+          credits: creditsToAdd,
+        });
       }
     }
 
@@ -86,19 +100,15 @@ export async function POST(req: Request) {
       let resolution;
       try {
         resolution = await resolveSubscriptionInvoiceGrant(stripe, invoice, plan);
-      } catch (error: unknown) {
-        console.error(`[STRIPE LOOKUP FAULT] Could not verify subscription invoice ${invoice.id}:`, error);
+      } catch {
+        await recordOperationalIncident("stripe_invoice_lookup_failed");
+        console.error("[STRIPE WEBHOOK] Subscription invoice lookup failed");
         return new NextResponse("Stripe verification unavailable", { status: 500 });
       }
 
       if (resolution.kind === "needs_reconciliation") {
-        console.error("[SUBSCRIPTION_CREDIT_RECONCILIATION]", {
-          eventId: event.id,
-          invoiceId: invoice.id,
-          subscriptionId: resolution.subscriptionId,
-          customerId: resolution.customerId,
-          reason: resolution.reason,
-        });
+        await recordOperationalIncident("stripe_invoice_reconciliation_required");
+        console.error("[STRIPE WEBHOOK] Subscription credit reconciliation required");
         return new NextResponse(
           "Subscription credit identity requires reconciliation",
           { status: subscriptionInvoiceResponseStatus(resolution) },
@@ -106,7 +116,9 @@ export async function POST(req: Request) {
       }
 
       if (resolution.kind === "ineligible") {
-        console.log(`[IGNORED] Subscription invoice ${invoice.id}: ${resolution.reason}.`);
+        console.log("[STRIPE WEBHOOK] Subscription invoice ignored", {
+          reason: resolution.reason,
+        });
         return new NextResponse(null, { status: 200 });
       }
 
@@ -121,20 +133,21 @@ export async function POST(req: Request) {
             credits: resolution.credits,
           },
         );
-        console.log(
-          fulfilled
-            ? `[SUCCESS] Provisioned ${resolution.credits} subscription credits for invoice ${invoice.id}.`
-            : `[IDEMPOTENT] Invoice ${invoice.id} was already fulfilled.`,
-        );
-      } catch (error: unknown) {
-        console.error("[DATABASE FAULT] Stripe invoice fulfillment failed:", error);
+        console.log("[STRIPE WEBHOOK] Subscription credit fulfillment", {
+          outcome: fulfilled ? "fulfilled" : "idempotent",
+          credits: resolution.credits,
+        });
+      } catch {
+        await recordOperationalIncident("stripe_invoice_credit_fulfillment_failed");
+        console.error("[STRIPE WEBHOOK] Subscription credit fulfillment failed");
         return new NextResponse("Database error", { status: 500 });
       }
     }
 
     return new NextResponse(null, { status: 200 });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown webhook error.";
-    return new NextResponse(`Webhook Error: ${message}`, { status: 400 });
+  } catch {
+    await recordOperationalIncident("stripe_webhook_unexpected_failure");
+    console.error("[STRIPE WEBHOOK] Unexpected processing failure");
+    return new NextResponse("Webhook processing failed", { status: 500 });
   }
 }
