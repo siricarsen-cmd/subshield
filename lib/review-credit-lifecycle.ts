@@ -114,10 +114,19 @@ export async function executePaidReview<T>(
     throw new ReviewCreditError("A valid review ID is required.", 400, "invalid_audit_id");
   }
 
-  const outcome = await callRpc(database, "reserve_review_credit", {
-    p_user_id: input.userId,
-    p_audit_id: auditId,
-  }) as ReviewReservationOutcome;
+  let outcome: ReviewReservationOutcome;
+  try {
+    outcome = await callRpc(database, "reserve_review_credit", {
+      p_user_id: input.userId,
+      p_audit_id: auditId,
+    }) as ReviewReservationOutcome;
+  } catch {
+    throw new ReviewCreditError(
+      "Review credit could not be reserved.",
+      500,
+      "reservation_failed",
+    );
+  }
 
   if (outcome === "already_completed") {
     return {
@@ -136,17 +145,20 @@ export async function executePaidReview<T>(
     });
     if (completed !== true) throw new Error("Review completion was not persisted.");
     return { result, replayed: false };
-  } catch (error: unknown) {
-    console.error("[ANALYSIS] Paid review processing failed:", error);
+  } catch {
+    // Never persist or log parser/analyzer exception text. The route records a
+    // fixed operational incident code after this lifecycle returns its generic
+    // restored/unconfirmed outcome.
+    console.error("[ANALYSIS] Paid review processing failed");
     let creditRestored = false;
     try {
       creditRestored = await callRpc(database, "refund_review_credit", {
         p_user_id: input.userId,
         p_audit_id: auditId,
-        p_error: error instanceof Error ? error.message.slice(0, 500) : "Unknown processing failure",
+        p_error: "Review processing failed",
       }) === true;
-    } catch (refundError: unknown) {
-      console.error("[ANALYSIS] Automatic credit restoration failed:", refundError);
+    } catch {
+      console.error("[ANALYSIS] Automatic credit restoration failed");
     }
     throw new ReviewProcessingError(creditRestored);
   }

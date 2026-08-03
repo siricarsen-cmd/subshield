@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { normalizeAuditId } from "@/lib/audit-id";
 import { getServerSupabaseClient } from "@/lib/server-credit-database";
+import { recordOperationalIncident } from "@/lib/operational-incidents";
 
 export async function POST(req: Request) {
   try {
@@ -42,7 +43,8 @@ export async function POST(req: Request) {
       { p_audit_id: id, p_user_id: user.id },
     );
     if (lockError) {
-      console.error("[DELETE-REVIEW] Deletion lock failed:", lockError.message);
+      await recordOperationalIncident("delete_lock_failed");
+      console.error("[DELETE-REVIEW] Deletion lock failed");
       return NextResponse.json({ error: "Review deletion could not be started." }, { status: 500 });
     }
     const lock = deletionLock as { outcome?: string; file_path?: unknown } | null;
@@ -69,13 +71,15 @@ export async function POST(req: Request) {
         .remove([filePath]);
 
       if (storageError) {
-        console.error("[DELETE-REVIEW] Storage cleanup failed:", storageError.message);
+        await recordOperationalIncident("delete_storage_cleanup_failed");
+        console.error("[DELETE-REVIEW] Storage cleanup failed");
         const { data: cancelOutcome, error: cancelError } = await supabase.rpc(
           "cancel_review_deletion",
           { p_audit_id: id, p_user_id: user.id },
         );
         if (cancelError || cancelOutcome !== "restored") {
-          console.error("[DELETE-REVIEW] Failed to restore prior audit state:", cancelError?.message || cancelOutcome);
+          await recordOperationalIncident("delete_state_restore_failed");
+          console.error("[DELETE-REVIEW] Prior audit state restoration failed");
           return NextResponse.json(
             { error: "Storage cleanup failed and review state requires support." },
             { status: 500 },
@@ -96,7 +100,12 @@ export async function POST(req: Request) {
     );
 
     if (deleteError) {
-      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+      await recordOperationalIncident("delete_finalize_failed");
+      console.error("[DELETE-REVIEW] Finalization failed");
+      return NextResponse.json(
+        { error: "Review deletion could not be finalized." },
+        { status: 500 },
+      );
     }
     if (deleteOutcome === "reserved") {
       return NextResponse.json(
@@ -112,9 +121,9 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: unknown) {
-    console.error("Delete Review Error:", error);
-    const message = error instanceof Error ? error.message : "Delete failed.";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    await recordOperationalIncident("delete_unexpected_failure");
+    console.error("[DELETE-REVIEW] Unexpected request failure");
+    return NextResponse.json({ error: "Delete failed." }, { status: 500 });
   }
 }
