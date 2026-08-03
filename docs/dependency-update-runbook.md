@@ -74,13 +74,15 @@ High or critical production vulnerabilities take priority over routine launch po
 
 ## Runtime-version boundary
 
-GitHub Actions currently validates on Node.js 22, while Vercel is configured to build on Node.js 24.x. Every dependency update must therefore retain both:
+Node.js 24 is SubShield's primary CI and Vercel production major. Local development defaults to Node 24 through `.nvmrc`. The repository declares Node `>=22 <25`: Node 22 remains a temporary compatibility lane while it is supported, and Node 25 or newer is unsupported until a separate compatibility audit approves it.
 
-- GitHub exact-head validation on Node.js 22; and
-- an exact-head Vercel Preview build on Node.js 24.x.
+Every dependency and runtime-sensitive update must retain:
 
-Runtime alignment should be handled as a separate, deliberate task with compatibility evidence. Do not casually change the CI runtime as part of an unrelated dependency update.
+- all primary exact-head workflows on Node.js 24;
+- the explicit Node.js 22 compatibility workflow; and
+- an exact-head Vercel Preview build on the configured Node.js 24.x production environment.
 
+Do not change the supported runtime range, remove the compatibility lane, or adopt Node 25+ inside an unrelated dependency or feature pull request.
 ## Permissions and secrets
 
 - Dependabot and audit workflows do not receive production secrets.
