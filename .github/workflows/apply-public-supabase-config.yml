@@ -1,0 +1,246 @@
+name: Apply Public Supabase Config Cleanup
+
+on:
+  push:
+    branches:
+      - fix/public-supabase-env-config
+
+permissions:
+  contents: write
+
+jobs:
+  apply-cleanup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/public-supabase-env-config
+          fetch-depth: 0
+
+      - name: Apply exact configuration replacements
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected one match in {path}, found {count}")
+              file.write_text(text.replace(old, new, 1))
+
+          Path("lib/supabase/client.ts").write_text('''import { createBrowserClient } from "@supabase/ssr";
+
+interface PublicSupabaseConfig {
+  url: string;
+  anonKey: string;
+}
+
+const configuredUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const configuredAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+export function requirePublicSupabaseConfig(
+  urlValue: string | undefined = configuredUrl,
+  anonKeyValue: string | undefined = configuredAnonKey,
+): PublicSupabaseConfig {
+  const rawUrl = urlValue?.trim();
+  if (!rawUrl) {
+    throw new Error("Missing required environment variable: NEXT_PUBLIC_SUPABASE_URL.");
+  }
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(rawUrl);
+  } catch {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL must be a valid absolute URL.");
+  }
+
+  if (parsedUrl.username || parsedUrl.password) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL must not contain credentials.");
+  }
+
+  const isSecure = parsedUrl.protocol === "https:";
+  const isLocalDevelopment =
+    parsedUrl.protocol === "http:" && LOOPBACK_HOSTS.has(parsedUrl.hostname);
+  if (!isSecure && !isLocalDevelopment) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL must use HTTPS, except for a local loopback URL.",
+    );
+  }
+
+  if (
+    parsedUrl.pathname !== "/"
+    || parsedUrl.search
+    || parsedUrl.hash
+  ) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL must contain only the project origin.");
+  }
+
+  const anonKey = anonKeyValue?.trim();
+  if (!anonKey) {
+    throw new Error("Missing required environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+  }
+
+  return { url: parsedUrl.origin, anonKey };
+}
+
+export function createClient() {
+  const { url, anonKey } = requirePublicSupabaseConfig();
+  return createBrowserClient(url, anonKey);
+}
+''')
+
+          replace_once(
+              "app/login/page.tsx",
+              'import { createClient } from "@supabase/supabase-js";\n',
+              'import { createClient } from "@/lib/supabase/client";\n',
+          )
+          replace_once(
+              "app/login/page.tsx",
+              '// --- TEMPORARY HARDCODED KEYS ---\nconst supabaseUrl = "https://fqwkvyypjnxkiojbubdf.supabase.co";\nconst supabaseAnonKey = "sb_publishable_o4tvWZUZF3eLv6nfjRs95A_KdNMAvHA";\n// --------------------------------\n\nconst supabase = createClient(supabaseUrl, supabaseAnonKey);',
+              'const supabase = createClient();',
+          )
+
+          replace_once(
+              "app/dashboard/page.tsx",
+              'import { createClient, type User } from "@supabase/supabase-js";\n',
+              'import type { User } from "@supabase/supabase-js";\nimport { createClient } from "@/lib/supabase/client";\n',
+          )
+          replace_once(
+              "app/dashboard/page.tsx",
+              '// Uses environment variables first, falls back to your temporary bypass keys if needed\nconst supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fqwkvyypjnxkiojbubdf.supabase.co";\nconst supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_o4tvWZUZF3eLv6nfjRs95A_KdNMAvHA";\nconst supabase = createClient(supabaseUrl, supabaseAnonKey);',
+              'const supabase = createClient();',
+          )
+
+          replace_once(
+              "app/report/[id]/page.tsx",
+              "import { createClient } from '@supabase/supabase-js';\n",
+              "import { createClient } from '@/lib/supabase/client';\n",
+          )
+          replace_once(
+              "app/report/[id]/page.tsx",
+              '// --- KEYS ---\nconst supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fqwkvyypjnxkiojbubdf.supabase.co";\nconst supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_o4tvWZUZF3eLv6nfjRs95A_KdNMAvHA";\n\nconst supabase = createClient(supabaseUrl, supabaseAnonKey);',
+              'const supabase = createClient();',
+          )
+
+          for path in [
+              "app/forgot-password/page.tsx",
+              "app/reset-password/page.tsx",
+          ]:
+              replace_once(
+                  path,
+                  'import { createClient } from "@supabase/supabase-js";\n',
+                  'import { createClient } from "@/lib/supabase/client";\n',
+              )
+              replace_once(
+                  path,
+                  'const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";\nconst supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";\nconst supabase = createClient(supabaseUrl, supabaseAnonKey);',
+                  'const supabase = createClient();',
+              )
+
+          replace_once(
+              "app/success/page.tsx",
+              'import { createClient } from "@supabase/supabase-js";\n',
+              'import { createClient } from "@/lib/supabase/client";\n',
+          )
+          replace_once(
+              "app/success/page.tsx",
+              '// Initialize Supabase directly (bypassing the deprecated helpers)\nconst supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";\nconst supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";\nconst supabase = createClient(supabaseUrl, supabaseAnonKey);',
+              'const supabase = createClient();',
+          )
+
+          Path("lib/__tests__/public-supabase-config.test.mjs").write_text('''// Focused public Supabase environment validation. Run with Node 24:
+// node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/__tests__/public-supabase-config.test.mjs
+import { requirePublicSupabaseConfig } from "../supabase/client.ts";
+
+let failures = 0;
+
+function check(label, condition) {
+  if (condition) {
+    console.log(`PASS: ${label}`);
+  } else {
+    console.error(`FAIL: ${label}`);
+    failures += 1;
+  }
+}
+
+function rejects(label, url, key, expectedMessage) {
+  let message = "";
+  try {
+    requirePublicSupabaseConfig(url, key);
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  check(label, message.includes(expectedMessage));
+}
+
+const production = requirePublicSupabaseConfig(
+  "https://project-ref.supabase.co",
+  "sb_publishable_test",
+);
+check(
+  "valid HTTPS project origin and publishable key are accepted",
+  production.url === "https://project-ref.supabase.co"
+    && production.anonKey === "sb_publishable_test",
+);
+
+const local = requirePublicSupabaseConfig(
+  "http://localhost:54321",
+  "local-anon-key",
+);
+check("local loopback HTTP remains available for development", local.url === "http://localhost:54321");
+
+rejects("missing project URL fails closed", undefined, "key", "NEXT_PUBLIC_SUPABASE_URL");
+rejects("malformed project URL fails closed", "not-a-url", "key", "valid absolute URL");
+rejects("non-local HTTP project URL is rejected", "http://example.com", "key", "must use HTTPS");
+rejects("credential-bearing project URL is rejected", "https://user:pass@example.com", "key", "must not contain credentials");
+rejects("project URL paths are rejected", "https://example.com/rest/v1", "key", "only the project origin");
+rejects("missing publishable key fails closed", "https://example.com", "", "NEXT_PUBLIC_SUPABASE_ANON_KEY");
+
+if (failures > 0) process.exit(1);
+''')
+
+          workflow = Path(".github/workflows/billing-runtime-readiness.yml")
+          text = workflow.read_text()
+          text = text.replace(
+              '      - "app/api/webhooks/stripe/**"\n',
+              '      - "app/api/webhooks/stripe/**"\n      - "app/login/**"\n      - "app/dashboard/**"\n      - "app/report/**"\n      - "app/forgot-password/**"\n      - "app/reset-password/**"\n      - "app/success/**"\n',
+              1,
+          )
+          text = text.replace(
+              '      - "lib/server-credit-database.ts"\n',
+              '      - "lib/server-credit-database.ts"\n      - "lib/supabase/client.ts"\n',
+              1,
+          )
+          text = text.replace(
+              '      - "lib/__tests__/credit-fulfillment.test.mjs"\n',
+              '      - "lib/__tests__/credit-fulfillment.test.mjs"\n      - "lib/__tests__/public-supabase-config.test.mjs"\n',
+              1,
+          )
+          text = text.replace(
+              '      - name: Preserve checkout, subscription, and credit behavior\n',
+              '      - name: Validate public Supabase environment configuration\n        run: >-\n          node --experimental-loader\n          ./lib/analyzer/__tests__/ts-relative-import.loader.mjs\n          lib/__tests__/public-supabase-config.test.mjs\n\n      - name: Preserve checkout, subscription, and credit behavior\n',
+              1,
+          )
+          text = text.replace(
+              '          lib/server-credit-database.ts\n',
+              '          lib/server-credit-database.ts\n          lib/supabase/client.ts\n',
+              1,
+          )
+          workflow.write_text(text)
+          PY
+
+      - name: Remove one-time workflow and commit result
+        shell: bash
+        run: |
+          git rm .github/workflows/apply-public-supabase-config.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app lib .github/workflows/billing-runtime-readiness.yml
+          git commit -m "fix: require public Supabase environment configuration"
+          git push origin HEAD:fix/public-supabase-env-config
