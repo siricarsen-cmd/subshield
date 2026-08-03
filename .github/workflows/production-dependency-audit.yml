@@ -59,7 +59,7 @@ jobs:
 
           expected_production_exclusions = [
             "@napi-rs/*", "@supabase/*", "mammoth", "next", "pdf-parse",
-            "pdf2json", "pdfjs-dist", "react", "react-dom", "sharp",
+            "pdf2json", "pdfjs-dist", "react", "react-dom", "resend", "sharp",
             "stripe", "tesseract.js"
           ].sort
           production_group = npm.fetch("groups").fetch("production-minor-patch")

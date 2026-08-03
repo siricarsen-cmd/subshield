@@ -26,6 +26,7 @@ updates:
           - "react-dom"
           - "@supabase/*"
           - "stripe"
+          - "resend"
           - "pdf-parse"
           - "pdf2json"
           - "pdfjs-dist"
