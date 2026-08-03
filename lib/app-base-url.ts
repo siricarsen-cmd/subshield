@@ -1,7 +1,8 @@
-type AppBaseUrlEnvironment = Pick<
-  NodeJS.ProcessEnv,
-  "NEXT_PUBLIC_BASE_URL" | "VERCEL_ENV" | "VERCEL_URL"
->;
+interface AppBaseUrlEnvironment {
+  NEXT_PUBLIC_BASE_URL?: string;
+  VERCEL_ENV?: string;
+  VERCEL_URL?: string;
+}
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
