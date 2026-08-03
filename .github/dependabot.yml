@@ -8,7 +8,7 @@ updates:
       day: "monday"
       time: "08:15"
       timezone: "America/Los_Angeles"
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 6
     rebase-strategy: "auto"
     assignees:
       - "siricarsen-cmd"
@@ -20,6 +20,19 @@ updates:
         dependency-type: "production"
         patterns:
           - "*"
+        exclude-patterns:
+          - "next"
+          - "react"
+          - "react-dom"
+          - "@supabase/*"
+          - "stripe"
+          - "pdf-parse"
+          - "pdf2json"
+          - "pdfjs-dist"
+          - "mammoth"
+          - "tesseract.js"
+          - "@napi-rs/*"
+          - "sharp"
         update-types:
           - "minor"
           - "patch"
@@ -28,6 +41,9 @@ updates:
         dependency-type: "development"
         patterns:
           - "*"
+        exclude-patterns:
+          - "eslint-config-next"
+          - "typescript"
         update-types:
           - "minor"
           - "patch"
