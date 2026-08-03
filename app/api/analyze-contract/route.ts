@@ -11,6 +11,7 @@ import {
 } from '@/lib/review-credit-lifecycle';
 import { normalizeAuditId } from '@/lib/audit-id';
 import { getServerSupabaseClient } from '@/lib/server-credit-database';
+import { recordOperationalIncident } from '@/lib/operational-incidents';
 
 export const runtime = 'nodejs';
 // OCR fallback (rasterize + tesseract.js) can legitimately take tens of
@@ -72,14 +73,11 @@ export async function POST(req: Request) {
         ? body.fileName.trim()
         : "Pasted contract text";
 
-      // Server-side debug log only - mirrors the extraction-metrics log in
-      // lib/analyzer/extract.ts for file uploads, so pasted-text submissions
-      // are diagnosable from production logs too. Never logs the actual
-      // contract text or any secrets.
+      // Server-side diagnostics include only source and aggregate size. Never
+      // log the pasted text, customer-supplied filename, identity, or secrets.
       console.log("[analyzer:intake]", {
         source: "pasted-text",
         textLength: text.length,
-        fileName,
       });
 
       const review = await executePaidReview(
@@ -125,16 +123,30 @@ export async function POST(req: Request) {
 
     return NextResponse.json(review);
   } catch (error: unknown) {
-    console.error("Analyzer Error:", error);
     if (error instanceof ReviewCreditError) {
+      if (error.status >= 500) {
+        await recordOperationalIncident("analyzer_credit_reservation_failed");
+        console.error("[ANALYZER] Credit reservation failed");
+      }
       return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
     }
     if (error instanceof ReviewProcessingError) {
+      await recordOperationalIncident(
+        error.creditRestored
+          ? "analyzer_processing_failed_credit_restored"
+          : "analyzer_processing_failed_credit_unconfirmed",
+      );
+      console.error("[ANALYZER] Processing failed", {
+        creditRestored: error.creditRestored,
+      });
       return NextResponse.json(
         { error: error.message, creditRestored: error.creditRestored },
         { status: 500 }
       );
     }
+
+    await recordOperationalIncident("analyzer_unexpected_failure");
+    console.error("[ANALYZER] Unexpected request failure");
     return NextResponse.json({ error: "Analyzer failed to process the request." }, { status: 500 });
   }
 }
