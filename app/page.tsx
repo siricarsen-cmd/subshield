@@ -128,7 +128,7 @@ export default function Home() {
           
           {/* Trust Badge under the hero card */}
           <div className="flex items-center gap-2 mt-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-full max-w-md justify-center">
-            <Lock size={12} className="text-[#1A3668]" /> 256-Bit Encrypted Portal
+            <Lock size={12} className="text-[#1A3668]" /> Secure HTTPS Connection
           </div>
         </div>
       </section>
