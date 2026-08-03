@@ -1,0 +1,74 @@
+name: Public Copy Consistency
+
+on:
+  pull_request:
+    paths:
+      - "app/page.tsx"
+      - "app/pricing/page.tsx"
+      - "app/faq/page.tsx"
+      - "app/terms/page.tsx"
+      - "app/privacy/page.tsx"
+      - "lib/contact-form.ts"
+      - "lib/__tests__/public-ux-consistency.test.mjs"
+      - "lib/__tests__/contact-form.test.mjs"
+      - ".github/workflows/public-copy-consistency.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "app/page.tsx"
+      - "app/pricing/page.tsx"
+      - "app/faq/page.tsx"
+      - "app/terms/page.tsx"
+      - "app/privacy/page.tsx"
+      - "lib/contact-form.ts"
+      - "lib/__tests__/public-ux-consistency.test.mjs"
+      - "lib/__tests__/contact-form.test.mjs"
+      - ".github/workflows/public-copy-consistency.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-copy-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v4
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify public copy contract
+        run: node lib/__tests__/public-ux-consistency.test.mjs
+
+      - name: Verify Contact-form contract
+        run: >-
+          node --experimental-loader
+          ./lib/analyzer/__tests__/ts-relative-import.loader.mjs
+          --experimental-strip-types
+          lib/__tests__/contact-form.test.mjs
+
+      - name: Lint changed TypeScript surfaces
+        run: >-
+          npx eslint
+          app/page.tsx
+          app/pricing/page.tsx
+          app/faq/page.tsx
+          app/terms/page.tsx
+          app/privacy/page.tsx
+          lib/contact-form.ts
+
+      - name: Validate TypeScript
+        run: npx tsc --noEmit
+
+      - name: Build production bundle
+        run: npm run build
