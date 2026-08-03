@@ -91,7 +91,7 @@ export default function PrivacyPage() {
             Service Providers
           </h2>
           <p className="text-sm text-slate-600 leading-relaxed font-medium">
-            SubShield relies on service providers for website hosting, authentication, database and file storage, payment processing, email delivery, and AI-assisted analysis. These providers handle information as needed to deliver their services. Stripe processes payments and billing-portal access. Resend processes Contact-form messages for delivery to SubShield. This Policy does not claim certifications, government authorizations, or contractual protections that have not been verified.
+            SubShield currently relies on Vercel for application hosting and runtime services; Supabase for authentication, database, and file storage; Stripe for payment processing and billing-portal access; Resend for Contact-form delivery; and OpenAI for AI-assisted analysis of submitted text and extracted document content. These providers handle information as needed to deliver their services. This Policy does not claim certifications, government authorizations, or contractual protections that have not been verified.
           </p>
         </section>
 
