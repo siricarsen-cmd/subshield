@@ -293,7 +293,7 @@ def main() -> int:
     check(
         "insufficientCreditsBlockedAnalysis",
         insufficient_status == 402
-        and insufficient_payload.get("code") == "INSUFFICIENT_CREDITS"
+        and insufficient_payload.get("code") == "insufficient_credits"
         and current_credits(owner_token) == 0
         and insufficient.get("audit", {}).get("status") == "Awaiting Credits"
         and insufficient.get("reservation", {}).get("exists") is False,
