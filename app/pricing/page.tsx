@@ -62,7 +62,7 @@ export default function PricingPage() {
     },
     {
       q: "How do the credits and plans work?",
-      a: "One credit covers one submitted document analysis. The Single Review Cycle is a one-time purchase for 1 credit. Active Bidder is a $249 monthly subscription that adds 3 credits for each successfully paid eligible monthly billing cycle, and unused credits remain available in your account. The Enterprise Credit Pack is a $1,999 one-time purchase for 30 credits.",
+      a: "One credit covers one submitted document analysis. The Single Review Cycle is a one-time purchase for 1 credit. Active Bidder is a $249 monthly subscription that adds 3 credits for each successfully paid eligible monthly billing cycle, and unused credits remain available in your account. The Enterprise Credit Pack is a $1,999 one-time purchase for 30 credits. The Stripe billing portal supports payment-method updates, invoice history, and scheduling Active Bidder cancellation at the end of the current billing period.",
     },
     {
       q: "What if my document is revised or amended?",
@@ -149,7 +149,7 @@ export default function PricingPage() {
                   "3 Review Credits Per Successfully Paid Monthly Billing Cycle",
                   "Unused Credits Remain Available In Your Account",
                   "Monthly Subscription",
-                  "Manage Or Cancel Through The Stripe Billing Portal",
+                  "Update Payment Method, View Invoices, Or Schedule Period-End Cancellation",
                 ].map((feature) => (
                   <li key={feature} className="flex items-start">
                     <Check className="h-5 w-5 text-[#FF5F1F] mr-3 shrink-0" strokeWidth={3} />
