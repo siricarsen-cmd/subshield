@@ -8,6 +8,7 @@ export const OPERATIONAL_INCIDENT_SEVERITIES = {
   analyzer_ocr_timeout: "warning",
   analyzer_ocr_failed: "warning",
   stripe_webhook_configuration_failed: "critical",
+  stripe_webhook_unexpected_failure: "critical",
   stripe_checkout_missing_email: "critical",
   stripe_checkout_credit_fulfillment_failed: "critical",
   stripe_invoice_lookup_failed: "critical",
