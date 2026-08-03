@@ -1,6 +1,8 @@
 import Stripe from "stripe";
 
-type StripeEnvironment = Pick<NodeJS.ProcessEnv, "STRIPE_SECRET_KEY">;
+interface StripeEnvironment {
+  STRIPE_SECRET_KEY?: string;
+}
 
 let cachedStripe: Stripe | undefined;
 let cachedSecretKey: string | undefined;
