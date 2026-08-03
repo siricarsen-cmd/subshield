@@ -1,0 +1,70 @@
+name: Temporary legal copy PR editor
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  edit-test-and-commit:
+    if: github.head_ref == 'fix/legal-customer-copy-consistency' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Apply factual copy corrections and regression guards
+        run: python scripts/_temporary_apply_legal_copy.py
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run focused copy and contact regression tests
+        run: |
+          node lib/__tests__/public-ux-consistency.test.mjs
+          node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs --experimental-strip-types lib/__tests__/contact-form.test.mjs
+
+      - name: Lint changed TypeScript files
+        run: >-
+          npx eslint
+          app/page.tsx
+          app/pricing/page.tsx
+          app/faq/page.tsx
+          app/terms/page.tsx
+          app/privacy/page.tsx
+          app/contact/page.tsx
+          lib/contact-form.ts
+
+      - name: Validate TypeScript
+        run: npx tsc --noEmit
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Commit verified patch
+        shell: bash
+        run: |
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/page.tsx app/pricing/page.tsx app/faq/page.tsx app/terms/page.tsx app/privacy/page.tsx app/contact/page.tsx lib/contact-form.ts lib/__tests__/public-ux-consistency.test.mjs
+          git commit -m "fix: align legal and customer copy"
+          git push origin HEAD:fix/legal-customer-copy-consistency
