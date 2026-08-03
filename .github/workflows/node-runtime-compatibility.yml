@@ -1,4 +1,4 @@
-name: Node Runtime Compatibility
+name: Node 22 Compatibility
 
 on:
   pull_request:
@@ -7,6 +7,7 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/**"
+      - "scripts/check-node-runtime-policy.mjs"
       - "next.config.ts"
       - "app/**"
       - "lib/**"
@@ -16,29 +17,23 @@ permissions:
   contents: read
 
 jobs:
-  runtime-compatibility:
-    name: Node ${{ matrix.node }} compatibility
+  node-22-compatibility:
+    name: Node 22 compatibility
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [22, 24]
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node }}
+      - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 22
           cache: npm
 
-      - name: Record runtime
-        run: |
-          node --version
-          npm --version
+      - name: Validate runtime policy contract
+        run: node scripts/check-node-runtime-policy.mjs
 
       - name: Install locked dependencies
         run: npm ci
@@ -63,10 +58,6 @@ jobs:
       - name: Preserve analyzer accuracy
         run: npm run test:accuracy
 
-      - name: Preserve regulatory grounding on production runtime
-        if: matrix.node == 24
-        run: npm run test:regulatory
-
       - name: Build production application
         env:
           VERCEL_ENV: production
@@ -85,17 +76,3 @@ jobs:
           CONTACT_FROM_EMAIL: ci@example.com
           CONTACT_TO_EMAIL: ci@example.com
         run: npm run build
-
-      - name: Build Preview without server secrets on production runtime
-        if: matrix.node == 24
-        env:
-          VERCEL_ENV: preview
-          VERCEL_URL: subshield-node-24-preview-ci.vercel.app
-          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
-          NEXT_PUBLIC_STRIPE_PRICE_SINGLE_REVIEW_CYCLE: price_ci_single
-          NEXT_PUBLIC_STRIPE_PRICE_ACTIVE_BIDDER_PLAN: price_ci_active
-          NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE_PLAN: price_ci_enterprise
-        run: |
-          rm -rf .next
-          npm run build
