@@ -1,0 +1,75 @@
+name: Apply Operational Log Sanitization
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/apply-operational-log-sanitization.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply-extraction-cleanup:
+    if: github.head_ref == 'feat/sanitized-operational-alerting' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/sanitized-operational-alerting
+          fetch-depth: 0
+
+      - name: Apply asserted extraction-log replacements
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("lib/analyzer/extract.ts")
+          text = path.read_text()
+
+          def replace_once(old: str, new: str) -> None:
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected one extraction match, found {count}: {old[:80]!r}")
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              'import { assessExtractionConfidence } from "./text";\n',
+              'import { recordOperationalIncident } from "../operational-incidents";\nimport { assessExtractionConfidence } from "./text";\n',
+          )
+
+          replace_once(
+              '    ocrAttempted,\n    preview: trimmed.slice(0, 300),\n',
+              '    ocrAttempted,\n',
+          )
+
+          replace_once(
+              '    } catch (err) {\n      console.error(\n        `[analyzer:extraction] mammoth-docx failed for ${fileName ?? "upload"}:`,\n        err instanceof Error ? err.message : err\n      );\n',
+              '    } catch {\n      console.warn("[analyzer:extraction] DOCX extraction failed");\n',
+          )
+
+          replace_once(
+              '    } catch (err) {\n      console.error(\n        `[analyzer:extraction] ${attempt.method} failed for ${fileName ?? "upload"}:`,\n        err instanceof Error ? err.message : err\n      );\n      continue;\n    }\n',
+              '    } catch {\n      console.warn("[analyzer:extraction] PDF extraction attempt failed", {\n        method: attempt.method,\n      });\n      continue;\n    }\n',
+          )
+
+          replace_once(
+              '  } catch (err) {\n    console.error(\n      `[analyzer:extraction] OCR failed for ${fileName ?? "upload"}:`,\n      err instanceof Error ? err.message : err\n    );\n    ocrReason =\n',
+              '  } catch (err) {\n    const ocrTimedOut =\n      err instanceof Error && err.message.startsWith("OCR timed out after");\n    await recordOperationalIncident(\n      ocrTimedOut ? "analyzer_ocr_timeout" : "analyzer_ocr_failed",\n    );\n    console.error("[analyzer:extraction] OCR failed", {\n      outcome: ocrTimedOut ? "timeout" : "failure",\n    });\n    ocrReason =\n',
+          )
+
+          path.write_text(text)
+          PY
+
+      - name: Commit product-file change
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/analyzer/extract.ts
+          git commit -m "fix: sanitize extraction logs and record OCR incidents"
+          git push origin HEAD:feat/sanitized-operational-alerting
