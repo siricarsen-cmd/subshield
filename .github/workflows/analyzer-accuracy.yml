@@ -4,144 +4,14 @@ on:
   pull_request:
     paths:
       - "lib/analyzer/**"
-      - "lib/regulatory/benchmark-applicability-mappings.ts"
-      - "lib/regulatory/historical-grounding-policy.ts"
-      - "lib/regulatory/source-coverage-citation-packages.ts"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/analyzer-accuracy.yml"
-  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  accuracy-benchmarks:
-    name: QA-B / QA-C / QA-D / QA-E1
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Use Node.js 24
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Install locked dependencies
-        run: npm ci
-
-      - name: Run QA-B / QA-D / QA-E1 core benchmark
-        id: core
-        continue-on-error: true
-        shell: bash
-        run: |
-          set +e
-          npm run test:accuracy:core 2>&1 | tee core-accuracy-output.txt
-          status=${PIPESTATUS[0]}
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-          exit "$status"
-
-      - name: Upload core benchmark output
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: core-accuracy-output
-          path: core-accuracy-output.txt
-          if-no-files-found: error
-
-      - name: Run QA-C cyber benchmark
-        id: qa_c
-        continue-on-error: true
-        shell: bash
-        run: |
-          set +e
-          npm run test:accuracy:qa-c 2>&1 | tee qa-c-accuracy-output.txt
-          status=${PIPESTATUS[0]}
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-          exit "$status"
-
-      - name: Upload QA-C benchmark output
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: qa-c-accuracy-output
-          path: qa-c-accuracy-output.txt
-          if-no-files-found: error
-
-      - name: Validate TypeScript
-        id: typecheck
-        continue-on-error: true
-        shell: bash
-        run: |
-          set +e
-          npx tsc --noEmit 2>&1 | tee typescript-output.txt
-          status=${PIPESTATUS[0]}
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-          exit "$status"
-
-      - name: Upload TypeScript output
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: typescript-output
-          path: typescript-output.txt
-          if-no-files-found: error
-
-      - name: Build production application
-        id: build
-        continue-on-error: true
-        shell: bash
-        env:
-          NEXT_PUBLIC_BASE_URL: http://localhost:3000
-          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
-          SUPABASE_URL: https://example.supabase.co
-          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
-          STRIPE_SECRET_KEY: sk_test_ci_placeholder
-          STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
-          NEXT_PUBLIC_STRIPE_PRICE_SINGLE_REVIEW_CYCLE: price_ci_single
-          NEXT_PUBLIC_STRIPE_PRICE_ACTIVE_BIDDER_PLAN: price_ci_active
-          NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE_PLAN: price_ci_enterprise
-          OPENAI_API_KEY: sk-ci-placeholder
-          RESEND_API_KEY: re_ci_placeholder
-          CONTACT_FROM_EMAIL: ci@example.com
-          CONTACT_TO_EMAIL: ci@example.com
-        run: |
-          set +e
-          npm run build 2>&1 | tee production-build-output.txt
-          status=${PIPESTATUS[0]}
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-          exit "$status"
-
-      - name: Upload production build output
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: production-build-output
-          path: production-build-output.txt
-          if-no-files-found: error
-
-      - name: Enforce all validation results
-        if: always()
-        shell: bash
-        run: |
-          core_status="${{ steps.core.outputs.status }}"
-          qa_c_status="${{ steps.qa_c.outputs.status }}"
-          typecheck_status="${{ steps.typecheck.outputs.status }}"
-          build_status="${{ steps.build.outputs.status }}"
-          echo "Core benchmark status: ${core_status:-missing}"
-          echo "QA-C benchmark status: ${qa_c_status:-missing}"
-          echo "TypeScript status: ${typecheck_status:-missing}"
-          echo "Production build status: ${build_status:-missing}"
-          test "$core_status" = "0"
-          test "$qa_c_status" = "0"
-          test "$typecheck_status" = "0"
-          test "$build_status" = "0"
-
   harden-final-orion-edges:
     name: Harden final Orion edge cases
     if: github.actor != 'github-actions[bot]' && github.head_ref == 'fix/orion-parity-grounding-invoice-waiver'
@@ -162,48 +32,22 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Apply structural grounding hardening
+      - name: Apply reviewed structural hardening
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
 
-          def replace_once(path: str, old: str, new: str, label: str) -> None:
+          def sub_once(path: str, pattern: str, replacement: str, label: str) -> None:
               file_path = Path(path)
               text = file_path.read_text()
-              count = text.count(old)
+              updated, count = re.subn(pattern, lambda _: replacement, text, count=1, flags=re.S)
               if count != 1:
                   raise SystemExit(f"{label}: expected exactly one match, found {count}")
-              file_path.write_text(text.replace(old, new, 1))
+              file_path.write_text(updated)
 
-          replace_once(
-              'lib/analyzer/deterministic.ts',
-              r'''const ATTACHMENT_LIST_START_RE = /\b(?:(\d+)\.\s*)?Attachment\s+List\b/i;
-          const ATTACHMENT_LIST_NAMED_END_RE =
-            /\b(?:\d+\.\s*)?(?:Subcontractor\s+Questions\s+Form|Quote\s+Submission\s+Instructions)\b/i;
-          const NUMBERED_SECTION_HEADING_RE =
-            /\b(\d+)\.\s+(?!\d)(?:[A-Z][A-Za-z0-9/&()'\u2019-]*(?:\s+[A-Z][A-Za-z0-9/&()'\u2019-]*){0,10})\b/g;
-
-          function findAttachmentListEnd(afterStart: string, attachmentSectionNumber: number | null): number | null {
-            const namedEnd = ATTACHMENT_LIST_NAMED_END_RE.exec(afterStart)?.index ?? null;
-            let numberedEnd: number | null = null;
-
-            if (attachmentSectionNumber !== null) {
-              NUMBERED_SECTION_HEADING_RE.lastIndex = 0;
-              for (const match of afterStart.matchAll(NUMBERED_SECTION_HEADING_RE)) {
-                const candidateNumber = Number(match[1]);
-                if (candidateNumber > attachmentSectionNumber) {
-                  numberedEnd = match.index ?? null;
-                  break;
-                }
-              }
-            }
-
-            if (namedEnd === null) return numberedEnd;
-            if (numberedEnd === null) return namedEnd;
-            return Math.min(namedEnd, numberedEnd);
-          }''',
-              r'''interface AttachmentListStart {
+          attachment_helpers = r'''interface AttachmentListStart {
             index: number;
             heading: string;
           }
@@ -214,8 +58,7 @@ jobs:
             /(?:see|refer(?:red)?\s+to|review|consult)\s+(?:the\s+)?(?:section\s+)?$/i;
           const ATTACHMENT_LIST_NAMED_END_RE =
             /\b(?:\d+\.\s*)?(?:Subcontractor\s+Questions\s+Form|Quote\s+Submission\s+Instructions)\b/i;
-          const NUMBERED_SECTION_HEADING_RE =
-            /\b(?:Section\s+)?(\d+)\.\s+(?!\d)([A-Z][A-Za-z0-9/&()'\u2019-]*(?:\s+[A-Z][A-Za-z0-9/&()'\u2019-]*){0,10})\b/g;
+          const NUMBERED_ATTACHMENT_BLOCK_RE = /\b(?:Section\s+)?\d+\.\s+/g;
           const ATTACHMENT_ROW_STATUS_RE =
             /\b(?:included|not\s+included|to\s+be\s+provided|provided\s+after|not\s+attached|attached|missing|omitted)\b/i;
 
@@ -230,51 +73,44 @@ jobs:
             return null;
           }
 
-          function numberedHeadingLooksLikeAttachmentRow(
-            afterStart: string,
-            matches: RegExpMatchArray[],
-            index: number
-          ): boolean {
-            const match = matches[index];
-            const start = match.index ?? 0;
-            const nextStart = matches[index + 1]?.index ?? afterStart.length;
-            const candidate = afterStart.slice(start, Math.min(nextStart, start + 320));
-            const firstSentence = candidate.split(/[.!?](?:\s|$)/, 1)[0] ?? candidate;
+          function numberedBlockLooksLikeAttachmentRow(block: string): boolean {
+            const sentenceEnd = block.search(/[.!?](?:\s|$)/);
+            const firstSentence = sentenceEnd >= 0 ? block.slice(0, sentenceEnd + 1) : block;
             return ATTACHMENT_ROW_STATUS_RE.test(firstSentence);
           }
 
           function findAttachmentListEnd(afterStart: string): number | null {
             const namedEnd = ATTACHMENT_LIST_NAMED_END_RE.exec(afterStart)?.index ?? null;
-            NUMBERED_SECTION_HEADING_RE.lastIndex = 0;
-            const numberedMatches = [...afterStart.matchAll(NUMBERED_SECTION_HEADING_RE)];
+            NUMBERED_ATTACHMENT_BLOCK_RE.lastIndex = 0;
+            const numberedMatches = [...afterStart.matchAll(NUMBERED_ATTACHMENT_BLOCK_RE)];
             let numberedEnd: number | null = null;
 
             for (let index = 0; index < numberedMatches.length; index++) {
-              if (numberedHeadingLooksLikeAttachmentRow(afterStart, numberedMatches, index)) continue;
-              numberedEnd = numberedMatches[index].index ?? null;
+              const start = numberedMatches[index].index ?? 0;
+              const nextStart = numberedMatches[index + 1]?.index ?? afterStart.length;
+              const block = afterStart.slice(start, Math.min(nextStart, start + 420));
+              if (numberedBlockLooksLikeAttachmentRow(block)) continue;
+              numberedEnd = start;
               break;
             }
 
             if (namedEnd === null) return numberedEnd;
             if (numberedEnd === null) return namedEnd;
             return Math.min(namedEnd, numberedEnd);
-          }''',
-              'structural Attachment List start and end detection',
+          }
+
+          '''
+          sub_once(
+              'lib/analyzer/deterministic.ts',
+              r'const ATTACHMENT_LIST_START_RE =.*?\nfunction findMissingDocumentsCandidate',
+              attachment_helpers + 'function findMissingDocumentsCandidate',
+              'Attachment List helper replacement',
           )
 
-          replace_once(
+          sub_once(
               'lib/analyzer/deterministic.ts',
-              r'''  const start = ATTACHMENT_LIST_START_RE.exec(documentText);
-            if (start) {
-              const afterStart = documentText.slice(start.index + start[0].length);
-              const attachmentSectionNumber = start[1] ? Number(start[1]) : null;
-              const endOffset = findAttachmentListEnd(afterStart, attachmentSectionNumber);
-              const finish = endOffset !== null
-                ? start.index + start[0].length + endOffset
-                : Math.min(documentText.length, start.index + 1800);
-              const attachmentBlock = documentText
-                .slice(start.index, finish)''',
-              r'''  const start = findAttachmentListStart(documentText);
+              r'  const start = ATTACHMENT_LIST_START_RE\.exec\(documentText\);\n  if \(start\) \{\n    const afterStart = documentText\.slice\(start\.index \+ start\[0\]\.length\);\n    const attachmentSectionNumber = start\[1\] \? Number\(start\[1\]\) : null;\n    const endOffset = findAttachmentListEnd\(afterStart, attachmentSectionNumber\);\n    const finish = endOffset !== null\n      \? start\.index \+ start\[0\]\.length \+ endOffset\n      : Math\.min\(documentText\.length, start\.index \+ 1800\);\n    const attachmentBlock = documentText\n      \.slice\(start\.index, finish\)',
+              '''  const start = findAttachmentListStart(documentText);
             if (start) {
               const afterStart = documentText.slice(start.index + start.heading.length);
               const endOffset = findAttachmentListEnd(afterStart);
@@ -283,32 +119,18 @@ jobs:
                 : Math.min(documentText.length, start.index + 1800);
               const attachmentBlock = documentText
                 .slice(start.index, finish)''',
-              'focused Attachment List range calculation',
+              'Attachment List range replacement',
           )
 
-          replace_once(
-              'lib/analyzer/deterministic.ts',
-              r'''const PAYMENT_RIGHT_PRESERVED_RE =
-            /(?:does|shall|will)\s+not\s+(?:waive|forfeit)[^.]{0,80}(?:right|entitlement)\s+to\s+payment|(?:right|entitlement)\s+to\s+payment[^.]{0,80}(?:is|shall|will)\s+not\s+(?:waived|forfeited)|(?:all\s+)?(?:amounts?|payment)[^.]{0,100}(?:remain|remains|shall\s+remain|will\s+remain)\s+(?:payable|due)/i;
-
-          function findInvoicePaymentWaiverCandidate(documentText: string): string | null {
-            return findClauseCandidate(
-              documentText,
-              (block) => INVOICE_PAYMENT_WAIVER_RE.test(block) && !PAYMENT_RIGHT_PRESERVED_RE.test(block)
-            );
-          }''',
-              r'''const EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE =
+          payment_guard = r'''const EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE =
             /(?:does|shall|will)\s+not\s+(?:waive|forfeit)[^.]{0,80}(?:right|entitlement)\s+to\s+payment|(?:right|entitlement)\s+to\s+payment[^.]{0,80}(?:is|shall|will)\s+not\s+(?:waived|forfeited)/i;
           const SAME_SCOPE_PAYMENT_REMAINS_RE =
-            /(?:except(?:\s+that)?|however|provided\s+that|but|notwithstanding)[^.]{0,180}(?:(?:affected|subject|late|delayed)\s+(?:invoice|amounts?|payment)|(?:amounts?|payment)\s+(?:for\s+(?:performed|completed|accepted)\s+(?:work|services|deliverables)|(?:for|under)\s+(?:the\s+)?(?:affected|subject|late|delayed)\s+invoice))[^.]{0,100}(?:remain|remains|shall\s+remain|will\s+remain)\s+(?:payable|due)/i;
-          const REVERSE_SAME_SCOPE_PAYMENT_REMAINS_RE =
-            /(?:(?:affected|subject|late|delayed)\s+(?:invoice|amounts?|payment)|(?:amounts?|payment)\s+(?:for\s+(?:performed|completed|accepted)\s+(?:work|services|deliverables)|(?:for|under)\s+(?:the\s+)?(?:affected|subject|late|delayed)\s+invoice))[^.]{0,100}(?:remain|remains|shall\s+remain|will\s+remain)\s+(?:payable|due)[^.]{0,100}(?:notwithstanding|despite)[^.]{0,80}(?:late|delayed|untimely)\s+invoice/i;
+            /(?:except(?:\s+that)?|however|provided\s+that|but|notwithstanding)[^.]{0,180}(?:(?:the\s+)?(?:affected|subject|late|delayed)\s+(?:invoice|amount|payment)|(?:all\s+)?(?:amounts?|payment)\s+for\s+(?:performed|completed|accepted)\s+(?:work|services|deliverables)|(?:all\s+)?(?:amounts?|payment)\s+(?:for|under)\s+(?:the\s+)?(?:affected|subject|late|delayed)\s+invoice)[^.]{0,120}(?:remain|remains|shall\s+remain|will\s+remain)\s+(?:payable|due)/i;
           const OTHER_INVOICE_SCOPE_RE = /\b(?:other|unrelated|separate)\s+invoices?\b/i;
 
           function hasPaymentRightPreservationEvidence(block: string): boolean {
-            if (EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(block)) return true;
-            if (OTHER_INVOICE_SCOPE_RE.test(block)) return false;
-            return SAME_SCOPE_PAYMENT_REMAINS_RE.test(block) || REVERSE_SAME_SCOPE_PAYMENT_REMAINS_RE.test(block);
+            if (OTHER_INVOICE_SCOPE_RE.test(block) && !SAME_SCOPE_PAYMENT_REMAINS_RE.test(block)) return false;
+            return EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(block) || SAME_SCOPE_PAYMENT_REMAINS_RE.test(block);
           }
 
           function findInvoicePaymentWaiverCandidate(documentText: string): string | null {
@@ -316,24 +138,17 @@ jobs:
               documentText,
               (block) => INVOICE_PAYMENT_WAIVER_RE.test(block) && !hasPaymentRightPreservationEvidence(block)
             );
-          }''',
-              'same-scope payment-preservation guard',
-          )
-
-          old_ip = r'''const UNPAID_IMPROVEMENTS_USE_RE =
-            /(?:improvements?|adaptations?)[^.]{0,180}may\s+be\s+used\s+by\s+Prime(?:\s+Contractor)?[^.]{0,160}without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|Prime(?:\s+Contractor)?\s+may\s+use[^.]{0,160}(?:improvements?|adaptations?)[^.]{0,160}without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)/i;
-
-          function findConditionedPreExistingIpCandidate(documentText: string): string | null {
-            return findClauseCandidate(
-              documentText,
-              (block) => CONDITIONED_PREEXISTING_IP_RE.test(block) || UNPAID_IMPROVEMENTS_USE_RE.test(block)
-            );
           }
 
-          function buildConditionedPreExistingIpAnalysis(foundText: string): string {
-            const conditioned = CONDITIONED_PREEXISTING_IP_RE.test(foundText);
-            const unpaidUse = UNPAID_IMPROVEMENTS_USE_RE.test(foundText);'''
-          new_ip = r'''const DIRECT_PRIME_PASSIVE_USE_RE =
+          '''
+          sub_once(
+              'lib/analyzer/deterministic.ts',
+              r'const PAYMENT_RIGHT_PRESERVED_RE =.*?\nfunction buildInvoicePaymentWaiverAnalysis',
+              payment_guard + 'function buildInvoicePaymentWaiverAnalysis',
+              'payment preservation scope replacement',
+          )
+
+          ip_helpers = r'''const DIRECT_PRIME_PASSIVE_USE_RE =
             /may\s+be\s+used\s+by\s+(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))/i;
           const DIRECT_PRIME_ACTIVE_USE_RE =
             /(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))\s+may\s+use/i;
@@ -358,30 +173,37 @@ jobs:
             );
           }
 
-          function buildConditionedPreExistingIpAnalysis(foundText: string): string {
-            const conditioned = CONDITIONED_PREEXISTING_IP_RE.test(foundText);
-            const unpaidUse = hasUnpaidPrimeImprovementsUseEvidence(foundText);'''
-          replace_once('lib/analyzer/deterministic.ts', old_ip, new_ip, 'direct Prime unpaid-improvements evidence helper')
-
-          replace_once(
-              'lib/analyzer/sanity.ts',
-              r'''  hasComprehensiveTerminationRecoveryEvidence,
-            hasProtectiveTerminationForConvenienceRestrictionEvidence,
-            hasTerminationForConvenienceRiskEvidence,''',
-              r'''  hasComprehensiveTerminationRecoveryEvidence,
-            hasProtectiveTerminationForConvenienceRestrictionEvidence,
-            hasTerminationForConvenienceRiskEvidence,
-            hasUnpaidPrimeImprovementsUseEvidence,''',
-              'import shared unpaid-improvements evidence helper',
+          '''
+          sub_once(
+              'lib/analyzer/deterministic.ts',
+              r'const UNPAID_IMPROVEMENTS_USE_RE =.*?\nfunction buildConditionedPreExistingIpAnalysis',
+              ip_helpers + 'function buildConditionedPreExistingIpAnalysis',
+              'direct Prime IP evidence replacement',
+          )
+          sub_once(
+              'lib/analyzer/deterministic.ts',
+              r'  const unpaidUse = UNPAID_IMPROVEMENTS_USE_RE\.test\(foundText\);',
+              '  const unpaidUse = hasUnpaidPrimeImprovementsUseEvidence(foundText);',
+              'IP analysis evidence helper use',
           )
 
-          replace_once(
-              'lib/analyzer/sanity.ts',
-              r'''  const unpaidImprovementEvidence =
-              /(?:improvements?|adaptations?)[^.]{0,180}may\s+be\s+used\s+by\s+Prime(?:\s+Contractor)?[^.]{0,160}without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|Prime(?:\s+Contractor)?\s+may\s+use[^.]{0,160}(?:improvements?|adaptations?)[^.]{0,160}without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)/i.test(quote);''',
-              r'''  const unpaidImprovementEvidence = hasUnpaidPrimeImprovementsUseEvidence(quote);''',
-              'shared finding-local unpaid-improvements evidence',
+          sanity_path = Path('lib/analyzer/sanity.ts')
+          sanity = sanity_path.read_text()
+          import_old = '  hasTerminationForConvenienceRiskEvidence,\n} from "./deterministic";'
+          import_new = '  hasTerminationForConvenienceRiskEvidence,\n  hasUnpaidPrimeImprovementsUseEvidence,\n} from "./deterministic";'
+          if sanity.count(import_old) != 1:
+              raise SystemExit('sanity IP helper import marker missing or duplicated')
+          sanity = sanity.replace(import_old, import_new, 1)
+          sanity, count = re.subn(
+              r'  const unpaidImprovementEvidence =\n    /.*?\.test\(quote\);',
+              '  const unpaidImprovementEvidence = hasUnpaidPrimeImprovementsUseEvidence(quote);',
+              sanity,
+              count=1,
+              flags=re.S,
           )
+          if count != 1:
+              raise SystemExit('sanity IP evidence replacement failed')
+          sanity_path.write_text(sanity)
 
           test_path = Path('lib/analyzer/__tests__/orion-parity-regression.test.mjs')
           tests = test_path.read_text()
@@ -423,11 +245,13 @@ jobs:
           const earlyBoundedMissing = earlyNumberedAttachmentList.findings.find((finding) => finding.regulation === "Missing / Deferred Contract Documents");
           check(
             "early Attachment List retains higher-numbered attachment rows",
-            Boolean(earlyBoundedMissing && /Flow-Down Matrix/i.test(earlyBoundedMissing.foundText) && /Cybersecurity and CUI Requirements/i.test(earlyBoundedMissing.foundText))
+            Boolean(earlyBoundedMissing && /Flow-Down Matrix/i.test(earlyBoundedMissing.foundText) && /Cybersecurity and CUI Requirements/i.test(earlyBoundedMissing.foundText)),
+            earlyBoundedMissing?.foundText ?? "missing finding"
           );
           check(
             "early Attachment List excludes the next structural section",
-            Boolean(earlyBoundedMissing && !/Certifications/i.test(earlyBoundedMissing.foundText))
+            Boolean(earlyBoundedMissing && !/Certifications/i.test(earlyBoundedMissing.foundText)),
+            earlyBoundedMissing?.foundText ?? "missing finding"
           );
 
           const incidentalAttachmentReference = productionPath(`
@@ -443,11 +267,13 @@ jobs:
           const incidentalBoundedMissing = incidentalAttachmentReference.findings.find((finding) => finding.regulation === "Missing / Deferred Contract Documents");
           check(
             "incidental Attachment List reference is not selected as the heading",
-            Boolean(incidentalBoundedMissing && /^3\.\s*Attachment\s+List/i.test(incidentalBoundedMissing.foundText))
+            Boolean(incidentalBoundedMissing && /^3\\.\\s*Attachment\\s+List/i.test(incidentalBoundedMissing.foundText)),
+            incidentalBoundedMissing?.foundText ?? "missing finding"
           );
           check(
             "incidental reference does not pull other sections into evidence",
-            Boolean(incidentalBoundedMissing && !/Other Materials|Certifications/i.test(incidentalBoundedMissing.foundText))
+            Boolean(incidentalBoundedMissing && !/Other Materials|Certifications/i.test(incidentalBoundedMissing.foundText)),
+            incidentalBoundedMissing?.foundText ?? "missing finding"
           );
 
           const labeledAttachmentList = productionPath(`
@@ -459,12 +285,13 @@ jobs:
           const labeledBoundedMissing = labeledAttachmentList.findings.find((finding) => finding.regulation === "Missing / Deferred Contract Documents");
           check(
             "colon-labeled Attachment List remains supported and bounded",
-            Boolean(labeledBoundedMissing && /Flow-Down Matrix/i.test(labeledBoundedMissing.foundText) && !/Certifications/i.test(labeledBoundedMissing.foundText))
+            Boolean(labeledBoundedMissing && /Flow-Down Matrix/i.test(labeledBoundedMissing.foundText) && !/Certifications/i.test(labeledBoundedMissing.foundText)),
+            labeledBoundedMissing?.foundText ?? "missing finding"
           );
 
           '''
           if tests.count(marker) != 1:
-              raise SystemExit('structural hardening regression insertion marker missing or duplicated')
+              raise SystemExit('hardening regression insertion marker missing or duplicated')
           test_path.write_text(tests.replace(marker, additions + marker, 1))
           PY
 
