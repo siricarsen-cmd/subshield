@@ -201,7 +201,7 @@ const NUMBERED_ATTACHMENT_BLOCK_RE = /\b(?:Section\s+)?\d+\.\s+/g;
 const ATTACHMENT_ROW_STATUS_RE =
   /\b(?:included|not\s+included|to\s+be\s+provided|provided\s+after|not\s+attached|attached|missing|omitted)\b/i;
 const ATTACHMENT_ROW_DOCUMENT_RE =
-  /statement\s+of\s+work|\bSOW\b|prime\s+contract(?:\s+excerpts?)?|flow[\s-]?down\s+(?:lists?|matrix|matrices)|cybersecurity|CUI\s+requirements?|wage\s+determination|labor\s+category|quality\s+surveillance|acceptance\s+criteria|system\s+security\s+plan|\bSSP\b|(?:exhibit|attachment|appendix|schedule)\s+[A-Z0-9]/i;
+  /^(?:statement\s+of\s+work|SOW\b|prime\s+contract(?:\s+excerpts?)?|flow[\s-]?down\s+(?:lists?|matrix|matrices)|cybersecurity|CUI\s+requirements?|wage\s+determination|labor\s+category|quality\s+surveillance|acceptance\s+criteria|system\s+security\s+plan|SSP\b|(?:exhibit|attachment|appendix|schedule)\s+[A-Z0-9])/i;
 
 function findAttachmentListStart(documentText: string): AttachmentListStart | null {
   ATTACHMENT_LIST_START_RE.lastIndex = 0;
@@ -216,9 +216,7 @@ function findAttachmentListStart(documentText: string): AttachmentListStart | nu
 
 function numberedBlockLooksLikeAttachmentRow(block: string): boolean {
   const content = block.replace(/^\s*(?:Section\s+)?\d+\.\s+/, "");
-  const sentenceEnd = content.search(/[.!?](?:\s|$)/);
-  const firstSentence = sentenceEnd >= 0 ? content.slice(0, sentenceEnd + 1) : content;
-  return ATTACHMENT_ROW_DOCUMENT_RE.test(firstSentence) && ATTACHMENT_ROW_STATUS_RE.test(firstSentence);
+  return ATTACHMENT_ROW_DOCUMENT_RE.test(content) && ATTACHMENT_ROW_STATUS_RE.test(content.slice(0, 320));
 }
 
 function findAttachmentListEnd(afterStart: string): number | null {
@@ -615,14 +613,23 @@ const EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE =
   /(?:does|shall|will)\s+not\s+(?:waive|forfeit)[^.]{0,80}(?:right|entitlement)\s+to\s+payment|(?:right|entitlement)\s+to\s+payment[^.]{0,80}(?:is|shall|will)\s+not\s+(?:waived|forfeited)/i;
 const SAME_SCOPE_PAYMENT_REMAINS_RE =
   /(?:except(?:\s+that)?|however|provided\s+that|but|notwithstanding)[^.]{0,180}(?:(?:the\s+)?(?:affected|subject|late|delayed)\s+(?:invoice|amount|payment)|(?:all\s+)?(?:amounts?|payment)\s+for\s+(?:performed|completed|accepted)\s+(?:work|services|deliverables)|(?:all\s+)?(?:amounts?|payment)\s+(?:for|under)\s+(?:the\s+)?(?:affected|subject|late|delayed)\s+invoice)[^.]{0,120}(?:remain|remains|shall\s+remain|will\s+remain)\s+(?:payable|due)/i;
-const OTHER_INVOICE_SCOPE_RE = /\b(?:other|unrelated|separate)\s+invoices?\b/i;
+const OTHER_INVOICE_SCOPE_RE = /\b(?:other|unrelated|separate)\s+invoices?\b|\binvoice\s+(?:no\.?\s*)?\d+\b|\brather\s+than\b/i;
+const AFFECTED_PAYMENT_SCOPE_RE =
+  /\b(?:affected|subject|late|delayed)\s+(?:invoice|amount|payment)\b|\b(?:this|that|such)\s+invoice\b|\b(?:right|entitlement)\s+to\s+payment\b/i;
+
+function sentencePreservesPayment(sentence: string): boolean {
+  if (OTHER_INVOICE_SCOPE_RE.test(sentence)) return false;
+  return EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence) || SAME_SCOPE_PAYMENT_REMAINS_RE.test(sentence);
+}
 
 function hasPaymentRightPreservationEvidence(block: string): boolean {
   const sentences = block.split(/(?<=[.!?])\s+/);
-  return sentences.some((sentence) => {
-    if (OTHER_INVOICE_SCOPE_RE.test(sentence)) return false;
-    return EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence) || SAME_SCOPE_PAYMENT_REMAINS_RE.test(sentence);
-  });
+  const waiverIndex = sentences.findIndex((sentence) => INVOICE_PAYMENT_WAIVER_RE.test(sentence));
+  if (waiverIndex < 0) return false;
+  if (sentencePreservesPayment(sentences[waiverIndex])) return true;
+
+  const nextSentence = sentences[waiverIndex + 1] ?? "";
+  return AFFECTED_PAYMENT_SCOPE_RE.test(nextSentence) && sentencePreservesPayment(nextSentence);
 }
 
 function findInvoicePaymentWaiverCandidate(documentText: string): string | null {
@@ -640,7 +647,7 @@ function buildInvoicePaymentWaiverAnalysis(foundText: string): string {
 const CONDITIONED_PREEXISTING_IP_RE =
   /pre[\s-]existing\s+(?:ip|intellectual\s+property|tools?|materials|methods|know[\s-]how)[^.]{0,200}only\s+if[^.]{0,150}(?:identif|disclos|approve[sd]?|written\s+approval)/i;
 const DIRECT_PRIME_PASSIVE_USE_RE =
-  /may\s+be\s+used\s+by\s+(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))/i;
+  /(?:may|shall|will)\s+be\s+used\s+by\s+(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))/i;
 const DIRECT_PRIME_ACTIVE_USE_RE =
   /(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))\s+(?:(?:may|shall|will)\s+use|(?:has|shall\s+have|will\s+have)\s+the\s+right\s+to\s+use|(?:is|shall\s+be|will\s+be)\s+entitled\s+to\s+use)/i;
 const IMPROVEMENTS_OR_ADAPTATIONS_RE = /improvements?|adaptations?/i;
@@ -687,7 +694,7 @@ export function hasMandatoryForumEvidence(text: string): boolean {
   return BASE_FORUM_EVIDENCE_RE.test(text) || DIRECT_MANDATORY_FORUM_RE.test(text) || EXCLUSIVE_FORUM_RE.test(text);
 }
 const BILATERAL_DEFENDANT_VENUE_RE =
-  /(?:(?:exclusive\s+)?venue|(?:any\s+)?(?:action|lawsuit|claim|dispute|proceeding))[^.]{0,240}(?:where|located\s+where|in\s+(?:a\s+)?court\s+where)[^.]{0,100}\bdefendant\b[^.]{0,100}(?:resides?|is\s+located|has\s+its\s+principal\s+place\s+of\s+business)/i;
+  /(?:(?:exclusive\s+)?venue|(?:any\s+)?(?:action|lawsuit|claim|dispute|proceeding))[^.]{0,240}(?:where|located\s+where|in\s+(?:a\s+)?court\s+where)[^.]{0,100}\bdefendants?\b[^.]{0,100}(?:resides?|is\s+located|has\s+(?:its|their)\s+principal\s+place\s+of\s+business)/i;
 const GOVERNING_LAW_EVIDENCE_RE =
   /(?:governing\s+law|governed\s+by\s+the\s+laws\s+of)[^.]{0,100}(?:State\s+of|Commonwealth\s+of)\s+[A-Z][a-zA-Z]+/i;
 
