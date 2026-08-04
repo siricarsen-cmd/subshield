@@ -1,6 +1,6 @@
 npm warn deprecated @supabase/auth-helpers-nextjs@0.15.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 
-added 426 packages, and audited 427 packages in 13s
+added 426 packages, and audited 427 packages in 14s
 
 150 packages are looking for funding
   run `npm fund` for details
@@ -27,14 +27,14 @@ npm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to revi
 > subshield@0.1.0 test:accuracy:core
 > node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/analyzer/__tests__/qa-core-accuracy-benchmark.test.mjs
 
-(node:2349) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+(node:2324) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
 --import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("./lib/analyzer/__tests__/ts-relative-import.loader.mjs", pathToFileURL("./"));'
 (Use `node --trace-warnings ...` to show where the warning was created)
 PASS: QA-B paragraph: extraction is confidently complete
-FAIL: QA-B paragraph: clean protective contract has no deterministic adverse findings — observed Out-of-State Venue, Governing Law, or Arbitration Burden
+PASS: QA-B paragraph: clean protective contract has no deterministic adverse findings
 PASS: QA-B paragraph: no candidate was dropped after being generated
 PASS: QA-B flattened-paste: extraction is confidently complete
-FAIL: QA-B flattened-paste: clean protective contract has no deterministic adverse findings — observed Out-of-State Venue, Governing Law, or Arbitration Burden
+PASS: QA-B flattened-paste: clean protective contract has no deterministic adverse findings
 PASS: QA-B flattened-paste: no candidate was dropped after being generated
 PASS: QA-D paragraph: extraction is confidently complete
 PASS: QA-D paragraph: detects Acceptance, Rejection, or Rework Without Clear Compensation
@@ -78,4 +78,44 @@ PASS: QA-E1 image-only empty extraction: Limited Scan contains no definitive pri
 PASS: QA-E1 image-only empty extraction: Limited Scan does not draft a completed-review memo
 PASS: QA-E1 image-only empty extraction: supplied safety reason is preserved
 
-2 of 47 core accuracy benchmark assertions failed.
+All 47 QA-B, QA-D, and QA-E1 accuracy benchmark assertions passed.
+(node:2324) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/subshield/subshield/lib/analyzer/deterministic.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /home/runner/work/subshield/subshield/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> subshield@0.1.0 test:accuracy:orion
+> node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/analyzer/__tests__/orion-parity-regression.test.mjs
+
+(node:2344) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("./lib/analyzer/__tests__/ts-relative-import.loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+FAIL: paragraph: document anchor preserves both T&M and FFP evidence — anchor=Time-and-Materials with firm-fixed-price deliverables
+PASS: paragraph: classifier remains Hybrid
+PASS: paragraph: detects invoice payment waiver
+FAIL: paragraph: invoice waiver quote contains deadline and forfeiture
+FAIL: paragraph: IP quote contains unpaid-use evidence
+PASS: paragraph: IP analysis is finding-local
+FAIL: paragraph: venue quote contains Arlington forum evidence
+PASS: paragraph: venue analysis is finding-local
+FAIL: paragraph: missing-document quote starts at Attachment List
+PASS: paragraph: missing-document quote excludes unrelated preceding/following sections
+PASS: paragraph: every final quote remains source-grounded
+PASS: paragraph: no deterministic finding is dropped
+FAIL: flattened: document anchor preserves both T&M and FFP evidence — anchor=Time-and-Materials with firm-fixed-price deliverables
+PASS: flattened: classifier remains Hybrid
+PASS: flattened: detects invoice payment waiver
+FAIL: flattened: invoice waiver quote contains deadline and forfeiture
+FAIL: flattened: IP quote contains unpaid-use evidence
+PASS: flattened: IP analysis is finding-local
+FAIL: flattened: venue quote contains Arlington forum evidence
+PASS: flattened: venue analysis is finding-local
+FAIL: flattened: missing-document quote starts at Attachment List
+PASS: flattened: missing-document quote excludes unrelated preceding/following sections
+PASS: flattened: every final quote remains source-grounded
+PASS: flattened: no deterministic finding is dropped
+PASS: ordinary invoice deadline without forfeiture does not trigger payment-waiver finding
+PASS: governing-law-only text does not trigger venue finding
+PASS: conditioned-IP-only analysis does not invent unpaid improvements
+PASS: conditioned-IP-only analysis remains finding-local
+\n10 of 28 Orion parity regression assertions failed.
