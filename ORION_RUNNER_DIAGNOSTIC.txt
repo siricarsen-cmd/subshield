@@ -1,4 +1,81 @@
-  File "<stdin>", line 35
-    guards = r'''  const forumBurdenClaim =
-                   ^^^^^
-SyntaxError: invalid syntax
+npm warn deprecated @supabase/auth-helpers-nextjs@0.15.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
+added 426 packages, and audited 427 packages in 15s
+
+150 packages are looking for funding
+  run `npm fund` for details
+
+4 vulnerabilities (2 moderate, 2 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues, run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+npm warn allow-scripts 2 packages have install scripts not yet covered by allowScripts:
+npm warn allow-scripts   tesseract.js@7.0.0 (postinstall: opencollective-postinstall || true)
+npm warn allow-scripts   unrs-resolver@1.12.2 (postinstall: node postinstall.js)
+npm warn allow-scripts
+npm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.
+
+> subshield@0.1.0 test:accuracy
+> npm run test:accuracy:core && npm run test:accuracy:orion && npm run test:accuracy:qa-c
+
+
+> subshield@0.1.0 test:accuracy:core
+> node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/analyzer/__tests__/qa-core-accuracy-benchmark.test.mjs
+
+(node:2349) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("./lib/analyzer/__tests__/ts-relative-import.loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS: QA-B paragraph: extraction is confidently complete
+FAIL: QA-B paragraph: clean protective contract has no deterministic adverse findings — observed Out-of-State Venue, Governing Law, or Arbitration Burden
+PASS: QA-B paragraph: no candidate was dropped after being generated
+PASS: QA-B flattened-paste: extraction is confidently complete
+FAIL: QA-B flattened-paste: clean protective contract has no deterministic adverse findings — observed Out-of-State Venue, Governing Law, or Arbitration Burden
+PASS: QA-B flattened-paste: no candidate was dropped after being generated
+PASS: QA-D paragraph: extraction is confidently complete
+PASS: QA-D paragraph: detects Acceptance, Rejection, or Rework Without Clear Compensation
+PASS: QA-D paragraph: detects Broad Indemnification / Duty to Defend
+PASS: QA-D paragraph: detects Broad Setoff / Backcharge / Withholding Rights
+PASS: QA-D paragraph: detects Continue-Performance Obligation During Payment Dispute
+PASS: QA-D paragraph: detects Missing or Unresolved Wage Determination / Labor Standards Requirement
+PASS: QA-D paragraph: detects Short Default Cure Period / Termination Discretion
+PASS: QA-D paragraph: detects Short Notice-of-Claim / Change Notice Waiver
+PASS: QA-D paragraph: detects Termination for Convenience
+PASS: QA-D paragraph: every deterministic finding survives verification
+PASS: QA-D paragraph: every final quote exists in the normalized source
+PASS: QA-D paragraph: every final analysis passes finding-local verification
+PASS: QA-D paragraph: wage-determination finding quotes absence and deferral evidence
+PASS: QA-D paragraph: wage finding does not invent a wage rate or labor classification
+PASS: QA-D flattened-paste: extraction is confidently complete
+PASS: QA-D flattened-paste: detects Acceptance, Rejection, or Rework Without Clear Compensation
+PASS: QA-D flattened-paste: detects Broad Indemnification / Duty to Defend
+PASS: QA-D flattened-paste: detects Broad Setoff / Backcharge / Withholding Rights
+PASS: QA-D flattened-paste: detects Continue-Performance Obligation During Payment Dispute
+PASS: QA-D flattened-paste: detects Missing or Unresolved Wage Determination / Labor Standards Requirement
+PASS: QA-D flattened-paste: detects Short Default Cure Period / Termination Discretion
+PASS: QA-D flattened-paste: detects Short Notice-of-Claim / Change Notice Waiver
+PASS: QA-D flattened-paste: detects Termination for Convenience
+PASS: QA-D flattened-paste: every deterministic finding survives verification
+PASS: QA-D flattened-paste: every final quote exists in the normalized source
+PASS: QA-D flattened-paste: every final analysis passes finding-local verification
+PASS: QA-D flattened-paste: wage-determination finding quotes absence and deferral evidence
+PASS: QA-D flattened-paste: wage finding does not invent a wage rate or labor classification
+PASS: QA-D flattened-paste: material deterministic labels match the paragraph representation
+PASS: QA-E1 degraded readable fragments: extraction is not treated as complete
+PASS: QA-E1 degraded readable fragments: confidence gate explains why review is unreliable
+PASS: QA-E1 degraded readable fragments: production analyzer returns Limited Scan
+PASS: QA-E1 degraded readable fragments: Limited Scan contains no definitive primary or secondary findings
+PASS: QA-E1 degraded readable fragments: Limited Scan does not draft a completed-review memo
+PASS: QA-E1 degraded readable fragments: supplied safety reason is preserved
+PASS: QA-E1 image-only empty extraction: extraction is not treated as complete
+PASS: QA-E1 image-only empty extraction: confidence gate explains why review is unreliable
+PASS: QA-E1 image-only empty extraction: production analyzer returns Limited Scan
+PASS: QA-E1 image-only empty extraction: Limited Scan contains no definitive primary or secondary findings
+PASS: QA-E1 image-only empty extraction: Limited Scan does not draft a completed-review memo
+PASS: QA-E1 image-only empty extraction: supplied safety reason is preserved
+
+2 of 47 core accuracy benchmark assertions failed.
