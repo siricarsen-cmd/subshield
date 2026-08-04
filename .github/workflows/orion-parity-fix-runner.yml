@@ -1,4 +1,4 @@
-name: One-time Orion parity patch extractor
+name: One-time corrected Orion parity implementation runner
 
 on:
   push:
@@ -9,34 +9,81 @@ permissions:
   contents: write
 
 jobs:
-  extract:
+  apply-and-verify:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
           ref: fix/orion-parity-grounding-invoice-waiver
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Extract readable patch script
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Apply, verify, and commit
         shell: bash
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          import base64
-          import re
-          import zlib
+          set +e
+          LOG=ORION_RUNNER_DIAGNOSTIC.txt
+          : > "$LOG"
 
-          builder = Path('.github/workflows/orion-parity-fix-builder.yml').read_text()
-          match = re.search(r'b64decode\("([^"]+)"\)', builder)
-          if not match:
-              raise SystemExit('Could not locate encoded builder payload')
-          script = zlib.decompress(base64.b64decode(match.group(1))).decode()
-          Path('ORION_DECOMPRESSED_BUILDER.py').write_text(script)
+          python - <<'PY' >> "$LOG" 2>&1
+          from pathlib import Path
+
+          script_path = Path('ORION_DECOMPRESSED_BUILDER.py')
+          script = script_path.read_text()
+
+          flexible_replace = '''def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count == 1:
+                  return text.replace(old, new, 1)
+              lines = old.splitlines(keepends=True)
+              pattern_parts = []
+              for line in lines:
+                  stripped = line.lstrip(" \\t")
+                  prefix = r"^[ \\t]*" if line != stripped else ""
+                  pattern_parts.append(prefix + re.escape(stripped))
+              pattern = "".join(pattern_parts)
+              matches = list(re.finditer(pattern, text, flags=re.MULTILINE))
+              if len(matches) != 1:
+                  raise SystemExit(f"{label}: expected one exact or indentation-tolerant match, found {len(matches)}")
+              match = matches[0]
+              return text[:match.start()] + new + text[match.end():]
+
+          '''
+          start = script.index('def replace_once')
+          end = script.index('def replace_block', start)
+          script = script[:start] + flexible_replace + script[end:]
+
+          # Category markers in the first draft used two spaces before their
+          # property lines; the repository consistently uses four.
+          script = script.replace('  {\n  familyKey:', '  {\n    familyKey:')
+
+          exec(compile(script, '<orion-parity-builder>', 'exec'))
           PY
-          rm -f ORION_RUNNER_DIAGNOSTIC.txt
+          STATUS=$?
+
+          if [ "$STATUS" -eq 0 ]; then npm ci >> "$LOG" 2>&1; STATUS=$?; fi
+          if [ "$STATUS" -eq 0 ]; then npm run test:accuracy >> "$LOG" 2>&1; STATUS=$?; fi
+          if [ "$STATUS" -eq 0 ]; then npx tsc --noEmit >> "$LOG" 2>&1; STATUS=$?; fi
+          if [ "$STATUS" -eq 0 ]; then npm run build >> "$LOG" 2>&1; STATUS=$?; fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ORION_DECOMPRESSED_BUILDER.py ORION_RUNNER_DIAGNOSTIC.txt
-          git commit -m "Extract readable Orion parity patch"
+
+          if [ "$STATUS" -ne 0 ]; then
+            git add "$LOG"
+            git commit -m "Update Orion parity runner diagnostic"
+            git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
+            exit "$STATUS"
+          fi
+
+          rm -f "$LOG" ORION_DECOMPRESSED_BUILDER.py
+          rm -f ORION_PARITY_FIX_TASK.md ORION_RUN_TRIGGER.txt
+          rm -f .github/workflows/orion-parity-fix-builder.yml
+          rm -f .github/workflows/orion-parity-fix-runner.yml
+          git add -A
+          git commit -m "Fix Orion parity grounding and invoice waiver detection"
           git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
