@@ -1,0 +1,66 @@
+name: One-time corrected Orion parity fix runner
+
+on:
+  push:
+    branches:
+      - fix/orion-parity-grounding-invoice-waiver
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/orion-parity-grounding-invoice-waiver
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Apply corrected analyzer patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import base64
+          import re
+          import zlib
+
+          builder_path = Path('.github/workflows/orion-parity-fix-builder.yml')
+          builder = builder_path.read_text()
+          match = re.search(r'b64decode\("([^"]+)"\)', builder)
+          if not match:
+              raise SystemExit('Could not locate encoded builder payload')
+
+          script = zlib.decompress(base64.b64decode(match.group(1))).decode()
+          old = '  {\n  familyKey: "payment"'
+          new = '  {\n    familyKey: "payment"'
+          if old not in script:
+              raise SystemExit('Expected indentation-sensitive insertion marker was not found')
+          script = script.replace(old, new)
+          exec(compile(script, '<orion-parity-builder>', 'exec'))
+          PY
+      - name: Install dependencies
+        run: npm ci
+      - name: Run analyzer accuracy suite
+        run: npm run test:accuracy
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Production build
+        run: npm run build
+      - name: Remove temporary files and commit verified implementation
+        shell: bash
+        run: |
+          rm -f ORION_PARITY_FIX_TASK.md
+          rm -f .github/workflows/orion-parity-fix-builder.yml
+          rm -f .github/workflows/orion-parity-fix-runner.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Fix Orion parity grounding and invoice waiver detection"
+          git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
