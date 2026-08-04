@@ -1,3 +1,1 @@
-MARKER_REPR='  {\n    familyKey: "payment",\n  regulation: "Broad Setoff / Backcharge / Withholding Rights",'
-SOURCE_REPR='  {\n    familyKey: "payment",\n    regulation: "Broad Setoff / Backcharge / Withholding Rights",\n    severity: "Medium-High",'
-EXACT_MATCH=False
+finding-local venue and IP guards: expected one exact or indentation-tolerant match, found 0
