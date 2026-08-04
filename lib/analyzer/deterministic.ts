@@ -188,7 +188,7 @@ const DOCUMENT_DEFERRAL_RE =
 
 const ATTACHMENT_LIST_START_RE = /\b(?:\d+\.\s*)?Attachment\s+List\b/i;
 const ATTACHMENT_LIST_END_RE =
-  /\b(?:\d+\.\s*)?(?:Subcontractor\s+Questions\s+Form|Quote\s+Submission\s+Instructions)\b/i;
+  /\b\d+\.\s+(?!\d)(?:[A-Z][A-Za-z0-9/&()'\u2019-]*(?:\s+[A-Z][A-Za-z0-9/&()'\u2019-]*){0,10})\b/;
 
 function findMissingDocumentsCandidate(documentText: string): string | null {
   // DOCX/PDF table extraction can flatten the attachment table into a
@@ -559,10 +559,15 @@ function buildGeneralWithholdingAnalysis(foundText: string): string {
 }
 
 const INVOICE_PAYMENT_WAIVER_RE =
-  /failure\s+to\s+submit[^.]{0,140}(?:complete\s+)?invoice[^.]{0,140}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?[^.]{0,180}(?:waives?|forfeits?)[^.]{0,100}(?:right|entitlement)\s+to\s+payment/i;
+  /failure\s+to\s+submit[^.]{0,140}(?:complete\s+)?invoice[^.]{0,140}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?[^.]{0,120}(?:waives?|forfeits?)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
+const PAYMENT_RIGHT_PRESERVED_RE =
+  /(?:does|shall|will)\s+not\s+(?:waive|forfeit)[^.]{0,80}(?:right|entitlement)\s+to\s+payment|(?:right|entitlement)\s+to\s+payment[^.]{0,80}(?:is|shall|will)\s+not\s+(?:waived|forfeited)/i;
 
 function findInvoicePaymentWaiverCandidate(documentText: string): string | null {
-  return findClauseCandidate(documentText, (block) => INVOICE_PAYMENT_WAIVER_RE.test(block));
+  return findClauseCandidate(
+    documentText,
+    (block) => INVOICE_PAYMENT_WAIVER_RE.test(block) && !PAYMENT_RIGHT_PRESERVED_RE.test(block)
+  );
 }
 
 function buildInvoicePaymentWaiverAnalysis(foundText: string): string {
@@ -573,7 +578,7 @@ function buildInvoicePaymentWaiverAnalysis(foundText: string): string {
 const CONDITIONED_PREEXISTING_IP_RE =
   /pre[\s-]existing\s+(?:ip|intellectual\s+property|tools?|materials|methods|know[\s-]how)[^.]{0,200}only\s+if[^.]{0,150}(?:identif|disclos|approve[sd]?|written\s+approval)/i;
 const UNPAID_IMPROVEMENTS_USE_RE =
-  /(?:improvements?|adaptations?)[^.]{0,180}(?:may\s+be\s+used\s+by|Prime(?:\s+Contractor)?\s+may\s+use)[^.]{0,160}without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|(?:may\s+be\s+used\s+by|Prime(?:\s+Contractor)?\s+may\s+use)[^.]{0,160}(?:improvements?|adaptations?)[^.]{0,160}without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)/i;
+  /(?:improvements?|adaptations?)[^.]{0,180}may\s+be\s+used\s+by\s+Prime(?:\s+Contractor)?[^.]{0,160}without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|Prime(?:\s+Contractor)?\s+may\s+use[^.]{0,160}(?:improvements?|adaptations?)[^.]{0,160}without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)/i;
 
 function findConditionedPreExistingIpCandidate(documentText: string): string | null {
   return findClauseCandidate(
@@ -595,14 +600,18 @@ function buildConditionedPreExistingIpAnalysis(foundText: string): string {
 }
 
 const VENUE_OR_ARBITRATION_EVIDENCE_RE =
-  /(?:exclusive\s+)?(?:venue|jurisdiction)\s+(?:shall\s+be\s+|is\s+|lies\s+|must\s+be\s+)?(?:in|located\s+in)[^.]{0,120}(?:courts?|County|State|Commonwealth)|binding\s+arbitration|(?:arbitration|mediation|court\s+proceeding)[^.]{0,180}(?:(?:must|shall)\s+be\s+)?(?:brought|filed)\s+in|Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i;
+  /(?:exclusive\s+)?(?:venue|jurisdiction)\s+(?:shall\s+be\s+|is\s+|lies\s+|must\s+be\s+)?(?:in|located\s+in)[^.]{0,120}(?:courts?|County|State|Commonwealth)|binding\s+arbitration|(?:(?:any\s+)?(?:action|lawsuit|claim|dispute|proceeding)|arbitration|mediation|court\s+proceeding)[^.]{0,180}(?:(?:must|shall)\s+be\s+)?(?:brought|filed)\s+(?:exclusively\s+)?in|Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i;
+const BILATERAL_DEFENDANT_VENUE_RE =
+  /(?:exclusive\s+)?venue[^.]{0,220}(?:where|located\s+where)[^.]{0,80}\bdefendant\b[^.]{0,80}(?:resides?|is\s+located|has\s+its\s+principal\s+place\s+of\s+business)/i;
 const GOVERNING_LAW_EVIDENCE_RE =
   /(?:governing\s+law|governed\s+by\s+the\s+laws\s+of)[^.]{0,100}(?:State\s+of|Commonwealth\s+of)\s+[A-Z][a-zA-Z]+/i;
 
 function findVenueOrGoverningLawCandidate(documentText: string): string | null {
   return findClauseCandidate(
     documentText,
-    (block) => VENUE_OR_ARBITRATION_EVIDENCE_RE.test(block)
+    (block) =>
+      VENUE_OR_ARBITRATION_EVIDENCE_RE.test(block) &&
+      !BILATERAL_DEFENDANT_VENUE_RE.test(block)
   );
 }
 
