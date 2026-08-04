@@ -39,6 +39,11 @@ jobs:
               raise SystemExit('Could not extract the reviewed edge-case patch script')
           lines = match.group(1).splitlines()
           script = "\n".join(line[10:] if line.startswith("          ") else line for line in lines)
+          script = script.replace(
+              r'(?:brought|filed)\s+(?:exclusively\s+)?in|Prime',
+              r'(?:brought|filed)\s+in|Prime',
+              1,
+          )
           exec(compile(script, '<orion-review-edge-fix>', 'exec'))
           PY
           STATUS=$?
