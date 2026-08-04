@@ -639,7 +639,7 @@ function buildGeneralWithholdingAnalysis(foundText: string): string {
 const INVOICE_PAYMENT_WAIVER_RE =
   /failure\s+to\s+submit[^.]{0,140}(?:complete\s+)?invoice[^.]{0,140}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?[^.]{0,120}(?:waives?|forfeits?)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const INVOICE_SUBMISSION_DEADLINE_RE =
-  /\binvoices?\b[^.]{0,120}(?:must|shall|should|are\s+required\s+to\s+be)\s+submitted[^.]{0,80}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?/i;
+  /\binvoices?\b[^.]{0,120}(?:(?:must|shall|should)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)[^.]{0,80}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?/i;
 const INVOICE_PAYMENT_FORFEITURE_SENTENCE_RE =
   /failure\s+to\s+submit[^.]{0,160}\binvoice\b[^.]{0,120}(?:waives?|forfeits?)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE =
