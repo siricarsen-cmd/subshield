@@ -1,4 +1,4 @@
-name: One-time corrected Orion parity implementation runner
+name: One-time Orion marker inspector
 
 on:
   push:
@@ -9,81 +9,42 @@ permissions:
   contents: write
 
 jobs:
-  apply-and-verify:
+  inspect:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           ref: fix/orion-parity-grounding-invoice-waiver
           token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - name: Apply, verify, and commit
+      - name: Record exact marker comparison
         shell: bash
         run: |
-          set +e
-          LOG=ORION_RUNNER_DIAGNOSTIC.txt
-          : > "$LOG"
-
-          python - <<'PY' >> "$LOG" 2>&1
+          python - <<'PY'
           from pathlib import Path
+          import re
 
-          script_path = Path('ORION_DECOMPRESSED_BUILDER.py')
-          script = script_path.read_text()
-
-          flexible_replace = '''def replace_once(text: str, old: str, new: str, label: str) -> str:
-              count = text.count(old)
-              if count == 1:
-                  return text.replace(old, new, 1)
-              lines = old.splitlines(keepends=True)
-              pattern_parts = []
-              for line in lines:
-                  stripped = line.lstrip(" \\t")
-                  prefix = r"^[ \\t]*" if line != stripped else ""
-                  pattern_parts.append(prefix + re.escape(stripped))
-              pattern = "".join(pattern_parts)
-              matches = list(re.finditer(pattern, text, flags=re.MULTILINE))
-              if len(matches) != 1:
-                  raise SystemExit(f"{label}: expected one exact or indentation-tolerant match, found {len(matches)}")
-              match = matches[0]
-              return text[:match.start()] + new + text[match.end():]
-
-          '''
-          start = script.index('def replace_once')
-          end = script.index('def replace_block', start)
-          script = script[:start] + flexible_replace + script[end:]
-
-          # Category markers in the first draft used two spaces before their
-          # property lines; the repository consistently uses four.
+          script = Path('ORION_DECOMPRESSED_BUILDER.py').read_text()
           script = script.replace('  {\n  familyKey:', '  {\n    familyKey:')
+          marker_match = re.search(r"broad_setoff_marker = '''(.*?)'''", script, re.S)
+          if not marker_match:
+              raise SystemExit('Could not extract broad_setoff_marker assignment')
+          marker = marker_match.group(1)
 
-          exec(compile(script, '<orion-parity-builder>', 'exec'))
+          deterministic = Path('lib/analyzer/deterministic.ts').read_text()
+          needle = 'regulation: "Broad Setoff / Backcharge / Withholding Rights"'
+          idx = deterministic.index(needle)
+          source_excerpt = deterministic[deterministic.rfind('  {', 0, idx): deterministic.find('    severity:', idx) + len('    severity: "Medium-High",')]
+
+          Path('ORION_RUNNER_DIAGNOSTIC.txt').write_text(
+              'MARKER_REPR=' + repr(marker) + '\n' +
+              'SOURCE_REPR=' + repr(source_excerpt) + '\n' +
+              'EXACT_MATCH=' + str(marker in deterministic) + '\n'
+          )
           PY
-          STATUS=$?
-
-          if [ "$STATUS" -eq 0 ]; then npm ci >> "$LOG" 2>&1; STATUS=$?; fi
-          if [ "$STATUS" -eq 0 ]; then npm run test:accuracy >> "$LOG" 2>&1; STATUS=$?; fi
-          if [ "$STATUS" -eq 0 ]; then npx tsc --noEmit >> "$LOG" 2>&1; STATUS=$?; fi
-          if [ "$STATUS" -eq 0 ]; then npm run build >> "$LOG" 2>&1; STATUS=$?; fi
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          if [ "$STATUS" -ne 0 ]; then
-            git add "$LOG"
-            git commit -m "Update Orion parity runner diagnostic"
-            git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
-            exit "$STATUS"
-          fi
-
-          rm -f "$LOG" ORION_DECOMPRESSED_BUILDER.py
-          rm -f ORION_PARITY_FIX_TASK.md ORION_RUN_TRIGGER.txt
-          rm -f .github/workflows/orion-parity-fix-builder.yml
-          rm -f .github/workflows/orion-parity-fix-runner.yml
-          git add -A
-          git commit -m "Fix Orion parity grounding and invoice waiver detection"
+          git add ORION_RUNNER_DIAGNOSTIC.txt
+          git commit -m "Inspect Orion category insertion marker"
           git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
