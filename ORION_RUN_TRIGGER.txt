@@ -1,1 +1,1 @@
-Trigger the simplified Orion parity implementation runner. Remove this file and every other temporary Orion file before final review.
+Trigger the simplified diagnostic Orion parity implementation runner. Remove this file and all temporary Orion files before final review.
