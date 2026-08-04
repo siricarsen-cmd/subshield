@@ -12,8 +12,8 @@ permissions:
   contents: write
 
 jobs:
-  harden-final-orion-edges:
-    name: Harden final Orion edge cases
+  apply-verified-orion-hardening:
+    name: Apply verified Orion hardening
     if: github.actor != 'github-actions[bot]' && github.head_ref == 'fix/orion-parity-grounding-invoice-waiver'
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -32,267 +32,35 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Apply reviewed structural hardening
+      - name: Apply corrected reviewed patch
         shell: bash
         run: |
           python - <<'PY'
-          from pathlib import Path
           import re
+          import subprocess
 
-          def sub_once(path: str, pattern: str, replacement: str, label: str) -> None:
-              file_path = Path(path)
-              text = file_path.read_text()
-              updated, count = re.subn(pattern, lambda _: replacement, text, count=1, flags=re.S)
-              if count != 1:
-                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
-              file_path.write_text(updated)
+          prior = subprocess.check_output(
+              ["git", "show", "32473f4831137c644227c97377508879de23b769:.github/workflows/analyzer-accuracy.yml"],
+              text=True,
+          )
+          match = re.search(r"python - <<'PY'\n(.*?)\n\s+PY", prior, re.S)
+          if not match:
+              raise SystemExit("Unable to extract the reviewed Orion hardening script")
 
-          attachment_helpers = r'''interface AttachmentListStart {
-            index: number;
-            heading: string;
-          }
-
-          const ATTACHMENT_LIST_START_RE =
-            /(?:\b(?:Section\s+)?\d+\.\s+Attachment\s+List\b|\bAttachment\s+List\s*:)/gi;
-          const ATTACHMENT_LIST_REFERENCE_CONTEXT_RE =
-            /(?:see|refer(?:red)?\s+to|review|consult)\s+(?:the\s+)?(?:section\s+)?$/i;
-          const ATTACHMENT_LIST_NAMED_END_RE =
-            /\b(?:\d+\.\s*)?(?:Subcontractor\s+Questions\s+Form|Quote\s+Submission\s+Instructions)\b/i;
-          const NUMBERED_ATTACHMENT_BLOCK_RE = /\b(?:Section\s+)?\d+\.\s+/g;
-          const ATTACHMENT_ROW_STATUS_RE =
-            /\b(?:included|not\s+included|to\s+be\s+provided|provided\s+after|not\s+attached|attached|missing|omitted)\b/i;
-
-          function findAttachmentListStart(documentText: string): AttachmentListStart | null {
-            ATTACHMENT_LIST_START_RE.lastIndex = 0;
-            for (const match of documentText.matchAll(ATTACHMENT_LIST_START_RE)) {
-              const index = match.index ?? 0;
-              const precedingContext = documentText.slice(Math.max(0, index - 48), index);
-              if (ATTACHMENT_LIST_REFERENCE_CONTEXT_RE.test(precedingContext)) continue;
-              return { index, heading: match[0] };
-            }
-            return null;
-          }
-
-          function numberedBlockLooksLikeAttachmentRow(block: string): boolean {
+          lines = match.group(1).splitlines()
+          script = "\n".join(line[10:] if line.startswith("          ") else line for line in lines)
+          old = r'''function numberedBlockLooksLikeAttachmentRow(block: string): boolean {
             const sentenceEnd = block.search(/[.!?](?:\s|$)/);
             const firstSentence = sentenceEnd >= 0 ? block.slice(0, sentenceEnd + 1) : block;
             return ATTACHMENT_ROW_STATUS_RE.test(firstSentence);
-          }
-
-          function findAttachmentListEnd(afterStart: string): number | null {
-            const namedEnd = ATTACHMENT_LIST_NAMED_END_RE.exec(afterStart)?.index ?? null;
-            NUMBERED_ATTACHMENT_BLOCK_RE.lastIndex = 0;
-            const numberedMatches = [...afterStart.matchAll(NUMBERED_ATTACHMENT_BLOCK_RE)];
-            let numberedEnd: number | null = null;
-
-            for (let index = 0; index < numberedMatches.length; index++) {
-              const start = numberedMatches[index].index ?? 0;
-              const nextStart = numberedMatches[index + 1]?.index ?? afterStart.length;
-              const block = afterStart.slice(start, Math.min(nextStart, start + 420));
-              if (numberedBlockLooksLikeAttachmentRow(block)) continue;
-              numberedEnd = start;
-              break;
-            }
-
-            if (namedEnd === null) return numberedEnd;
-            if (numberedEnd === null) return namedEnd;
-            return Math.min(namedEnd, numberedEnd);
-          }
-
-          '''
-          sub_once(
-              'lib/analyzer/deterministic.ts',
-              r'const ATTACHMENT_LIST_START_RE =.*?\nfunction findMissingDocumentsCandidate',
-              attachment_helpers + 'function findMissingDocumentsCandidate',
-              'Attachment List helper replacement',
-          )
-
-          sub_once(
-              'lib/analyzer/deterministic.ts',
-              r'  const start = ATTACHMENT_LIST_START_RE\.exec\(documentText\);\n  if \(start\) \{\n    const afterStart = documentText\.slice\(start\.index \+ start\[0\]\.length\);\n    const attachmentSectionNumber = start\[1\] \? Number\(start\[1\]\) : null;\n    const endOffset = findAttachmentListEnd\(afterStart, attachmentSectionNumber\);\n    const finish = endOffset !== null\n      \? start\.index \+ start\[0\]\.length \+ endOffset\n      : Math\.min\(documentText\.length, start\.index \+ 1800\);\n    const attachmentBlock = documentText\n      \.slice\(start\.index, finish\)',
-              '''  const start = findAttachmentListStart(documentText);
-            if (start) {
-              const afterStart = documentText.slice(start.index + start.heading.length);
-              const endOffset = findAttachmentListEnd(afterStart);
-              const finish = endOffset !== null
-                ? start.index + start.heading.length + endOffset
-                : Math.min(documentText.length, start.index + 1800);
-              const attachmentBlock = documentText
-                .slice(start.index, finish)''',
-              'Attachment List range replacement',
-          )
-
-          payment_guard = r'''const EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE =
-            /(?:does|shall|will)\s+not\s+(?:waive|forfeit)[^.]{0,80}(?:right|entitlement)\s+to\s+payment|(?:right|entitlement)\s+to\s+payment[^.]{0,80}(?:is|shall|will)\s+not\s+(?:waived|forfeited)/i;
-          const SAME_SCOPE_PAYMENT_REMAINS_RE =
-            /(?:except(?:\s+that)?|however|provided\s+that|but|notwithstanding)[^.]{0,180}(?:(?:the\s+)?(?:affected|subject|late|delayed)\s+(?:invoice|amount|payment)|(?:all\s+)?(?:amounts?|payment)\s+for\s+(?:performed|completed|accepted)\s+(?:work|services|deliverables)|(?:all\s+)?(?:amounts?|payment)\s+(?:for|under)\s+(?:the\s+)?(?:affected|subject|late|delayed)\s+invoice)[^.]{0,120}(?:remain|remains|shall\s+remain|will\s+remain)\s+(?:payable|due)/i;
-          const OTHER_INVOICE_SCOPE_RE = /\b(?:other|unrelated|separate)\s+invoices?\b/i;
-
-          function hasPaymentRightPreservationEvidence(block: string): boolean {
-            if (OTHER_INVOICE_SCOPE_RE.test(block) && !SAME_SCOPE_PAYMENT_REMAINS_RE.test(block)) return false;
-            return EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(block) || SAME_SCOPE_PAYMENT_REMAINS_RE.test(block);
-          }
-
-          function findInvoicePaymentWaiverCandidate(documentText: string): string | null {
-            return findClauseCandidate(
-              documentText,
-              (block) => INVOICE_PAYMENT_WAIVER_RE.test(block) && !hasPaymentRightPreservationEvidence(block)
-            );
-          }
-
-          '''
-          sub_once(
-              'lib/analyzer/deterministic.ts',
-              r'const PAYMENT_RIGHT_PRESERVED_RE =.*?\nfunction buildInvoicePaymentWaiverAnalysis',
-              payment_guard + 'function buildInvoicePaymentWaiverAnalysis',
-              'payment preservation scope replacement',
-          )
-
-          ip_helpers = r'''const DIRECT_PRIME_PASSIVE_USE_RE =
-            /may\s+be\s+used\s+by\s+(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))/i;
-          const DIRECT_PRIME_ACTIVE_USE_RE =
-            /(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))\s+may\s+use/i;
-          const IMPROVEMENTS_OR_ADAPTATIONS_RE = /improvements?|adaptations?/i;
-          const WITHOUT_ADDITIONAL_PAYMENT_RE =
-            /without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)/i;
-
-          export function hasUnpaidPrimeImprovementsUseEvidence(text: string): boolean {
-            const sentences = text.split(/(?<=[.!?])\s+/);
-            return sentences.some(
-              (sentence) =>
-                IMPROVEMENTS_OR_ADAPTATIONS_RE.test(sentence) &&
-                WITHOUT_ADDITIONAL_PAYMENT_RE.test(sentence) &&
-                (DIRECT_PRIME_PASSIVE_USE_RE.test(sentence) || DIRECT_PRIME_ACTIVE_USE_RE.test(sentence))
-            );
-          }
-
-          function findConditionedPreExistingIpCandidate(documentText: string): string | null {
-            return findClauseCandidate(
-              documentText,
-              (block) => CONDITIONED_PREEXISTING_IP_RE.test(block) || hasUnpaidPrimeImprovementsUseEvidence(block)
-            );
-          }
-
-          '''
-          sub_once(
-              'lib/analyzer/deterministic.ts',
-              r'const UNPAID_IMPROVEMENTS_USE_RE =.*?\nfunction buildConditionedPreExistingIpAnalysis',
-              ip_helpers + 'function buildConditionedPreExistingIpAnalysis',
-              'direct Prime IP evidence replacement',
-          )
-          sub_once(
-              'lib/analyzer/deterministic.ts',
-              r'  const unpaidUse = UNPAID_IMPROVEMENTS_USE_RE\.test\(foundText\);',
-              '  const unpaidUse = hasUnpaidPrimeImprovementsUseEvidence(foundText);',
-              'IP analysis evidence helper use',
-          )
-
-          sanity_path = Path('lib/analyzer/sanity.ts')
-          sanity = sanity_path.read_text()
-          import_old = '  hasTerminationForConvenienceRiskEvidence,\n} from "./deterministic";'
-          import_new = '  hasTerminationForConvenienceRiskEvidence,\n  hasUnpaidPrimeImprovementsUseEvidence,\n} from "./deterministic";'
-          if sanity.count(import_old) != 1:
-              raise SystemExit('sanity IP helper import marker missing or duplicated')
-          sanity = sanity.replace(import_old, import_new, 1)
-          sanity, count = re.subn(
-              r'  const unpaidImprovementEvidence =\n    /.*?\.test\(quote\);',
-              '  const unpaidImprovementEvidence = hasUnpaidPrimeImprovementsUseEvidence(quote);',
-              sanity,
-              count=1,
-              flags=re.S,
-          )
-          if count != 1:
-              raise SystemExit('sanity IP evidence replacement failed')
-          sanity_path.write_text(sanity)
-
-          test_path = Path('lib/analyzer/__tests__/orion-parity-regression.test.mjs')
-          tests = test_path.read_text()
-          marker = 'const reverseIpActor = productionPath(`\n'
-          additions = '''const unrelatedInvoicePaymentsRemainPayable = productionPath(`
-          2.8 Invoice Requirements
-          Failure to submit a complete invoice within 30 calendar days waives the right to payment for the affected invoice, but all undisputed amounts under other invoices remain payable.
-          `);
-          check(
-            "unrelated payable invoices do not hide affected-invoice forfeiture",
-            unrelatedInvoicePaymentsRemainPayable.findings.some((finding) => finding.regulation === "Invoice Submission Deadline / Payment Waiver")
-          );
-
-          const affectedAmountProtected = productionPath(`
-          2.8 Invoice Requirements
-          Failure to submit a complete invoice within 30 calendar days waives the right to payment, except that the affected amount remains payable for performed work.
-          `);
-          check(
-            "same affected amount remains payable suppresses invoice payment waiver",
-            !affectedAmountProtected.findings.some((finding) => finding.regulation === "Invoice Submission Deadline / Payment Waiver")
-          );
-
-          const primeCustomerUse = productionPath(`
-          2.17 Improvements
-          Improvements may be used by Prime Contractor's customer without additional payment to Prime Contractor.
-          `);
-          check(
-            "Prime Contractor customer use does not become direct Prime use",
-            !primeCustomerUse.findings.some((finding) => finding.regulation === "Conditioned Pre-Existing IP Retention / Unpaid Use of Improvements")
-          );
-
-          const earlyNumberedAttachmentList = productionPath(`
-          1. Attachment List
-          2. Prime Contract Flow-Down Matrix Not included in current package.
-          3. Cybersecurity and CUI Requirements To be provided after award.
-          4. Certifications
-          Subcontractor certifies that its representations remain current.
-          `);
-          const earlyBoundedMissing = earlyNumberedAttachmentList.findings.find((finding) => finding.regulation === "Missing / Deferred Contract Documents");
-          check(
-            "early Attachment List retains higher-numbered attachment rows",
-            Boolean(earlyBoundedMissing && /Flow-Down Matrix/i.test(earlyBoundedMissing.foundText) && /Cybersecurity and CUI Requirements/i.test(earlyBoundedMissing.foundText)),
-            earlyBoundedMissing?.foundText ?? "missing finding"
-          );
-          check(
-            "early Attachment List excludes the next structural section",
-            Boolean(earlyBoundedMissing && !/Certifications/i.test(earlyBoundedMissing.foundText)),
-            earlyBoundedMissing?.foundText ?? "missing finding"
-          );
-
-          const incidentalAttachmentReference = productionPath(`
-          1. Instructions
-          See the Attachment List before signing.
-          2. Other Materials
-          This section contains general administrative information.
-          3. Attachment List
-          Attachment B Prime Contract Flow-Down Matrix Not included in current package.
-          4. Certifications
-          Subcontractor certifies that its representations remain current.
-          `);
-          const incidentalBoundedMissing = incidentalAttachmentReference.findings.find((finding) => finding.regulation === "Missing / Deferred Contract Documents");
-          check(
-            "incidental Attachment List reference is not selected as the heading",
-            Boolean(incidentalBoundedMissing && /^3\\.\\s*Attachment\\s+List/i.test(incidentalBoundedMissing.foundText)),
-            incidentalBoundedMissing?.foundText ?? "missing finding"
-          );
-          check(
-            "incidental reference does not pull other sections into evidence",
-            Boolean(incidentalBoundedMissing && !/Other Materials|Certifications/i.test(incidentalBoundedMissing.foundText)),
-            incidentalBoundedMissing?.foundText ?? "missing finding"
-          );
-
-          const labeledAttachmentList = productionPath(`
-          Attachment List:
-          Attachment B Prime Contract Flow-Down Matrix Not included in current package.
-          6. Certifications
-          Subcontractor certifies that its representations remain current.
-          `);
-          const labeledBoundedMissing = labeledAttachmentList.findings.find((finding) => finding.regulation === "Missing / Deferred Contract Documents");
-          check(
-            "colon-labeled Attachment List remains supported and bounded",
-            Boolean(labeledBoundedMissing && /Flow-Down Matrix/i.test(labeledBoundedMissing.foundText) && !/Certifications/i.test(labeledBoundedMissing.foundText)),
-            labeledBoundedMissing?.foundText ?? "missing finding"
-          );
-
-          '''
-          if tests.count(marker) != 1:
-              raise SystemExit('hardening regression insertion marker missing or duplicated')
-          test_path.write_text(tests.replace(marker, additions + marker, 1))
+          }'''
+          new = r'''function numberedBlockLooksLikeAttachmentRow(block: string): boolean {
+            return ATTACHMENT_ROW_STATUS_RE.test(block);
+          }'''
+          if script.count(old) != 1:
+              raise SystemExit(f"Expected one numbered-row classifier, found {script.count(old)}")
+          script = script.replace(old, new, 1)
+          exec(compile(script, "<verified-orion-hardening>", "exec"))
           PY
 
       - name: Install locked dependencies
