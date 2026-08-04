@@ -92,11 +92,20 @@ jobs:
 
           exec(compile(script, '<orion-parity-builder>', 'exec'))
 
-          # Governing-law text alone is not a venue/arbitration burden. Require
-          # explicit forum, venue, jurisdiction, court, mediation, or arbitration
-          # evidence before creating this deterministic finding.
           deterministic_path = Path('lib/analyzer/deterministic.ts')
           deterministic = deterministic_path.read_text()
+
+          # A neutral, bilateral venue clause—such as venue where the defendant
+          # is located—is not an adverse out-of-state burden. Require an
+          # exclusive/specified forum, mandatory filing location, binding
+          # arbitration, or unilateral Prime forum-selection right.
+          venue_re_start = deterministic.index('const VENUE_OR_ARBITRATION_EVIDENCE_RE =')
+          venue_re_end = deterministic.index('const GOVERNING_LAW_EVIDENCE_RE =', venue_re_start)
+          adverse_venue_regex = r'''const VENUE_OR_ARBITRATION_EVIDENCE_RE =
+            /(?:exclusive\s+)?(?:venue|jurisdiction)\s+(?:shall\s+be\s+|is\s+|lies\s+|must\s+be\s+)?(?:in|located\s+in)[^.]{0,120}(?:courts?|County|State|Commonwealth)|binding\s+arbitration|(?:arbitration|mediation|court\s+proceeding)[^.]{0,180}(?:(?:must|shall)\s+be\s+)?(?:brought|filed)\s+in|Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i;
+'''
+          deterministic = deterministic[:venue_re_start] + adverse_venue_regex + deterministic[venue_re_end:]
+
           old_venue_gate = 'VENUE_OR_ARBITRATION_EVIDENCE_RE.test(block) || GOVERNING_LAW_EVIDENCE_RE.test(block)'
           if deterministic.count(old_venue_gate) != 1:
               raise SystemExit(f'venue gate: expected one match, found {deterministic.count(old_venue_gate)}')
