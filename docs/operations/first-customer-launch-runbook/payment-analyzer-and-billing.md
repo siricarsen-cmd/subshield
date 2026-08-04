@@ -12,7 +12,7 @@ Confirm the PaymentIntent or payment shows **Succeeded** and the Checkout Sessio
 
 Confirm the relevant invoice shows **Paid**. An Active Bidder Checkout Session alone is not enough to grant credits.
 
-If payment is incomplete, unpaid, failed, pending, canceled, or refunded, stop. Credits are not expected from that state.
+If the payment or invoice never reached a successful paid state - for example, it is incomplete, unpaid, failed, pending, or was canceled before payment - stop; credits are not expected. If the payment succeeded and was later refunded, continue through the remaining reconciliation steps because credits may already have been granted, then follow Section H to reconcile the refund and credit outcome.
 
 ## Step 2 - identify the expected grant
 
@@ -122,7 +122,7 @@ Any manual adjustment must be:
 |---|---|---|---|
 | Ordinary processing exception | Analysis does not complete; customer receives a generic failure message | Reserved credit should be restored automatically | Confirm restoration and ask customer to retry only after health is normal |
 | Processing failure and restoration unconfirmed | Analysis does not complete | Credit restoration cannot be confirmed | Immediate technical escalation; tell customer not to retry yet |
-| OCR timeout or OCR runtime failure that aborts processing | System failure | Reserved credit should be restored | Confirm restoration, check incident, then advise on retry or alternate format |
+| Handled OCR timeout or OCR runtime failure | OCR attempt fails or times out, but the review completes as a Limited Scan | Credit remains consumed because a report was completed | Explain the Limited Scan, check the OCR warning, and suggest a better source format; any goodwill replacement credit is Carsen's decision |
 | Scanned PDF yields insufficient readable text but completes | Valid Limited Scan | Credit remains consumed because a completed report was produced | Explain limitations; suggest text PDF, DOCX, TXT, or pasted text for a new review |
 | Garbled or insufficient input | Valid Limited Scan | Credit remains consumed if the report completed | Explain that readable evidence was insufficient; do not describe it as a system outage |
 | Completed report with customer disagreement | Completed report | No automatic restoration | Acknowledge concern and escalate accuracy review without promising a legal outcome |
@@ -155,23 +155,26 @@ A processing exception should change the reservation to **refunded**, restore on
 
 Escalate immediately if the reservation is still active, the review is stuck in Processing, or the credit restoration is unconfirmed.
 
-## F2. OCR timeout
+## F2. OCR timeout or OCR runtime failure
 
 ### Carsen action
 
 1. Confirm the document was a scanned/image-only PDF.
 2. Ask the customer not to email the document.
-3. Check whether the failure message confirmed credit restoration.
-4. After restoration and health confirmation, suggest one of these options:
+3. Check the final review status before describing the credit outcome:
+   - **Limited Scan / completed report:** the caught OCR timeout or failure degraded safely into a completed Limited Scan, so the credit remains consumed. Explain the limitation and do not promise restoration.
+   - **Processing Failed / no completed report:** the analyzer aborted, so the reserved credit should be restored. Confirm the restoration before asking the customer to retry.
+4. After confirming the status and current health, suggest one of these options:
    - Retry the scanned PDF once.
    - Export a text-based PDF.
    - Save as DOCX.
    - Upload TXT.
    - Paste the relevant contract text.
+5. If the review completed as a Limited Scan, any goodwill replacement credit is a separate Carsen decision and is not automatic.
 
 ### Technical escalation
 
-Escalate if multiple customers experience OCR timeouts, the same customer fails twice on a reasonable scan, or operational health is degraded by OCR incidents.
+Escalate if the report status and reservation result conflict, multiple customers experience OCR timeouts, the same customer encounters the issue twice on a reasonable scan, or operational health is degraded by OCR incidents.
 
 ## F3. Scanned-PDF extraction failure
 
