@@ -20,19 +20,22 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: 24
           cache: npm
-      - name: Apply corrected analyzer patch
+      - name: Apply, verify, and commit the analyzer correction
         shell: bash
         run: |
-          python - <<'PY'
+          set +e
+          LOG=ORION_RUNNER_DIAGNOSTIC.txt
+          : > "$LOG"
+
+          python - <<'PY' >> "$LOG" 2>&1
           from pathlib import Path
           import base64
           import re
           import zlib
 
-          builder_path = Path('.github/workflows/orion-parity-fix-builder.yml')
-          builder = builder_path.read_text()
+          builder = Path('.github/workflows/orion-parity-fix-builder.yml').read_text()
           match = re.search(r'b64decode\("([^"]+)"\)', builder)
           if not match:
               raise SystemExit('Could not locate encoded builder payload')
@@ -45,22 +48,27 @@ jobs:
           script = script.replace(old, new)
           exec(compile(script, '<orion-parity-builder>', 'exec'))
           PY
-      - name: Install dependencies
-        run: npm ci
-      - name: Run analyzer accuracy suite
-        run: npm run test:accuracy
-      - name: TypeScript
-        run: npx tsc --noEmit
-      - name: Production build
-        run: npm run build
-      - name: Remove temporary files and commit verified implementation
-        shell: bash
-        run: |
-          rm -f ORION_PARITY_FIX_TASK.md
-          rm -f .github/workflows/orion-parity-fix-builder.yml
-          rm -f .github/workflows/orion-parity-fix-runner.yml
+          STATUS=$?
+
+          if [ "$STATUS" -eq 0 ]; then npm ci >> "$LOG" 2>&1; STATUS=$?; fi
+          if [ "$STATUS" -eq 0 ]; then npm run test:accuracy >> "$LOG" 2>&1; STATUS=$?; fi
+          if [ "$STATUS" -eq 0 ]; then npx tsc --noEmit >> "$LOG" 2>&1; STATUS=$?; fi
+          if [ "$STATUS" -eq 0 ]; then npm run build >> "$LOG" 2>&1; STATUS=$?; fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [ "$STATUS" -ne 0 ]; then
+            git add "$LOG"
+            git commit -m "Record Orion parity runner diagnostic"
+            git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
+            exit "$STATUS"
+          fi
+
+          rm -f "$LOG"
+          rm -f ORION_PARITY_FIX_TASK.md ORION_RUN_TRIGGER.txt
+          rm -f .github/workflows/orion-parity-fix-builder.yml
+          rm -f .github/workflows/orion-parity-fix-runner.yml
           git add -A
           git commit -m "Fix Orion parity grounding and invoice waiver detection"
           git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
