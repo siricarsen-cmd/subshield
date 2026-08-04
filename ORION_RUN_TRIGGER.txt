@@ -1,1 +1,1 @@
-Trigger the one-time Orion parity analyzer fix runner after narrowing the venue detector to explicit adverse forum evidence. Remove this file before final review.
+Trigger the simplified Orion parity implementation runner. Remove this file and every other temporary Orion file before final review.
