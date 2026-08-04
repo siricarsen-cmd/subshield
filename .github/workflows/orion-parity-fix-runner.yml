@@ -56,9 +56,39 @@ jobs:
           end = script.index('def replace_block', start)
           script = script[:start] + flexible_replace + script[end:]
 
-          # Align category marker/property indentation with deterministic.ts.
           for prop in ('familyKey', 'regulation', 'severity', 'patterns', 'findCandidate', 'riskAnalysis', 'redlineFix', 'buildRiskAnalysis'):
               script = script.replace(f'\n  {prop}:', f'\n    {prop}:')
+
+          robust_sanity_patch = r'''sanity_path = Path('lib/analyzer/sanity.ts')
+          sanity = sanity_path.read_text()
+          function_start = sanity.index('function unsupportedFindingLocalClaim')
+          return_marker = '  return null;\n}'
+          insert_at = sanity.index(return_marker, function_start)
+          guards = r'''  const forumBurdenClaim =
+            /litigat|arbitrat|forum\s+(?:far|stated|required)|must\s+be\s+brought|filed\s+in/i.test(claim);
+          const forumBurdenEvidence =
+            /(?:exclusive\s+)?(?:venue|jurisdiction)\b|binding\s+arbitration|(?:arbitration|mediation|court\s+proceeding)[^.]{0,180}(?:brought|filed)\s+in|Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i.test(quote);
+          if (forumBurdenClaim && !forumBurdenEvidence) {
+            return "Finding's analysis claims a litigation, arbitration, or forum requirement that is not stated in the finding's own verified quote.";
+          }
+
+          const unpaidImprovementClaim =
+            /improvements?|adaptations?[^.]{0,100}(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use)|(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use)[^.]{0,100}(?:improvements?|adaptations?)/i.test(claim);
+          const unpaidImprovementEvidence =
+            /improvements?|adaptations?/i.test(quote) &&
+            /without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)/i.test(quote);
+          if (unpaidImprovementClaim && !unpaidImprovementEvidence) {
+            return "Finding's analysis claims unpaid Prime use of improvements or adaptations that is not stated in the finding's own verified quote.";
+          }
+
+          '''
+          sanity = sanity[:insert_at] + guards + sanity[insert_at:]
+          sanity_path.write_text(sanity)
+
+          '''
+          sanity_start = script.index("sanity_path = Path('lib/analyzer/sanity.ts')")
+          sanity_end = script.index("fixture_path = Path('lib/analyzer/__fixtures__/orion-parity-regression-fixture.mjs')", sanity_start)
+          script = script[:sanity_start] + robust_sanity_patch + script[sanity_end:]
 
           exec(compile(script, '<orion-parity-builder>', 'exec'))
           PY
