@@ -186,25 +186,49 @@ const DOCUMENT_ABSENCE_RE =
 const DOCUMENT_DEFERRAL_RE =
   /(?:will|shall|may)\s+be\s+(?:provided|furnished|attached|included)\s+(?:after\s+(?:execution|award|signing)|later)|(?:will|shall)\s+(?:provide|furnish|attach|include)[^.]{0,100}(?:after\s+(?:execution|award|signing)|later)/i;
 
-const ATTACHMENT_LIST_START_RE = /\b(?:(\d+)\.\s*)?Attachment\s+List\b/i;
+interface AttachmentListStart {
+  index: number;
+  heading: string;
+}
+
+const ATTACHMENT_LIST_START_RE =
+  /(?:\b(?:Section\s+)?\d+\.\s+Attachment\s+List\b|\bAttachment\s+List\s*:)/gi;
+const ATTACHMENT_LIST_REFERENCE_CONTEXT_RE =
+  /(?:see|refer(?:red)?\s+to|review|consult)\s+(?:the\s+)?(?:section\s+)?$/i;
 const ATTACHMENT_LIST_NAMED_END_RE =
   /\b(?:\d+\.\s*)?(?:Subcontractor\s+Questions\s+Form|Quote\s+Submission\s+Instructions)\b/i;
-const NUMBERED_SECTION_HEADING_RE =
-  /\b(\d+)\.\s+(?!\d)(?:[A-Z][A-Za-z0-9/&()'\u2019-]*(?:\s+[A-Z][A-Za-z0-9/&()'\u2019-]*){0,10})\b/g;
+const NUMBERED_ATTACHMENT_BLOCK_RE = /\b(?:Section\s+)?\d+\.\s+/g;
+const ATTACHMENT_ROW_STATUS_RE =
+  /\b(?:included|not\s+included|to\s+be\s+provided|provided\s+after|not\s+attached|attached|missing|omitted)\b/i;
 
-function findAttachmentListEnd(afterStart: string, attachmentSectionNumber: number | null): number | null {
+function findAttachmentListStart(documentText: string): AttachmentListStart | null {
+  ATTACHMENT_LIST_START_RE.lastIndex = 0;
+  for (const match of documentText.matchAll(ATTACHMENT_LIST_START_RE)) {
+    const index = match.index ?? 0;
+    const precedingContext = documentText.slice(Math.max(0, index - 48), index);
+    if (ATTACHMENT_LIST_REFERENCE_CONTEXT_RE.test(precedingContext)) continue;
+    return { index, heading: match[0] };
+  }
+  return null;
+}
+
+function numberedBlockLooksLikeAttachmentRow(block: string): boolean {
+  return ATTACHMENT_ROW_STATUS_RE.test(block);
+}
+
+function findAttachmentListEnd(afterStart: string): number | null {
   const namedEnd = ATTACHMENT_LIST_NAMED_END_RE.exec(afterStart)?.index ?? null;
+  NUMBERED_ATTACHMENT_BLOCK_RE.lastIndex = 0;
+  const numberedMatches = [...afterStart.matchAll(NUMBERED_ATTACHMENT_BLOCK_RE)];
   let numberedEnd: number | null = null;
 
-  if (attachmentSectionNumber !== null) {
-    NUMBERED_SECTION_HEADING_RE.lastIndex = 0;
-    for (const match of afterStart.matchAll(NUMBERED_SECTION_HEADING_RE)) {
-      const candidateNumber = Number(match[1]);
-      if (candidateNumber > attachmentSectionNumber) {
-        numberedEnd = match.index ?? null;
-        break;
-      }
-    }
+  for (let index = 0; index < numberedMatches.length; index++) {
+    const start = numberedMatches[index].index ?? 0;
+    const nextStart = numberedMatches[index + 1]?.index ?? afterStart.length;
+    const block = afterStart.slice(start, Math.min(nextStart, start + 420));
+    if (numberedBlockLooksLikeAttachmentRow(block)) continue;
+    numberedEnd = start;
+    break;
   }
 
   if (namedEnd === null) return numberedEnd;
@@ -217,13 +241,12 @@ function findMissingDocumentsCandidate(documentText: string): string | null {
   // much larger structural block. Prefer the literal Attachment List
   // range and stop before the next top-level section so the displayed
   // evidence remains focused on the actually missing/deferred items.
-  const start = ATTACHMENT_LIST_START_RE.exec(documentText);
+  const start = findAttachmentListStart(documentText);
   if (start) {
-    const afterStart = documentText.slice(start.index + start[0].length);
-    const attachmentSectionNumber = start[1] ? Number(start[1]) : null;
-    const endOffset = findAttachmentListEnd(afterStart, attachmentSectionNumber);
+    const afterStart = documentText.slice(start.index + start.heading.length);
+    const endOffset = findAttachmentListEnd(afterStart);
     const finish = endOffset !== null
-      ? start.index + start[0].length + endOffset
+      ? start.index + start.heading.length + endOffset
       : Math.min(documentText.length, start.index + 1800);
     const attachmentBlock = documentText
       .slice(start.index, finish)
@@ -583,13 +606,21 @@ function buildGeneralWithholdingAnalysis(foundText: string): string {
 
 const INVOICE_PAYMENT_WAIVER_RE =
   /failure\s+to\s+submit[^.]{0,140}(?:complete\s+)?invoice[^.]{0,140}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?[^.]{0,120}(?:waives?|forfeits?)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
-const PAYMENT_RIGHT_PRESERVED_RE =
-  /(?:does|shall|will)\s+not\s+(?:waive|forfeit)[^.]{0,80}(?:right|entitlement)\s+to\s+payment|(?:right|entitlement)\s+to\s+payment[^.]{0,80}(?:is|shall|will)\s+not\s+(?:waived|forfeited)|(?:all\s+)?(?:amounts?|payment)[^.]{0,100}(?:remain|remains|shall\s+remain|will\s+remain)\s+(?:payable|due)/i;
+const EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE =
+  /(?:does|shall|will)\s+not\s+(?:waive|forfeit)[^.]{0,80}(?:right|entitlement)\s+to\s+payment|(?:right|entitlement)\s+to\s+payment[^.]{0,80}(?:is|shall|will)\s+not\s+(?:waived|forfeited)/i;
+const SAME_SCOPE_PAYMENT_REMAINS_RE =
+  /(?:except(?:\s+that)?|however|provided\s+that|but|notwithstanding)[^.]{0,180}(?:(?:the\s+)?(?:affected|subject|late|delayed)\s+(?:invoice|amount|payment)|(?:all\s+)?(?:amounts?|payment)\s+for\s+(?:performed|completed|accepted)\s+(?:work|services|deliverables)|(?:all\s+)?(?:amounts?|payment)\s+(?:for|under)\s+(?:the\s+)?(?:affected|subject|late|delayed)\s+invoice)[^.]{0,120}(?:remain|remains|shall\s+remain|will\s+remain)\s+(?:payable|due)/i;
+const OTHER_INVOICE_SCOPE_RE = /\b(?:other|unrelated|separate)\s+invoices?\b/i;
+
+function hasPaymentRightPreservationEvidence(block: string): boolean {
+  if (OTHER_INVOICE_SCOPE_RE.test(block) && !SAME_SCOPE_PAYMENT_REMAINS_RE.test(block)) return false;
+  return EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(block) || SAME_SCOPE_PAYMENT_REMAINS_RE.test(block);
+}
 
 function findInvoicePaymentWaiverCandidate(documentText: string): string | null {
   return findClauseCandidate(
     documentText,
-    (block) => INVOICE_PAYMENT_WAIVER_RE.test(block) && !PAYMENT_RIGHT_PRESERVED_RE.test(block)
+    (block) => INVOICE_PAYMENT_WAIVER_RE.test(block) && !hasPaymentRightPreservationEvidence(block)
   );
 }
 
@@ -600,19 +631,34 @@ function buildInvoicePaymentWaiverAnalysis(foundText: string): string {
 
 const CONDITIONED_PREEXISTING_IP_RE =
   /pre[\s-]existing\s+(?:ip|intellectual\s+property|tools?|materials|methods|know[\s-]how)[^.]{0,200}only\s+if[^.]{0,150}(?:identif|disclos|approve[sd]?|written\s+approval)/i;
-const UNPAID_IMPROVEMENTS_USE_RE =
-  /(?:improvements?|adaptations?)[^.]{0,180}may\s+be\s+used\s+by\s+Prime(?:\s+Contractor)?[^.]{0,160}without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|Prime(?:\s+Contractor)?\s+may\s+use[^.]{0,160}(?:improvements?|adaptations?)[^.]{0,160}without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)/i;
+const DIRECT_PRIME_PASSIVE_USE_RE =
+  /may\s+be\s+used\s+by\s+(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))/i;
+const DIRECT_PRIME_ACTIVE_USE_RE =
+  /(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))\s+may\s+use/i;
+const IMPROVEMENTS_OR_ADAPTATIONS_RE = /improvements?|adaptations?/i;
+const WITHOUT_ADDITIONAL_PAYMENT_RE =
+  /without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)/i;
+
+export function hasUnpaidPrimeImprovementsUseEvidence(text: string): boolean {
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  return sentences.some(
+    (sentence) =>
+      IMPROVEMENTS_OR_ADAPTATIONS_RE.test(sentence) &&
+      WITHOUT_ADDITIONAL_PAYMENT_RE.test(sentence) &&
+      (DIRECT_PRIME_PASSIVE_USE_RE.test(sentence) || DIRECT_PRIME_ACTIVE_USE_RE.test(sentence))
+  );
+}
 
 function findConditionedPreExistingIpCandidate(documentText: string): string | null {
   return findClauseCandidate(
     documentText,
-    (block) => CONDITIONED_PREEXISTING_IP_RE.test(block) || UNPAID_IMPROVEMENTS_USE_RE.test(block)
+    (block) => CONDITIONED_PREEXISTING_IP_RE.test(block) || hasUnpaidPrimeImprovementsUseEvidence(block)
   );
 }
 
 function buildConditionedPreExistingIpAnalysis(foundText: string): string {
   const conditioned = CONDITIONED_PREEXISTING_IP_RE.test(foundText);
-  const unpaidUse = UNPAID_IMPROVEMENTS_USE_RE.test(foundText);
+  const unpaidUse = hasUnpaidPrimeImprovementsUseEvidence(foundText);
   if (conditioned && unpaidUse) {
     return "This clause conditions the Subcontractor's retention of its pre-existing tools, methods, and background materials on advance written identification and approval, and permits Prime use of stated improvements or adaptations without additional payment, creating ownership and uncompensated-use exposure.";
   }

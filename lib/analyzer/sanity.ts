@@ -9,6 +9,7 @@ import {
   hasComprehensiveTerminationRecoveryEvidence,
   hasProtectiveTerminationForConvenienceRestrictionEvidence,
   hasTerminationForConvenienceRiskEvidence,
+  hasUnpaidPrimeImprovementsUseEvidence,
 } from "./deterministic";
 import type { Finding } from "./types";
 
@@ -141,8 +142,7 @@ function unsupportedFindingLocalClaim(finding: Finding): string | null {
 
   const unpaidImprovementClaim =
     /improvements?|adaptations?[^.]{0,100}(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use)|(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use)[^.]{0,100}(?:improvements?|adaptations?)/i.test(claim);
-  const unpaidImprovementEvidence =
-    /(?:improvements?|adaptations?)[^.]{0,180}may\s+be\s+used\s+by\s+Prime(?:\s+Contractor)?[^.]{0,160}without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|Prime(?:\s+Contractor)?\s+may\s+use[^.]{0,160}(?:improvements?|adaptations?)[^.]{0,160}without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)/i.test(quote);
+  const unpaidImprovementEvidence = hasUnpaidPrimeImprovementsUseEvidence(quote);
   if (unpaidImprovementClaim && !unpaidImprovementEvidence) {
     return "Finding's analysis claims unpaid Prime use of improvements or adaptations that is not stated in the finding's own verified quote.";
   }
