@@ -1,1 +1,132 @@
-mandatory venue recall and defendant-location guard: expected exactly one match, found 0
+npm warn deprecated @supabase/auth-helpers-nextjs@0.15.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
+added 426 packages, and audited 427 packages in 15s
+
+150 packages are looking for funding
+  run `npm fund` for details
+
+4 vulnerabilities (2 moderate, 2 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues, run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+npm warn allow-scripts 2 packages have install scripts not yet covered by allowScripts:
+npm warn allow-scripts   tesseract.js@7.0.0 (postinstall: opencollective-postinstall || true)
+npm warn allow-scripts   unrs-resolver@1.12.2 (postinstall: node postinstall.js)
+npm warn allow-scripts
+npm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.
+
+> subshield@0.1.0 test:accuracy
+> npm run test:accuracy:core && npm run test:accuracy:orion && npm run test:accuracy:qa-c
+
+
+> subshield@0.1.0 test:accuracy:core
+> node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/analyzer/__tests__/qa-core-accuracy-benchmark.test.mjs
+
+(node:2364) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("./lib/analyzer/__tests__/ts-relative-import.loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS: QA-B paragraph: extraction is confidently complete
+PASS: QA-B paragraph: clean protective contract has no deterministic adverse findings
+PASS: QA-B paragraph: no candidate was dropped after being generated
+PASS: QA-B flattened-paste: extraction is confidently complete
+PASS: QA-B flattened-paste: clean protective contract has no deterministic adverse findings
+PASS: QA-B flattened-paste: no candidate was dropped after being generated
+PASS: QA-D paragraph: extraction is confidently complete
+PASS: QA-D paragraph: detects Acceptance, Rejection, or Rework Without Clear Compensation
+PASS: QA-D paragraph: detects Broad Indemnification / Duty to Defend
+PASS: QA-D paragraph: detects Broad Setoff / Backcharge / Withholding Rights
+PASS: QA-D paragraph: detects Continue-Performance Obligation During Payment Dispute
+PASS: QA-D paragraph: detects Missing or Unresolved Wage Determination / Labor Standards Requirement
+PASS: QA-D paragraph: detects Short Default Cure Period / Termination Discretion
+PASS: QA-D paragraph: detects Short Notice-of-Claim / Change Notice Waiver
+PASS: QA-D paragraph: detects Termination for Convenience
+PASS: QA-D paragraph: every deterministic finding survives verification
+PASS: QA-D paragraph: every final quote exists in the normalized source
+PASS: QA-D paragraph: every final analysis passes finding-local verification
+PASS: QA-D paragraph: wage-determination finding quotes absence and deferral evidence
+PASS: QA-D paragraph: wage finding does not invent a wage rate or labor classification
+PASS: QA-D flattened-paste: extraction is confidently complete
+PASS: QA-D flattened-paste: detects Acceptance, Rejection, or Rework Without Clear Compensation
+PASS: QA-D flattened-paste: detects Broad Indemnification / Duty to Defend
+PASS: QA-D flattened-paste: detects Broad Setoff / Backcharge / Withholding Rights
+PASS: QA-D flattened-paste: detects Continue-Performance Obligation During Payment Dispute
+PASS: QA-D flattened-paste: detects Missing or Unresolved Wage Determination / Labor Standards Requirement
+PASS: QA-D flattened-paste: detects Short Default Cure Period / Termination Discretion
+PASS: QA-D flattened-paste: detects Short Notice-of-Claim / Change Notice Waiver
+PASS: QA-D flattened-paste: detects Termination for Convenience
+PASS: QA-D flattened-paste: every deterministic finding survives verification
+PASS: QA-D flattened-paste: every final quote exists in the normalized source
+PASS: QA-D flattened-paste: every final analysis passes finding-local verification
+PASS: QA-D flattened-paste: wage-determination finding quotes absence and deferral evidence
+PASS: QA-D flattened-paste: wage finding does not invent a wage rate or labor classification
+PASS: QA-D flattened-paste: material deterministic labels match the paragraph representation
+PASS: QA-E1 degraded readable fragments: extraction is not treated as complete
+PASS: QA-E1 degraded readable fragments: confidence gate explains why review is unreliable
+PASS: QA-E1 degraded readable fragments: production analyzer returns Limited Scan
+PASS: QA-E1 degraded readable fragments: Limited Scan contains no definitive primary or secondary findings
+PASS: QA-E1 degraded readable fragments: Limited Scan does not draft a completed-review memo
+PASS: QA-E1 degraded readable fragments: supplied safety reason is preserved
+PASS: QA-E1 image-only empty extraction: extraction is not treated as complete
+PASS: QA-E1 image-only empty extraction: confidence gate explains why review is unreliable
+PASS: QA-E1 image-only empty extraction: production analyzer returns Limited Scan
+PASS: QA-E1 image-only empty extraction: Limited Scan contains no definitive primary or secondary findings
+PASS: QA-E1 image-only empty extraction: Limited Scan does not draft a completed-review memo
+PASS: QA-E1 image-only empty extraction: supplied safety reason is preserved
+
+All 47 QA-B, QA-D, and QA-E1 accuracy benchmark assertions passed.
+(node:2364) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/runner/work/subshield/subshield/lib/analyzer/deterministic.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /home/runner/work/subshield/subshield/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> subshield@0.1.0 test:accuracy:orion
+> node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/analyzer/__tests__/orion-parity-regression.test.mjs
+
+(node:2384) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("./lib/analyzer/__tests__/ts-relative-import.loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS: paragraph: document anchor preserves both T&M and FFP evidence
+PASS: paragraph: classifier remains Hybrid
+PASS: paragraph: detects invoice payment waiver
+PASS: paragraph: invoice waiver quote contains deadline and forfeiture
+PASS: paragraph: IP quote contains unpaid-use evidence
+PASS: paragraph: IP analysis is finding-local
+PASS: paragraph: venue quote contains Arlington forum evidence
+PASS: paragraph: venue analysis is finding-local
+PASS: paragraph: missing-document quote starts at Attachment List
+PASS: paragraph: missing-document quote excludes unrelated preceding/following sections
+PASS: paragraph: every final quote remains source-grounded
+PASS: paragraph: no deterministic finding is dropped
+PASS: flattened: document anchor preserves both T&M and FFP evidence
+PASS: flattened: classifier remains Hybrid
+PASS: flattened: detects invoice payment waiver
+PASS: flattened: invoice waiver quote contains deadline and forfeiture
+PASS: flattened: IP quote contains unpaid-use evidence
+PASS: flattened: IP analysis is finding-local
+PASS: flattened: venue quote contains Arlington forum evidence
+PASS: flattened: venue analysis is finding-local
+PASS: flattened: missing-document quote starts at Attachment List
+PASS: flattened: missing-document quote excludes unrelated preceding/following sections
+PASS: flattened: every final quote remains source-grounded
+PASS: flattened: no deterministic finding is dropped
+PASS: inline abbreviated label: anchor preserves abbreviated T&M and FFP evidence
+PASS: newline abbreviated label: anchor preserves abbreviated T&M and FFP evidence
+PASS: ordinary invoice deadline without forfeiture does not trigger payment-waiver finding
+PASS: governing-law-only text does not trigger venue finding
+PASS: procedural waiver that preserves payment does not trigger invoice payment waiver
+PASS: Subcontractor use of improvements does not become unpaid Prime use
+PASS: bilateral defendant-location venue remains clean
+PASS: mandatory action: direct Arlington forum language triggers
+PASS: mandatory action: venue analysis remains finding-local
+PASS: mandatory lawsuit: direct Arlington forum language triggers
+PASS: mandatory lawsuit: venue analysis remains finding-local
+FAIL: generic numbered section bounds Attachment List evidence
+PASS: conditioned-IP-only analysis does not invent unpaid improvements
+PASS: conditioned-IP-only analysis remains finding-local
+
+1 of 38 Orion parity regression assertions failed.
