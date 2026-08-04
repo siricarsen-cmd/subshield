@@ -32,13 +32,13 @@ jobs:
           python - <<'PY' >> "$LOG" 2>&1
           from pathlib import Path
           import re
-          import textwrap
 
           workflow = Path('.github/workflows/orion-review-edge-fix.yml').read_text()
           match = re.search(r"python - <<'PY'\n(.*?)\n\s+PY", workflow, re.S)
           if not match:
               raise SystemExit('Could not extract the reviewed edge-case patch script')
-          script = textwrap.dedent(match.group(1))
+          lines = match.group(1).splitlines()
+          script = "\n".join(line[10:] if line.startswith("          ") else line for line in lines)
           exec(compile(script, '<orion-review-edge-fix>', 'exec'))
           PY
           STATUS=$?
@@ -53,7 +53,7 @@ jobs:
 
           if [ "$STATUS" -ne 0 ]; then
             git add "$LOG"
-            git commit -m "Record Orion edge-case diagnostic"
+            git commit -m "Update Orion edge-case diagnostic"
             git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
             exit "$STATUS"
           fi
