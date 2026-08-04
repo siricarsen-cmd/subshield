@@ -186,9 +186,31 @@ const DOCUMENT_ABSENCE_RE =
 const DOCUMENT_DEFERRAL_RE =
   /(?:will|shall|may)\s+be\s+(?:provided|furnished|attached|included)\s+(?:after\s+(?:execution|award|signing)|later)|(?:will|shall)\s+(?:provide|furnish|attach|include)[^.]{0,100}(?:after\s+(?:execution|award|signing)|later)/i;
 
-const ATTACHMENT_LIST_START_RE = /\b(?:\d+\.\s*)?Attachment\s+List\b/i;
-const ATTACHMENT_LIST_END_RE =
-  /\b\d+\.\s+(?!\d)(?:[A-Z][A-Za-z0-9/&()'\u2019-]*(?:\s+[A-Z][A-Za-z0-9/&()'\u2019-]*){0,10})\b/;
+const ATTACHMENT_LIST_START_RE = /\b(?:(\d+)\.\s*)?Attachment\s+List\b/i;
+const ATTACHMENT_LIST_NAMED_END_RE =
+  /\b(?:\d+\.\s*)?(?:Subcontractor\s+Questions\s+Form|Quote\s+Submission\s+Instructions)\b/i;
+const NUMBERED_SECTION_HEADING_RE =
+  /\b(\d+)\.\s+(?!\d)(?:[A-Z][A-Za-z0-9/&()'\u2019-]*(?:\s+[A-Z][A-Za-z0-9/&()'\u2019-]*){0,10})\b/g;
+
+function findAttachmentListEnd(afterStart: string, attachmentSectionNumber: number | null): number | null {
+  const namedEnd = ATTACHMENT_LIST_NAMED_END_RE.exec(afterStart)?.index ?? null;
+  let numberedEnd: number | null = null;
+
+  if (attachmentSectionNumber !== null) {
+    NUMBERED_SECTION_HEADING_RE.lastIndex = 0;
+    for (const match of afterStart.matchAll(NUMBERED_SECTION_HEADING_RE)) {
+      const candidateNumber = Number(match[1]);
+      if (candidateNumber > attachmentSectionNumber) {
+        numberedEnd = match.index ?? null;
+        break;
+      }
+    }
+  }
+
+  if (namedEnd === null) return numberedEnd;
+  if (numberedEnd === null) return namedEnd;
+  return Math.min(namedEnd, numberedEnd);
+}
 
 function findMissingDocumentsCandidate(documentText: string): string | null {
   // DOCX/PDF table extraction can flatten the attachment table into a
@@ -198,9 +220,10 @@ function findMissingDocumentsCandidate(documentText: string): string | null {
   const start = ATTACHMENT_LIST_START_RE.exec(documentText);
   if (start) {
     const afterStart = documentText.slice(start.index + start[0].length);
-    const end = ATTACHMENT_LIST_END_RE.exec(afterStart);
-    const finish = end
-      ? start.index + start[0].length + end.index
+    const attachmentSectionNumber = start[1] ? Number(start[1]) : null;
+    const endOffset = findAttachmentListEnd(afterStart, attachmentSectionNumber);
+    const finish = endOffset !== null
+      ? start.index + start[0].length + endOffset
       : Math.min(documentText.length, start.index + 1800);
     const attachmentBlock = documentText
       .slice(start.index, finish)
@@ -561,7 +584,7 @@ function buildGeneralWithholdingAnalysis(foundText: string): string {
 const INVOICE_PAYMENT_WAIVER_RE =
   /failure\s+to\s+submit[^.]{0,140}(?:complete\s+)?invoice[^.]{0,140}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?[^.]{0,120}(?:waives?|forfeits?)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const PAYMENT_RIGHT_PRESERVED_RE =
-  /(?:does|shall|will)\s+not\s+(?:waive|forfeit)[^.]{0,80}(?:right|entitlement)\s+to\s+payment|(?:right|entitlement)\s+to\s+payment[^.]{0,80}(?:is|shall|will)\s+not\s+(?:waived|forfeited)/i;
+  /(?:does|shall|will)\s+not\s+(?:waive|forfeit)[^.]{0,80}(?:right|entitlement)\s+to\s+payment|(?:right|entitlement)\s+to\s+payment[^.]{0,80}(?:is|shall|will)\s+not\s+(?:waived|forfeited)|(?:all\s+)?(?:amounts?|payment)[^.]{0,100}(?:remain|remains|shall\s+remain|will\s+remain)\s+(?:payable|due)/i;
 
 function findInvoicePaymentWaiverCandidate(documentText: string): string | null {
   return findClauseCandidate(
@@ -600,9 +623,9 @@ function buildConditionedPreExistingIpAnalysis(foundText: string): string {
 }
 
 const VENUE_OR_ARBITRATION_EVIDENCE_RE =
-  /(?:exclusive\s+)?(?:venue|jurisdiction)\s+(?:shall\s+be\s+|is\s+|lies\s+|must\s+be\s+)?(?:in|located\s+in)[^.]{0,120}(?:courts?|County|State|Commonwealth)|binding\s+arbitration|(?:(?:any\s+)?(?:action|lawsuit|claim|dispute|proceeding)|arbitration|mediation|court\s+proceeding)[^.]{0,180}(?:(?:must|shall)\s+be\s+)?(?:brought|filed)\s+(?:exclusively\s+)?in|Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i;
+  /(?:exclusive\s+)?(?:venue|jurisdiction)\s+(?:shall\s+be\s+|is\s+|lies\s+|must\s+be\s+)?(?:in|located\s+in)[^.]{0,120}(?:courts?|County|State|Commonwealth)|binding\s+arbitration|(?:(?:any\s+)?(?:action|lawsuit|claim|dispute|proceeding)|arbitration|mediation|court\s+proceeding)[^.]{0,180}(?:must|shall)\s+be\s+(?:brought|filed)\s+(?:exclusively\s+)?in|Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i;
 const BILATERAL_DEFENDANT_VENUE_RE =
-  /(?:exclusive\s+)?venue[^.]{0,220}(?:where|located\s+where)[^.]{0,80}\bdefendant\b[^.]{0,80}(?:resides?|is\s+located|has\s+its\s+principal\s+place\s+of\s+business)/i;
+  /(?:(?:exclusive\s+)?venue|(?:any\s+)?(?:action|lawsuit|claim|dispute|proceeding))[^.]{0,240}(?:where|located\s+where|in\s+(?:a\s+)?court\s+where)[^.]{0,100}\bdefendant\b[^.]{0,100}(?:resides?|is\s+located|has\s+its\s+principal\s+place\s+of\s+business)/i;
 const GOVERNING_LAW_EVIDENCE_RE =
   /(?:governing\s+law|governed\s+by\s+the\s+laws\s+of)[^.]{0,100}(?:State\s+of|Commonwealth\s+of)\s+[A-Z][a-zA-Z]+/i;
 
