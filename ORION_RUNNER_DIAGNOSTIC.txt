@@ -1,1 +1,4 @@
-finding-local venue and IP guards: expected one exact or indentation-tolerant match, found 0
+  File "<stdin>", line 35
+    guards = r'''  const forumBurdenClaim =
+                   ^^^^^
+SyntaxError: invalid syntax
