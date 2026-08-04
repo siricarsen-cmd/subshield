@@ -186,10 +186,39 @@ const DOCUMENT_ABSENCE_RE =
 const DOCUMENT_DEFERRAL_RE =
   /(?:will|shall|may)\s+be\s+(?:provided|furnished|attached|included)\s+(?:after\s+(?:execution|award|signing)|later)|(?:will|shall)\s+(?:provide|furnish|attach|include)[^.]{0,100}(?:after\s+(?:execution|award|signing)|later)/i;
 
+const ATTACHMENT_LIST_START_RE = /\b(?:\d+\.\s*)?Attachment\s+List\b/i;
+const ATTACHMENT_LIST_END_RE =
+  /\b(?:\d+\.\s*)?(?:Subcontractor\s+Questions\s+Form|Quote\s+Submission\s+Instructions)\b/i;
+
 function findMissingDocumentsCandidate(documentText: string): string | null {
+  // DOCX/PDF table extraction can flatten the attachment table into a
+  // much larger structural block. Prefer the literal Attachment List
+  // range and stop before the next top-level section so the displayed
+  // evidence remains focused on the actually missing/deferred items.
+  const start = ATTACHMENT_LIST_START_RE.exec(documentText);
+  if (start) {
+    const afterStart = documentText.slice(start.index + start[0].length);
+    const end = ATTACHMENT_LIST_END_RE.exec(afterStart);
+    const finish = end
+      ? start.index + start[0].length + end.index
+      : Math.min(documentText.length, start.index + 1800);
+    const attachmentBlock = documentText
+      .slice(start.index, finish)
+      .trim()
+      .replace(/\s+/g, " ");
+    if (
+      NAMED_CONTRACT_DOCUMENT_RE.test(attachmentBlock) &&
+      (DOCUMENT_ABSENCE_RE.test(attachmentBlock) || DOCUMENT_DEFERRAL_RE.test(attachmentBlock))
+    ) {
+      return attachmentBlock;
+    }
+  }
+
   return findClauseCandidate(
     documentText,
-    (block) => NAMED_CONTRACT_DOCUMENT_RE.test(block) && (DOCUMENT_ABSENCE_RE.test(block) || DOCUMENT_DEFERRAL_RE.test(block))
+    (block) =>
+      NAMED_CONTRACT_DOCUMENT_RE.test(block) &&
+      (DOCUMENT_ABSENCE_RE.test(block) || DOCUMENT_DEFERRAL_RE.test(block))
   );
 }
 
@@ -527,6 +556,61 @@ function buildGeneralWithholdingAnalysis(foundText: string): string {
           ? "reduce"
           : "withhold";
   return `This clause permits Prime to ${action} amounts under the conditions stated in the quote, creating direct payment exposure for the Subcontractor.`;
+}
+
+const INVOICE_PAYMENT_WAIVER_RE =
+  /failure\s+to\s+submit[^.]{0,140}(?:complete\s+)?invoice[^.]{0,140}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?[^.]{0,180}(?:waives?|forfeits?)[^.]{0,100}(?:right|entitlement)\s+to\s+payment/i;
+
+function findInvoicePaymentWaiverCandidate(documentText: string): string | null {
+  return findClauseCandidate(documentText, (block) => INVOICE_PAYMENT_WAIVER_RE.test(block));
+}
+
+function buildInvoicePaymentWaiverAnalysis(foundText: string): string {
+  const deadline = /(?:within|no\s+later\s+than)\s+(\d{1,3}\s*(?:calendar|business|working)?\s*days?)/i.exec(foundText)?.[1];
+  return `This clause makes a missed invoice-submission deadline${deadline ? ` of ${deadline}` : ""} waive or forfeit the Subcontractor's right to payment, creating a permanent payment-loss risk even when the underlying work was performed.`;
+}
+
+const CONDITIONED_PREEXISTING_IP_RE =
+  /pre[\s-]existing\s+(?:ip|intellectual\s+property|tools?|materials|methods|know[\s-]how)[^.]{0,200}only\s+if[^.]{0,150}(?:identif|disclos|approve[sd]?|written\s+approval)/i;
+const UNPAID_IMPROVEMENTS_USE_RE =
+  /(?:improvements?|adaptations?)[^.]{0,180}(?:may\s+be\s+used\s+by|Prime(?:\s+Contractor)?\s+may\s+use)[^.]{0,160}without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|(?:may\s+be\s+used\s+by|Prime(?:\s+Contractor)?\s+may\s+use)[^.]{0,160}(?:improvements?|adaptations?)[^.]{0,160}without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)/i;
+
+function findConditionedPreExistingIpCandidate(documentText: string): string | null {
+  return findClauseCandidate(
+    documentText,
+    (block) => CONDITIONED_PREEXISTING_IP_RE.test(block) || UNPAID_IMPROVEMENTS_USE_RE.test(block)
+  );
+}
+
+function buildConditionedPreExistingIpAnalysis(foundText: string): string {
+  const conditioned = CONDITIONED_PREEXISTING_IP_RE.test(foundText);
+  const unpaidUse = UNPAID_IMPROVEMENTS_USE_RE.test(foundText);
+  if (conditioned && unpaidUse) {
+    return "This clause conditions the Subcontractor's retention of its pre-existing tools, methods, and background materials on advance written identification and approval, and permits Prime use of stated improvements or adaptations without additional payment, creating ownership and uncompensated-use exposure.";
+  }
+  if (conditioned) {
+    return "This clause conditions the Subcontractor's retention of its pre-existing tools, methods, or background materials on the advance identification-and-approval process stated in the quote, creating a risk that unlisted background IP will not remain protected.";
+  }
+  return "This clause permits Prime to use the stated Subcontractor-created improvements or adaptations without additional payment, creating uncompensated-use and licensing exposure.";
+}
+
+const VENUE_OR_ARBITRATION_EVIDENCE_RE =
+  /(?:exclusive\s+)?(?:venue|jurisdiction)\s+(?:shall\s+be\s+|is\s+|lies\s+|must\s+be\s+)?(?:in|located\s+in)[^.]{0,120}(?:courts?|County|State|Commonwealth)|binding\s+arbitration|(?:arbitration|mediation|court\s+proceeding)[^.]{0,180}(?:(?:must|shall)\s+be\s+)?(?:brought|filed)\s+in|Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i;
+const GOVERNING_LAW_EVIDENCE_RE =
+  /(?:governing\s+law|governed\s+by\s+the\s+laws\s+of)[^.]{0,100}(?:State\s+of|Commonwealth\s+of)\s+[A-Z][a-zA-Z]+/i;
+
+function findVenueOrGoverningLawCandidate(documentText: string): string | null {
+  return findClauseCandidate(
+    documentText,
+    (block) => VENUE_OR_ARBITRATION_EVIDENCE_RE.test(block)
+  );
+}
+
+function buildVenueOrGoverningLawAnalysis(foundText: string): string {
+  if (VENUE_OR_ARBITRATION_EVIDENCE_RE.test(foundText)) {
+    return "This clause requires or permits disputes to be litigated, mediated, or arbitrated in the forum stated in the quote, which can increase the cost and difficulty of pursuing or defending a claim for a Subcontractor located elsewhere.";
+  }
+  return "This clause selects the governing law stated in the quote. If that law differs from the Subcontractor's home jurisdiction, it can increase legal-review complexity, but the quote does not by itself establish a required litigation or arbitration venue.";
 }
 
 const CATEGORIES: DeterministicCategory[] = [
@@ -924,6 +1008,18 @@ const CATEGORIES: DeterministicCategory[] = [
   },
   {
     familyKey: "payment",
+    regulation: "Invoice Submission Deadline / Payment Waiver",
+    severity: "Medium-High",
+    patterns: [],
+    findCandidate: findInvoicePaymentWaiverCandidate,
+    riskAnalysis:
+    "This clause makes a missed invoice-submission deadline waive or forfeit the Subcontractor's right to payment, creating permanent payment-loss exposure.",
+    redlineFix:
+    "Extend the invoice-submission period, require written notice and a reasonable cure opportunity before rejection, and state that a late invoice is not waived absent material prejudice to the Prime.",
+    buildRiskAnalysis: buildInvoicePaymentWaiverAnalysis,
+},
+  {
+    familyKey: "payment",
     regulation: "Broad Setoff / Backcharge / Withholding Rights",
     severity: "Medium-High",
     patterns: [
@@ -948,27 +1044,14 @@ const CATEGORIES: DeterministicCategory[] = [
     familyKey: "liability",
     regulation: "Out-of-State Venue, Governing Law, or Arbitration Burden",
     severity: "Medium",
-    patterns: [
-      // "governed by the laws of the Commonwealth/State of X" is at least as
-      // common in real subcontracts as the "governing law" heading phrase -
-      // the original pattern only recognized the latter.
-      /(?:governing\s+law|governed\s+by\s+the\s+laws\s+of)[^.]{0,100}(?:State\s+of|Commonwealth\s+of)\s+[A-Z][a-zA-Z]+/i,
-      /(?:exclusive\s+)?(?:venue|jurisdiction)\s+(?:shall\s+be\s+|is\s+|lies\s+|must\s+be\s+)?(?:in|located\s+in)[^.]{0,100}(?:courts?\s+of|State\s+of|County\s+of|Commonwealth\s+of)/i,
-      /binding\s+arbitration/i,
-      /(?:disputes?|claims?)\s+(?:arising[^.]{0,60})?(?:shall\s+be\s+|will\s+be\s+)?(?:resolved|settled|decided)\s+(?:exclusively\s+)?(?:through|by|via)\s+(?:binding\s+)?arbitration/i,
-      // Catches "arbitration, mediation, or court proceeding must be brought
-      // in [County/State/Commonwealth]" phrasing that doesn't use the word
-      // "venue" or "jurisdiction" at all.
-      /(?:arbitration|mediation|court\s+proceeding)[^.]{0,150}(?:must\s+be\s+brought\s+in|shall\s+be\s+brought\s+in|brought\s+in|filed\s+in)[^.]{0,80}(?:County|State|Commonwealth)\b/i,
-      // Prime's unilateral right to pick a different forum than the one
-      // otherwise stated is itself a burden-shifting venue risk.
-      /Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i,
-    ],
+    patterns: [],
+    findCandidate: findVenueOrGoverningLawCandidate,
     riskAnalysis:
-      "This governing-law/venue/arbitration clause can require the Subcontractor to litigate or arbitrate disputes in a forum far from its own place of business, increasing the cost and difficulty of pursuing or defending a claim regardless of the claim's merits.",
+    "This clause selects governing law or a dispute forum that may increase the Subcontractor's cost and difficulty in pursuing or defending a claim.",
     redlineFix:
-      "Negotiate for governing law and venue in the Subcontractor's home state, or at minimum a neutral/mutually convenient forum, and confirm any arbitration provision preserves reasonable discovery and cost-sharing terms.",
-  },
+    "Negotiate for governing law and venue in the Subcontractor's home state, or at minimum a neutral/mutually convenient forum, and confirm any arbitration provision preserves reasonable discovery and cost-sharing terms.",
+    buildRiskAnalysis: buildVenueOrGoverningLawAnalysis,
+},
   {
     familyKey: "liability",
     regulation: "Acceptance, Rejection, or Rework Without Clear Compensation",
@@ -1065,22 +1148,14 @@ const CATEGORIES: DeterministicCategory[] = [
     familyKey: "data-rights",
     regulation: "Conditioned Pre-Existing IP Retention / Unpaid Use of Improvements",
     severity: "Medium-High",
-    patterns: [
-      // "Subcontractor retains ownership of pre-existing X only if [advance
-      // written identification/approval]" - a real reservation-of-rights
-      // clause that is conditioned away unless the Subcontractor takes a
-      // specific procedural step before use.
-      /pre[\s-]existing\s+(?:ip|intellectual\s+property|tools?|materials|methods|know[\s-]how)[^.]{0,200}only\s+if[^.]{0,150}(?:identif|disclos|approve[sd]?|written\s+approval)/i,
-      // Broad free-use grant over Subcontractor-created improvements/
-      // adaptations, independent of whether the pre-existing-IP conditional
-      // clause above is also present in the document.
-      /(?:may\s+be\s+used\s+by|Prime(?:\s+Contractor)?\s+may\s+use)[^.]{0,150}without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)/i,
-    ],
+    patterns: [],
+    findCandidate: findConditionedPreExistingIpCandidate,
     riskAnalysis:
-      "This clause conditions the Subcontractor's retention of its own pre-existing tools, methods, and background materials on an advance written identification-and-approval process, and separately allows the Prime to use Subcontractor-created improvements or adaptations without additional payment - together these can shift ownership or free use of the Subcontractor's proprietary work product to the Prime by default.",
+    "This clause conditions pre-existing-IP retention and/or permits uncompensated use of improvements as stated in the quote, creating ownership or licensing exposure.",
     redlineFix:
-      "Remove the advance-approval condition on retaining ownership of pre-existing IP (a general reservation-of-rights list attached to the subcontract is sufficient), and add a payment or licensing-fee right for Prime's use of any Subcontractor improvements or adaptations beyond the specific deliverables priced under this subcontract.",
-  },
+    "Remove any advance-approval condition on retaining pre-existing IP and limit any Prime right to use Subcontractor improvements or adaptations beyond the priced deliverables unless a separate license and compensation are agreed.",
+    buildRiskAnalysis: buildConditionedPreExistingIpAnalysis,
+},
 ];
 
 const CONTEXT_WINDOW = 350;

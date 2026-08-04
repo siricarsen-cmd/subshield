@@ -131,6 +131,23 @@ function unsupportedFindingLocalClaim(finding: Finding): string | null {
     }
   }
 
+  const forumBurdenClaim =
+    /litigat|arbitrat|forum\s+(?:far|stated|required)|must\s+be\s+brought|filed\s+in/i.test(claim);
+  const forumBurdenEvidence =
+    /(?:exclusive\s+)?(?:venue|jurisdiction)\b|binding\s+arbitration|(?:arbitration|mediation|court\s+proceeding)[^.]{0,180}(?:brought|filed)\s+in|Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i.test(quote);
+  if (forumBurdenClaim && !forumBurdenEvidence) {
+    return "Finding's analysis claims a litigation, arbitration, or forum requirement that is not stated in the finding's own verified quote.";
+  }
+
+  const unpaidImprovementClaim =
+    /improvements?|adaptations?[^.]{0,100}(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use)|(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use)[^.]{0,100}(?:improvements?|adaptations?)/i.test(claim);
+  const unpaidImprovementEvidence =
+    /improvements?|adaptations?/i.test(quote) &&
+    /without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)/i.test(quote);
+  if (unpaidImprovementClaim && !unpaidImprovementEvidence) {
+    return "Finding's analysis claims unpaid Prime use of improvements or adaptations that is not stated in the finding's own verified quote.";
+  }
+
   return null;
 }
 
