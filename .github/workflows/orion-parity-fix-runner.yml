@@ -91,6 +91,28 @@ jobs:
           script = script[:sanity_start] + robust_sanity_patch + script[sanity_end:]
 
           exec(compile(script, '<orion-parity-builder>', 'exec'))
+
+          # Governing-law text alone is not a venue/arbitration burden. Require
+          # explicit forum, venue, jurisdiction, court, mediation, or arbitration
+          # evidence before creating this deterministic finding.
+          deterministic_path = Path('lib/analyzer/deterministic.ts')
+          deterministic = deterministic_path.read_text()
+          old_venue_gate = 'VENUE_OR_ARBITRATION_EVIDENCE_RE.test(block) || GOVERNING_LAW_EVIDENCE_RE.test(block)'
+          if deterministic.count(old_venue_gate) != 1:
+              raise SystemExit(f'venue gate: expected one match, found {deterministic.count(old_venue_gate)}')
+          deterministic = deterministic.replace(old_venue_gate, 'VENUE_OR_ARBITRATION_EVIDENCE_RE.test(block)', 1)
+          deterministic_path.write_text(deterministic)
+
+          test_path = Path('lib/analyzer/__tests__/orion-parity-regression.test.mjs')
+          test_text = test_path.read_text()
+          law_start = test_text.index('check("governing-law-only finding does not invent a required forum"')
+          law_end = test_text.index('\n\nconst conditionedIpOnly', law_start)
+          test_text = (
+              test_text[:law_start]
+              + 'check("governing-law-only text does not trigger venue finding", !lawOnly);'
+              + test_text[law_end:]
+          )
+          test_path.write_text(test_text)
           PY
           STATUS=$?
 
