@@ -696,7 +696,16 @@ function hasPaymentRightPreservationEvidence(block: string): boolean {
   const waiverSentence = sentences[waiverIndex];
   const connector = PAYMENT_PRESERVATION_CONNECTOR_RE.exec(waiverSentence);
   const waiverScope = connector ? waiverSentence.slice(0, connector.index) : waiverSentence;
-  const waivedInvoiceIds = extractInvoiceIds(waiverScope);
+  let waivedInvoiceIds = extractInvoiceIds(waiverScope);
+  const previousSentence = sentences[waiverIndex - 1] ?? "";
+  if (
+    waivedInvoiceIds.length === 0 &&
+    INVOICE_PAYMENT_FORFEITURE_SENTENCE_RE.test(waiverScope) &&
+    /\b(?:the|this|such)\s+invoice\b/i.test(waiverScope) &&
+    INVOICE_SUBMISSION_DEADLINE_RE.test(previousSentence)
+  ) {
+    waivedInvoiceIds = extractInvoiceIds(previousSentence);
+  }
   if (connector) {
     const preservationScope = waiverSentence.slice(connector.index);
     if (sentencePreservesPayment(preservationScope, waivedInvoiceIds)) return true;
@@ -721,7 +730,7 @@ function buildInvoicePaymentWaiverAnalysis(foundText: string): string {
 const CONDITIONED_PREEXISTING_IP_RE =
   /pre[\s-]existing\s+(?:ip|intellectual\s+property|tools?|materials|methods|know[\s-]how)[^.]{0,200}only\s+if[^.]{0,150}(?:identif|disclos|approve[sd]?|written\s+approval)/i;
 const DIRECT_PRIME_PASSIVE_IMPROVEMENT_USE_RE =
-  /(?:any\s+)?(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)[^.]{0,140}(?:may|shall|will)\s+be\s+used\s+by\s+(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))/i;
+  /(?:any\s+)?(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)(?:(?!\b(?:may|shall|will)\s+be\s+used\s+by\b)[^.]){0,140}(?:may|shall|will)\s+be\s+used\s+by\s+(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))/i;
 const DIRECT_PRIME_ACTIVE_IMPROVEMENT_USE_RE =
   /(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))\s+(?:(?:may|shall|will)\s+use|(?:has|shall\s+have|will\s+have)\s+the\s+right\s+to\s+use|(?:is|shall\s+be|will\s+be)\s+entitled\s+to\s+use)\s+(?:(?:any|the|such|stated|those|Subcontractor[\s-]created)\s+){0,3}(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)\b/i;
 const WITHOUT_ADDITIONAL_PAYMENT_RE =
@@ -764,9 +773,11 @@ const EXCLUSIVE_FORUM_RE =
   /(?:the\s+)?exclusive\s+forum(?:\s+for[^.]{0,100})?\s+(?:shall|must|will)\s+be[^.]{0,140}(?:courts?|County|State|Commonwealth)/i;
 const OPTIONAL_SUBCONTRACTOR_ALTERNATIVE_FORUM_RE =
   /(?:at\s+(?:the\s+)?Subcontractor(?:'s|\u2019s)\s+option|Subcontractor\s+(?:may|can)\s+(?:elect|choose))[^.]{0,240}(?:must|shall|will)\s+be\s+(?:brought|filed)[^.]{0,260}Subcontractor\s+(?:may|can)\s+(?:instead\s+|alternatively\s+)?(?:bring|file)[^.]{0,140}(?:any|another|other)\s+(?:court|forum)/i;
+const ELECTIVE_EITHER_FORUM_RE =
+  /Subcontractor\s+(?:may|can)\s+(?:elect|choose)\s+either[^.]{0,220}(?:must|shall|will)\s+be\s+(?:brought|filed)[^.]{0,220}\bor\b[^.]{0,140}(?:must|shall|will)\s+be\s+(?:brought|filed)[^.]{0,160}(?:any\s+other|another|other)\s+(?:court|forum)/i;
 
 export function hasMandatoryForumEvidence(text: string): boolean {
-  if (OPTIONAL_SUBCONTRACTOR_ALTERNATIVE_FORUM_RE.test(text)) return false;
+  if (OPTIONAL_SUBCONTRACTOR_ALTERNATIVE_FORUM_RE.test(text) || ELECTIVE_EITHER_FORUM_RE.test(text)) return false;
   return BASE_FORUM_EVIDENCE_RE.test(text) || DIRECT_MANDATORY_FORUM_RE.test(text) || EXCLUSIVE_FORUM_RE.test(text);
 }
 const BILATERAL_DEFENDANT_VENUE_RE =
