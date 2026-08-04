@@ -1,0 +1,123 @@
+name: Apply runbook correction
+
+on:
+  push:
+    branches:
+      - docs/fix-first-customer-runbook-review
+
+permissions:
+  contents: write
+
+jobs:
+  correct-runbook:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: docs/fix-first-customer-runbook-review
+
+      - name: Apply exact documentation corrections
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              Path('docs/operations/first-customer-launch-runbook/payment-analyzer-and-billing.md'): [
+                  (
+                      'If payment is incomplete, unpaid, failed, pending, canceled, or refunded, stop. Credits are not expected from that state.',
+                      'If the payment or invoice never reached a successful paid state - for example, it is incomplete, unpaid, failed, pending, or was canceled before payment - stop; credits are not expected. If the payment succeeded and was later refunded, continue through the remaining reconciliation steps because credits may already have been granted, then follow Section H to reconcile the refund and credit outcome.'
+                  ),
+                  (
+                      '| OCR timeout or OCR runtime failure that aborts processing | System failure | Reserved credit should be restored | Confirm restoration, check incident, then advise on retry or alternate format |',
+                      "| Handled OCR timeout or OCR runtime failure | OCR attempt fails or times out, but the review completes as a Limited Scan | Credit remains consumed because a report was completed | Explain the Limited Scan, check the OCR warning, and suggest a better source format; any goodwill replacement credit is Carsen's decision |"
+                  ),
+                  (
+                      '''## F2. OCR timeout
+
+### Carsen action
+
+1. Confirm the document was a scanned/image-only PDF.
+2. Ask the customer not to email the document.
+3. Check whether the failure message confirmed credit restoration.
+4. After restoration and health confirmation, suggest one of these options:
+   - Retry the scanned PDF once.
+   - Export a text-based PDF.
+   - Save as DOCX.
+   - Upload TXT.
+   - Paste the relevant contract text.
+
+### Technical escalation
+
+Escalate if multiple customers experience OCR timeouts, the same customer fails twice on a reasonable scan, or operational health is degraded by OCR incidents.''',
+                      '''## F2. OCR timeout or OCR runtime failure
+
+### Carsen action
+
+1. Confirm the document was a scanned/image-only PDF.
+2. Ask the customer not to email the document.
+3. Check the final review status before describing the credit outcome:
+   - **Limited Scan / completed report:** the caught OCR timeout or failure degraded safely into a completed Limited Scan, so the credit remains consumed. Explain the limitation and do not promise restoration.
+   - **Processing Failed / no completed report:** the analyzer aborted, so the reserved credit should be restored. Confirm the restoration before asking the customer to retry.
+4. After confirming the status and current health, suggest one of these options:
+   - Retry the scanned PDF once.
+   - Export a text-based PDF.
+   - Save as DOCX.
+   - Upload TXT.
+   - Paste the relevant contract text.
+5. If the review completed as a Limited Scan, any goodwill replacement credit is a separate Carsen decision and is not automatic.
+
+### Technical escalation
+
+Escalate if the report status and reservation result conflict, multiple customers experience OCR timeouts, the same customer encounters the issue twice on a reasonable scan, or operational health is degraded by OCR incidents.'''
+                  ),
+              ],
+              Path('docs/operations/first-customer-launch-runbook/privacy-support-and-escalation.md'): [
+                  (
+                      'SubShield had difficulty reading the scanned PDF. I am checking whether the review failed and whether the reserved credit was restored.',
+                      'SubShield had difficulty reading the scanned PDF. I am checking whether the review completed as a Limited Scan or ended as a processing failure, because those outcomes have different credit results.'
+                  ),
+                  (
+                      'Please do not email the contract. Once the account check is complete, the best alternatives may be a text-based PDF, DOCX, TXT file, or pasted contract text. A clearer rescan may also help.',
+                      'Please do not email the contract. If the review completed as a Limited Scan, the credit remains consumed; if processing failed without a completed report, the reserved credit should be restored. I will confirm the result before advising you to retry. The best alternatives may be a text-based PDF, DOCX, TXT file, pasted contract text, or a clearer rescan.'
+                  ),
+                  (
+                      '**Examples:** Credits appear delayed, Limited Scan confusion, one OCR timeout with confirmed credit restoration, Dashboard balance looks stale, customer disputes a finding but no privacy risk is indicated.',
+                      '**Examples:** Credit delay, Limited Scan confusion, an isolated OCR warning needing status confirmation, stale Dashboard balance, or a finding dispute without a privacy risk.'
+                  ),
+                  (
+                      '**Examples:** Customer was charged but received no credits, duplicate charge, Active Bidder paid invoice with no three-credit grant, active subscription cannot open the Portal, refund appears duplicated.',
+                      '**Examples:** Charge with no credits, duplicate charge, paid Active Bidder invoice with no three-credit grant, post-refund credits not reconciled, Billing Portal failure, or duplicate refund.'
+                  ),
+              ],
+              Path('docs/operations/first-customer-launch-runbook/acceptance-monitoring-and-maintenance.md'): [
+                  (
+                      'A warning can make operational health show degraded during the recent incident window even after the immediate cause is resolved. Confirm whether the incident is still recurring before declaring an outage.',
+                      'A warning can make operational health show degraded during the recent incident window even after the immediate cause is resolved. Confirm whether the incident is still recurring before declaring an outage. The `analyzer_ocr_timeout` and `analyzer_ocr_failed` warning codes indicate OCR degradation; they do not by themselves prove that a credit was restored. Check whether the review completed as a Limited Scan or ended as Processing Failed before describing the credit result.'
+                  ),
+              ],
+          }
+
+          for path, pairs in replacements.items():
+              text = path.read_text(encoding='utf-8')
+              for old, new in pairs:
+                  count = text.count(old)
+                  if count != 1:
+                      raise SystemExit(f'{path}: expected exactly one match, found {count}: {old[:80]}')
+                  text = text.replace(old, new, 1)
+              path.write_text(text, encoding='utf-8')
+          PY
+
+          rm -f docs/operations/first-customer-launch-runbook/CORRECTION_TASK.md
+          rm -f .github/workflows/apply-runbook-correction.yml
+
+      - name: Commit correction
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/operations/first-customer-launch-runbook .github/workflows/apply-runbook-correction.yml
+          git diff --cached --check
+          git commit -m "Correct first-customer OCR and refund guidance"
+          git push origin HEAD:docs/fix-first-customer-runbook-review
