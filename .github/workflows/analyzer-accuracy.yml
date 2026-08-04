@@ -33,6 +33,9 @@ jobs:
           node-version: 24
           cache: npm
 
+      - name: Bind payable predicate to one invoice reference
+        run: python .github/orion-relational-script-fix.py
+
       - name: Apply reviewed corrections
         run: python .github/orion-final-relational-patch.py
 
@@ -67,9 +70,9 @@ jobs:
         shell: bash
         run: |
           git checkout origin/main -- .github/workflows/analyzer-accuracy.yml
-          rm .github/orion-final-relational-patch.py
+          rm .github/orion-final-relational-patch.py .github/orion-relational-script-fix.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib/analyzer/deterministic.ts lib/analyzer/__tests__/orion-parity-regression.test.mjs .github/workflows/analyzer-accuracy.yml .github/orion-final-relational-patch.py
+          git add lib/analyzer/deterministic.ts lib/analyzer/__tests__/orion-parity-regression.test.mjs .github/workflows/analyzer-accuracy.yml .github/orion-final-relational-patch.py .github/orion-relational-script-fix.py
           git commit -m "fix: bind Orion evidence relationships"
           git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
