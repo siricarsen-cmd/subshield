@@ -44,6 +44,11 @@ jobs:
               r'(?:brought|filed)\s+in|Prime',
               1,
           )
+          script = script.replace(
+              'Attachment B Prime Contract Flow-Down Matrix To be provided after award.',
+              'Attachment B Prime Contract Flow-Down Matrix Not included in current package.',
+              1,
+          )
           exec(compile(script, '<orion-review-edge-fix>', 'exec'))
           PY
           STATUS=$?
