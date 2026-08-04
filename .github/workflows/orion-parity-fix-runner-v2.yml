@@ -1,0 +1,44 @@
+name: One-time simplified Orion parity implementation
+
+on:
+  push:
+    branches:
+      - fix/orion-parity-grounding-invoice-waiver
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/orion-parity-grounding-invoice-waiver
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Apply analyzer correction
+        run: python ORION_RUNNER_WRAPPER.py
+      - name: Install dependencies
+        run: npm ci
+      - name: Run analyzer accuracy suite
+        run: npm run test:accuracy
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Production build
+        run: npm run build
+      - name: Commit verified implementation
+        shell: bash
+        run: |
+          rm -f ORION_DECOMPRESSED_BUILDER.py ORION_PARITY_FIX_TASK.md ORION_RUN_TRIGGER.txt ORION_RUNNER_DIAGNOSTIC.txt ORION_RUNNER_WRAPPER.py
+          rm -f .github/workflows/orion-parity-fix-builder.yml .github/workflows/orion-parity-fix-runner.yml .github/workflows/orion-parity-fix-runner-v2.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Fix Orion parity grounding and invoice waiver detection"
+          git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
