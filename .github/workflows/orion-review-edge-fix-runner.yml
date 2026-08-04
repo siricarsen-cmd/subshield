@@ -1,0 +1,65 @@
+name: One-time Orion edge-case diagnostic runner
+
+on:
+  push:
+    branches:
+      - fix/orion-parity-grounding-invoice-waiver
+
+permissions:
+  contents: write
+
+jobs:
+  apply-verify-commit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/orion-parity-grounding-invoice-waiver
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Apply, verify, and commit or preserve diagnostic
+        shell: bash
+        run: |
+          set +e
+          LOG=ORION_EDGE_DIAGNOSTIC.txt
+          : > "$LOG"
+
+          python - <<'PY' >> "$LOG" 2>&1
+          from pathlib import Path
+          import re
+          import textwrap
+
+          workflow = Path('.github/workflows/orion-review-edge-fix.yml').read_text()
+          match = re.search(r"python - <<'PY'\n(.*?)\n\s+PY", workflow, re.S)
+          if not match:
+              raise SystemExit('Could not extract the reviewed edge-case patch script')
+          script = textwrap.dedent(match.group(1))
+          exec(compile(script, '<orion-review-edge-fix>', 'exec'))
+          PY
+          STATUS=$?
+
+          if [ "$STATUS" -eq 0 ]; then npm ci >> "$LOG" 2>&1; STATUS=$?; fi
+          if [ "$STATUS" -eq 0 ]; then npm run test:accuracy >> "$LOG" 2>&1; STATUS=$?; fi
+          if [ "$STATUS" -eq 0 ]; then npx tsc --noEmit >> "$LOG" 2>&1; STATUS=$?; fi
+          if [ "$STATUS" -eq 0 ]; then NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=build-placeholder npm run build >> "$LOG" 2>&1; STATUS=$?; fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [ "$STATUS" -ne 0 ]; then
+            git add "$LOG"
+            git commit -m "Record Orion edge-case diagnostic"
+            git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
+            exit "$STATUS"
+          fi
+
+          rm -f "$LOG"
+          rm -f .github/workflows/orion-review-edge-fix.yml .github/workflows/orion-review-edge-fix-runner.yml
+          git add -A
+          git commit -m "Address Orion analyzer review edge cases"
+          git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
