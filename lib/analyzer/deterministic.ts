@@ -200,6 +200,8 @@ const ATTACHMENT_LIST_NAMED_END_RE =
 const NUMBERED_ATTACHMENT_BLOCK_RE = /\b(?:Section\s+)?\d+\.\s+/g;
 const ATTACHMENT_ROW_STATUS_RE =
   /\b(?:included|not\s+included|to\s+be\s+provided|provided\s+after|not\s+attached|attached|missing|omitted)\b/i;
+const ATTACHMENT_ROW_DOCUMENT_RE =
+  /statement\s+of\s+work|\bSOW\b|prime\s+contract(?:\s+excerpts?)?|flow[\s-]?down\s+(?:lists?|matrix|matrices)|cybersecurity|CUI\s+requirements?|wage\s+determination|labor\s+category|quality\s+surveillance|acceptance\s+criteria|system\s+security\s+plan|\bSSP\b|(?:exhibit|attachment|appendix|schedule)\s+[A-Z0-9]/i;
 
 function findAttachmentListStart(documentText: string): AttachmentListStart | null {
   ATTACHMENT_LIST_START_RE.lastIndex = 0;
@@ -213,7 +215,10 @@ function findAttachmentListStart(documentText: string): AttachmentListStart | nu
 }
 
 function numberedBlockLooksLikeAttachmentRow(block: string): boolean {
-  return ATTACHMENT_ROW_STATUS_RE.test(block);
+  const content = block.replace(/^\s*(?:Section\s+)?\d+\.\s+/, "");
+  const sentenceEnd = content.search(/[.!?](?:\s|$)/);
+  const firstSentence = sentenceEnd >= 0 ? content.slice(0, sentenceEnd + 1) : content;
+  return ATTACHMENT_ROW_DOCUMENT_RE.test(firstSentence) && ATTACHMENT_ROW_STATUS_RE.test(firstSentence);
 }
 
 function findAttachmentListEnd(afterStart: string): number | null {
@@ -613,8 +618,11 @@ const SAME_SCOPE_PAYMENT_REMAINS_RE =
 const OTHER_INVOICE_SCOPE_RE = /\b(?:other|unrelated|separate)\s+invoices?\b/i;
 
 function hasPaymentRightPreservationEvidence(block: string): boolean {
-  if (OTHER_INVOICE_SCOPE_RE.test(block) && !SAME_SCOPE_PAYMENT_REMAINS_RE.test(block)) return false;
-  return EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(block) || SAME_SCOPE_PAYMENT_REMAINS_RE.test(block);
+  const sentences = block.split(/(?<=[.!?])\s+/);
+  return sentences.some((sentence) => {
+    if (OTHER_INVOICE_SCOPE_RE.test(sentence)) return false;
+    return EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence) || SAME_SCOPE_PAYMENT_REMAINS_RE.test(sentence);
+  });
 }
 
 function findInvoicePaymentWaiverCandidate(documentText: string): string | null {
@@ -634,7 +642,7 @@ const CONDITIONED_PREEXISTING_IP_RE =
 const DIRECT_PRIME_PASSIVE_USE_RE =
   /may\s+be\s+used\s+by\s+(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))/i;
 const DIRECT_PRIME_ACTIVE_USE_RE =
-  /(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))\s+may\s+use/i;
+  /(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))\s+(?:(?:may|shall|will)\s+use|(?:has|shall\s+have|will\s+have)\s+the\s+right\s+to\s+use|(?:is|shall\s+be|will\s+be)\s+entitled\s+to\s+use)/i;
 const IMPROVEMENTS_OR_ADAPTATIONS_RE = /improvements?|adaptations?/i;
 const WITHOUT_ADDITIONAL_PAYMENT_RE =
   /without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)/i;
@@ -668,8 +676,16 @@ function buildConditionedPreExistingIpAnalysis(foundText: string): string {
   return "This clause permits Prime to use the stated Subcontractor-created improvements or adaptations without additional payment, creating uncompensated-use and licensing exposure.";
 }
 
-const VENUE_OR_ARBITRATION_EVIDENCE_RE =
-  /(?:exclusive\s+)?(?:venue|jurisdiction)\s+(?:shall\s+be\s+|is\s+|lies\s+|must\s+be\s+)?(?:in|located\s+in)[^.]{0,120}(?:courts?|County|State|Commonwealth)|binding\s+arbitration|(?:(?:any\s+)?(?:action|lawsuit|claim|dispute|proceeding)|arbitration|mediation|court\s+proceeding)[^.]{0,180}(?:must|shall)\s+be\s+(?:brought|filed)\s+(?:exclusively\s+)?in|Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i;
+const BASE_FORUM_EVIDENCE_RE =
+  /(?:exclusive\s+)?(?:venue|jurisdiction)\s+(?:shall\s+be\s+|is\s+|lies\s+|must\s+be\s+)?(?:in|located\s+in)[^.]{0,120}(?:courts?|County|State|Commonwealth)|binding\s+arbitration|Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i;
+const DIRECT_MANDATORY_FORUM_RE =
+  /(?:(?:(?:all|any)\s+)?(?:actions?|lawsuits?|claims?|disputes?|proceedings?)|arbitration|mediation|court\s+proceedings?)[^.]{0,180}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:brought|filed)\s+(?:exclusively\s+)?in/i;
+const EXCLUSIVE_FORUM_RE =
+  /(?:the\s+)?exclusive\s+forum(?:\s+for[^.]{0,100})?\s+(?:shall|must|will)\s+be[^.]{0,140}(?:courts?|County|State|Commonwealth)/i;
+
+export function hasMandatoryForumEvidence(text: string): boolean {
+  return BASE_FORUM_EVIDENCE_RE.test(text) || DIRECT_MANDATORY_FORUM_RE.test(text) || EXCLUSIVE_FORUM_RE.test(text);
+}
 const BILATERAL_DEFENDANT_VENUE_RE =
   /(?:(?:exclusive\s+)?venue|(?:any\s+)?(?:action|lawsuit|claim|dispute|proceeding))[^.]{0,240}(?:where|located\s+where|in\s+(?:a\s+)?court\s+where)[^.]{0,100}\bdefendant\b[^.]{0,100}(?:resides?|is\s+located|has\s+its\s+principal\s+place\s+of\s+business)/i;
 const GOVERNING_LAW_EVIDENCE_RE =
@@ -679,13 +695,13 @@ function findVenueOrGoverningLawCandidate(documentText: string): string | null {
   return findClauseCandidate(
     documentText,
     (block) =>
-      VENUE_OR_ARBITRATION_EVIDENCE_RE.test(block) &&
+      hasMandatoryForumEvidence(block) &&
       !BILATERAL_DEFENDANT_VENUE_RE.test(block)
   );
 }
 
 function buildVenueOrGoverningLawAnalysis(foundText: string): string {
-  if (VENUE_OR_ARBITRATION_EVIDENCE_RE.test(foundText)) {
+  if (hasMandatoryForumEvidence(foundText)) {
     return "This clause requires or permits disputes to be litigated, mediated, or arbitrated in the forum stated in the quote, which can increase the cost and difficulty of pursuing or defending a claim for a Subcontractor located elsewhere.";
   }
   return "This clause selects the governing law stated in the quote. If that law differs from the Subcontractor's home jurisdiction, it can increase legal-review complexity, but the quote does not by itself establish a required litigation or arbitration venue.";
