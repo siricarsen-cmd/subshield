@@ -1,1 +1,3 @@
-broad setoff category marker not found
+MARKER_REPR='  {\n    familyKey: "payment",\n  regulation: "Broad Setoff / Backcharge / Withholding Rights",'
+SOURCE_REPR='  {\n    familyKey: "payment",\n    regulation: "Broad Setoff / Backcharge / Withholding Rights",\n    severity: "Medium-High",'
+EXACT_MATCH=False
