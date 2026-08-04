@@ -109,9 +109,9 @@ SubShield
 
 Hello [Customer Name],
 
-SubShield had difficulty reading the scanned PDF. I am checking whether the review failed and whether the reserved credit was restored.
+SubShield had difficulty reading the scanned PDF. I am checking whether the review completed as a Limited Scan or ended as a processing failure, because those outcomes have different credit results.
 
-Please do not email the contract. Once the account check is complete, the best alternatives may be a text-based PDF, DOCX, TXT file, or pasted contract text. A clearer rescan may also help.
+Please do not email the contract. If the review completed as a Limited Scan, the credit remains consumed; if processing failed without a completed report, the reserved credit should be restored. I will confirm the result before advising you to retry. The best alternatives may be a text-based PDF, DOCX, TXT file, pasted contract text, or a clearer rescan.
 
 Regards,  
 Carsen  
@@ -217,7 +217,7 @@ SubShield
 
 ## K2. Same-day investigation
 
-**Examples:** Credits appear delayed, Limited Scan confusion, one OCR timeout with confirmed credit restoration, Dashboard balance looks stale, customer disputes a finding but no privacy risk is indicated.
+**Examples:** Credit delay, Limited Scan confusion, an isolated OCR warning needing status confirmation, stale Dashboard balance, or a finding dispute without a privacy risk.
 
 - **Carsen action:** Acknowledge, gather privacy-safe metadata, and request connected-system checks.
 - **Evidence to gather:** Account email, plan, event time, review number, general symptom, screenshots with sensitive details removed.
@@ -227,7 +227,7 @@ SubShield
 
 ## K3. Immediate billing problem
 
-**Examples:** Customer was charged but received no credits, duplicate charge, Active Bidder paid invoice with no three-credit grant, active subscription cannot open the Portal, refund appears duplicated.
+**Examples:** Charge with no credits, duplicate charge, paid Active Bidder invoice with no three-credit grant, post-refund credits not reconciled, Billing Portal failure, or duplicate refund.
 
 - **Carsen action:** Acknowledge immediately, stop any manual credit action, and run the strict payment/credit reconciliation.
 - **Evidence to gather:** Purchase email, plan, amount, payment status, event type, webhook response code, credit-event existence, pending/user balance.

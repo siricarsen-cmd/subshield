@@ -135,7 +135,7 @@ If any item is incomplete, do not declare first-customer acceptance complete. Co
 - `analyzer_ocr_failed`
 - `delete_storage_cleanup_failed`
 
-A warning can make operational health show degraded during the recent incident window even after the immediate cause is resolved. Confirm whether the incident is still recurring before declaring an outage.
+A warning can make operational health show degraded during the recent incident window even after the immediate cause is resolved. Confirm whether the incident is still recurring before declaring an outage. The `analyzer_ocr_timeout` and `analyzer_ocr_failed` warning codes indicate OCR degradation; they do not by themselves prove that a credit was restored. Check whether the review completed as a Limited Scan or ended as Processing Failed before describing the credit result.
 
 ## Critical examples
 
