@@ -80,3 +80,8 @@ law_start = test_text.index('check("governing-law-only finding does not invent a
 law_end = test_text.index('\n\nconst conditionedIpOnly', law_start)
 test_text = test_text[:law_start] + 'check("governing-law-only text does not trigger venue finding", !lawOnly);' + test_text[law_end:]
 test_path.write_text(test_text)
+
+fixture_path = Path('lib/analyzer/__fixtures__/orion-parity-regression-fixture.mjs')
+for generated_path in (fixture_path, test_path):
+    generated = generated_path.read_text()
+    generated_path.write_text(generated.replace('\\\\', '\\'))
