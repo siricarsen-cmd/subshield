@@ -218,8 +218,7 @@ function findAttachmentListStart(documentText: string): AttachmentListStart | nu
   return null;
 }
 
-function numberedBlockLooksLikeAttachmentRow(block: string): boolean {
-  const content = block.replace(/^\s*(?:Section\s+)?\d+\.\s+/, "");
+function attachmentTextLooksLikeRow(content: string): boolean {
   const documentMatch = ATTACHMENT_ROW_DOCUMENT_RE.exec(content);
   if (!documentMatch) return false;
   const tail = content.slice(documentMatch[0].length, documentMatch[0].length + 180);
@@ -229,9 +228,14 @@ function numberedBlockLooksLikeAttachmentRow(block: string): boolean {
   return /^\s*(?:[-–—:]\s*)?(?:is\s+)?$/i.test(betweenTitleAndStatus);
 }
 
+function numberedBlockLooksLikeAttachmentRow(block: string): boolean {
+  const content = block.replace(/^\s*(?:Section\s+)?\d+\.\s+/, "");
+  return attachmentTextLooksLikeRow(content);
+}
+
 function paragraphLooksLikeAttachmentRow(paragraph: string): boolean {
   const content = paragraph.trim().replace(/^[-•]\s*/, "");
-  return ATTACHMENT_ROW_DOCUMENT_RE.test(content) && ATTACHMENT_ROW_STATUS_RE.test(content.slice(0, 320));
+  return attachmentTextLooksLikeRow(content);
 }
 
 function findAttachmentParagraphEnd(afterStart: string): number | null {
@@ -659,23 +663,36 @@ const SAME_SCOPE_PAYMENT_REMAINS_RE =
 const OTHER_INVOICE_SCOPE_RE = /\b(?:other|unrelated|separate)\s+invoices?\b|\brather\s+than\b/i;
 const PAYMENT_PRESERVATION_CONNECTOR_RE =
   /(?:,\s*)?\b(?:except(?:\s+that)?|however|provided\s+that|but|notwithstanding)\b/i;
-const NAMED_INVOICE_PAYABLE_RE =
-  /\binvoice\s+(?:no\.?\s*)?[A-Z0-9-]*\d[A-Z0-9-]*\b[^.]{0,100}(?:remain|remains|shall\s+remain|will\s+remain)\s+(?:payable|due)/i;
-
 function extractInvoiceIds(text: string): string[] {
   return [...text.matchAll(/\binvoice\s+(?:no\.?\s*)?([A-Z0-9-]*\d[A-Z0-9-]*)\b/gi)].map(
     (match) => match[1].toUpperCase()
   );
 }
 
+function escapeRegexLiteral(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function namedInvoiceRemainsPayable(sentence: string, invoiceId: string): boolean {
+  const escapedInvoiceId = escapeRegexLiteral(invoiceId);
+  const invoiceThenPayable = new RegExp(
+    `\\binvoice\\s+(?:no\\.?\\s*)?${escapedInvoiceId}\\b(?:(?!\\binvoice\\s+(?:no\\.?\\s*)?[A-Z0-9-]*\\d[A-Z0-9-]*\\b)[^.]){0,100}(?:remain|remains|shall\\s+remain|will\\s+remain)\\s+(?:payable|due)`,
+    "i"
+  );
+  return invoiceThenPayable.test(sentence);
+}
+
 function sentencePreservesPayment(sentence: string, waivedInvoiceIds: string[]): boolean {
   if (OTHER_INVOICE_SCOPE_RE.test(sentence)) return false;
   const preservedInvoiceIds = extractInvoiceIds(sentence);
   if (preservedInvoiceIds.length > 0) {
-    const preservesWaivedInvoice =
+    const mentionsWaivedInvoice =
       waivedInvoiceIds.length > 0 && preservedInvoiceIds.some((invoiceId) => waivedInvoiceIds.includes(invoiceId));
-    if (!preservesWaivedInvoice) return false;
-    return NAMED_INVOICE_PAYABLE_RE.test(sentence) || EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence);
+    if (!mentionsWaivedInvoice) return false;
+    const makesWaivedInvoicePayable = waivedInvoiceIds.some((invoiceId) =>
+      namedInvoiceRemainsPayable(sentence, invoiceId)
+    );
+    return makesWaivedInvoicePayable || EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence);
   }
   return EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence) || SAME_SCOPE_PAYMENT_REMAINS_RE.test(sentence);
 }
@@ -743,7 +760,7 @@ function buildInvoicePaymentWaiverAnalysis(foundText: string): string {
 const CONDITIONED_PREEXISTING_IP_RE =
   /pre[\s-]existing\s+(?:ip|intellectual\s+property|tools?|materials|methods|know[\s-]how)[^.]{0,200}only\s+if[^.]{0,150}(?:identif|disclos|approve[sd]?|written\s+approval)/i;
 const DIRECT_PRIME_PASSIVE_IMPROVEMENT_USE_RE =
-  /(?:any\s+)?(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)(?:(?!\b(?:may|shall|will)\s+be\s+used\s+by\b|\b(?:while|whereas)\b|\b(?:deliverables?|work\s+products?)\b)[^.]){0,140}(?:may|shall|will)\s+be\s+used\s+by\s+(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))/i;
+  /(?:any\s+)?(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)(?:\s+(?:that|which|are|were|is|was|created|developed|generated|made|produced|conceived|arising|during|under|in|for|through|the|this|such|subcontract|agreement|performance|by|Subcontractor)){0,16}\s+(?:may|shall|will)\s+be\s+used\s+by\s+(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))/i;
 const DIRECT_PRIME_ACTIVE_IMPROVEMENT_USE_RE =
   /(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))\s+(?:(?:may|shall|will)\s+use|(?:has|shall\s+have|will\s+have)\s+the\s+right\s+to\s+use|(?:is|shall\s+be|will\s+be)\s+entitled\s+to\s+use)\s+(?:(?:any|the|such|stated|those|Subcontractor[\s-]created)\s+){0,3}(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)\b/i;
 const WITHOUT_ADDITIONAL_PAYMENT_RE =
@@ -779,7 +796,7 @@ function buildConditionedPreExistingIpAnalysis(foundText: string): string {
 }
 
 const BASE_FORUM_EVIDENCE_RE =
-  /(?:exclusive\s+)?(?:venue|jurisdiction)\s+(?:shall\s+be\s+|is\s+|lies\s+|must\s+be\s+)?(?:in|located\s+in)[^.]{0,120}(?:courts?|County|State|Commonwealth)|binding\s+arbitration|Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i;
+  /(?:exclusive\s+(?:venue|jurisdiction)\s+(?:(?:shall|must|will)\s+be\s+|is\s+|lies\s+)?(?:in|located\s+in)|(?:venue|jurisdiction)\s+(?:(?:shall|must|will)\s+be\s+|is\s+|lies\s+)(?:in|located\s+in))[^.]{0,120}(?:courts?|County|State|Commonwealth)|binding\s+arbitration|Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i;
 const DIRECT_MANDATORY_FORUM_RE =
   /(?:(?:(?:all|any)\s+)?(?:actions?|lawsuits?|claims?|disputes?|proceedings?)|arbitration|mediation|court\s+proceedings?)[^.]{0,180}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:brought|filed)\s+(?:exclusively\s+)?in/i;
 const EXCLUSIVE_FORUM_RE =
@@ -790,12 +807,15 @@ const ELECTIVE_EITHER_FORUM_RE =
   /Subcontractor\s+(?:may|can)\s+(?:elect|choose)\s+either[^.]{0,220}(?:must|shall|will)\s+be\s+(?:brought|filed)[^.]{0,220}\bor\b[^.]{0,140}(?:must|shall|will)\s+be\s+(?:brought|filed)[^.]{0,160}(?:any\s+other|another|other)\s+(?:court|forum)/i;
 const OPTIONAL_VENUE_NOUN_ALTERNATIVE_RE =
   /(?:at\s+(?:the\s+)?Subcontractor(?:'s|\u2019s)\s+option|Subcontractor\s+(?:may|can)\s+(?:elect|choose))[^.]{0,180}(?:venue|jurisdiction)[^.]{0,180}\bor\b[^.]{0,120}(?:any\s+other|another|other)\s+(?:court|forum)/i;
+const BILATERAL_OPTIONAL_FORUM_RE =
+  /(?:the\s+)?parties\s+(?:may|can)\s+(?:agree|select|choose|elect)[^.]{0,180}(?:venue|jurisdiction|forum)[^.]{0,180}\bor\b[^.]{0,140}(?:another|other|mutually\s+convenient)\s+(?:court|forum)/i;
 
 export function hasMandatoryForumEvidence(text: string): boolean {
   if (
     OPTIONAL_SUBCONTRACTOR_ALTERNATIVE_FORUM_RE.test(text) ||
     ELECTIVE_EITHER_FORUM_RE.test(text) ||
-    OPTIONAL_VENUE_NOUN_ALTERNATIVE_RE.test(text)
+    OPTIONAL_VENUE_NOUN_ALTERNATIVE_RE.test(text) ||
+    BILATERAL_OPTIONAL_FORUM_RE.test(text)
   ) return false;
   return BASE_FORUM_EVIDENCE_RE.test(text) || DIRECT_MANDATORY_FORUM_RE.test(text) || EXCLUSIVE_FORUM_RE.test(text);
 }
