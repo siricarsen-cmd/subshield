@@ -12,8 +12,8 @@ permissions:
   contents: write
 
 jobs:
-  apply-orion-scope-aware-hardening:
-    name: Apply Orion scope-aware hardening
+  apply-orion-scope-correction:
+    name: Apply Orion scope correction
     if: github.actor != 'github-actions[bot]' && github.head_ref == 'fix/orion-parity-grounding-invoice-waiver'
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -32,10 +32,14 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Apply reviewed scope-aware corrections
+      - name: Apply, verify, and commit or preserve diagnostic
         shell: bash
         run: |
-          python - <<'PY'
+          set +e
+          LOG_TMP=/tmp/orion-scope-diagnostic.txt
+          : > "$LOG_TMP"
+
+          python - <<'PY' >> "$LOG_TMP" 2>&1
           from pathlib import Path
 
           def replace_once(path: str, old: str, new: str, label: str) -> None:
@@ -48,190 +52,173 @@ jobs:
 
           replace_once(
               'lib/analyzer/sanity.ts',
-              r'''  const unpaidImprovementClaim =
-            /improvements?|adaptations?[^.]{0,100}(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use)|(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use)[^.]{0,100}(?:improvements?|adaptations?)/i.test(claim);''',
-              r'''  const unpaidImprovementClaim =
-            /(?:improvements?|adaptations?)[^.]{0,100}(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use)|(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use)[^.]{0,100}(?:improvements?|adaptations?)/i.test(claim);''',
-              'grouped unpaid-improvement claim alternatives',
+              r'''/improvements?|adaptations?[^.]{0,100}''',
+              r'''/(?:improvements?|adaptations?)[^.]{0,100}''',
+              'group unpaid-use IP nouns',
           )
 
           replace_once(
               'lib/analyzer/deterministic.ts',
               r'''const ATTACHMENT_ROW_DOCUMENT_RE =
-            /statement\s+of\s+work|\bSOW\b|prime\s+contract(?:\s+excerpts?)?|flow[\s-]?down\s+(?:lists?|matrix|matrices)|cybersecurity|CUI\s+requirements?|wage\s+determination|labor\s+category|quality\s+surveillance|acceptance\s+criteria|system\s+security\s+plan|\bSSP\b|(?:exhibit|attachment|appendix|schedule)\s+[A-Z0-9]/i;''',
+  /statement\s+of\s+work|\bSOW\b|prime\s+contract(?:\s+excerpts?)?|flow[\s-]?down\s+(?:lists?|matrix|matrices)|cybersecurity|CUI\s+requirements?|wage\s+determination|labor\s+category|quality\s+surveillance|acceptance\s+criteria|system\s+security\s+plan|\bSSP\b|(?:exhibit|attachment|appendix|schedule)\s+[A-Z0-9]/i;''',
               r'''const ATTACHMENT_ROW_DOCUMENT_RE =
-            /^(?:statement\s+of\s+work|SOW\b|prime\s+contract(?:\s+excerpts?)?|flow[\s-]?down\s+(?:lists?|matrix|matrices)|cybersecurity|CUI\s+requirements?|wage\s+determination|labor\s+category|quality\s+surveillance|acceptance\s+criteria|system\s+security\s+plan|SSP\b|(?:exhibit|attachment|appendix|schedule)\s+[A-Z0-9])/i;''',
-              'attachment rows anchored to document title',
+  /^(?:statement\s+of\s+work|SOW\b|prime\s+contract(?:\s+excerpts?)?|flow[\s-]?down\s+(?:lists?|matrix|matrices)|cybersecurity|CUI\s+requirements?|wage\s+determination|labor\s+category|quality\s+surveillance|acceptance\s+criteria|system\s+security\s+plan|SSP\b|(?:exhibit|attachment|appendix|schedule)\s+[A-Z0-9])/i;''',
+              'anchor attachment row document title',
           )
 
           replace_once(
               'lib/analyzer/deterministic.ts',
               r'''function numberedBlockLooksLikeAttachmentRow(block: string): boolean {
-            const content = block.replace(/^\s*(?:Section\s+)?\d+\.\s+/, "");
-            const sentenceEnd = content.search(/[.!?](?:\s|$)/);
-            const firstSentence = sentenceEnd >= 0 ? content.slice(0, sentenceEnd + 1) : content;
-            return ATTACHMENT_ROW_DOCUMENT_RE.test(firstSentence) && ATTACHMENT_ROW_STATUS_RE.test(firstSentence);
-          }''',
+  const content = block.replace(/^\s*(?:Section\s+)?\d+\.\s+/, "");
+  const sentenceEnd = content.search(/[.!?](?:\s|$)/);
+  const firstSentence = sentenceEnd >= 0 ? content.slice(0, sentenceEnd + 1) : content;
+  return ATTACHMENT_ROW_DOCUMENT_RE.test(firstSentence) && ATTACHMENT_ROW_STATUS_RE.test(firstSentence);
+}''',
               r'''function numberedBlockLooksLikeAttachmentRow(block: string): boolean {
-            const content = block.replace(/^\s*(?:Section\s+)?\d+\.\s+/, "");
-            return ATTACHMENT_ROW_DOCUMENT_RE.test(content) && ATTACHMENT_ROW_STATUS_RE.test(content.slice(0, 320));
-          }''',
-              'attachment row title and status classifier',
+  const content = block.replace(/^\s*(?:Section\s+)?\d+\.\s+/, "");
+  return ATTACHMENT_ROW_DOCUMENT_RE.test(content) && ATTACHMENT_ROW_STATUS_RE.test(content.slice(0, 320));
+}''',
+              'classify attachment row from heading start',
           )
 
           replace_once(
               'lib/analyzer/deterministic.ts',
               r'''const OTHER_INVOICE_SCOPE_RE = /\b(?:other|unrelated|separate)\s+invoices?\b/i;
 
-          function hasPaymentRightPreservationEvidence(block: string): boolean {
-            const sentences = block.split(/(?<=[.!?])\s+/);
-            return sentences.some((sentence) => {
-              if (OTHER_INVOICE_SCOPE_RE.test(sentence)) return false;
-              return EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence) || SAME_SCOPE_PAYMENT_REMAINS_RE.test(sentence);
-            });
-          }''',
+function hasPaymentRightPreservationEvidence(block: string): boolean {
+  const sentences = block.split(/(?<=[.!?])\s+/);
+  return sentences.some((sentence) => {
+    if (OTHER_INVOICE_SCOPE_RE.test(sentence)) return false;
+    return EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence) || SAME_SCOPE_PAYMENT_REMAINS_RE.test(sentence);
+  });
+}''',
               r'''const OTHER_INVOICE_SCOPE_RE = /\b(?:other|unrelated|separate)\s+invoices?\b|\binvoice\s+(?:no\.?\s*)?\d+\b|\brather\s+than\b/i;
-          const AFFECTED_PAYMENT_SCOPE_RE =
-            /\b(?:affected|subject|late|delayed)\s+(?:invoice|amount|payment)\b|\b(?:this|that|such)\s+invoice\b|\b(?:right|entitlement)\s+to\s+payment\b/i;
+const AFFECTED_PAYMENT_SCOPE_RE =
+  /\b(?:affected|subject|late|delayed)\s+(?:invoice|amount|payment)\b|\b(?:this|that|such)\s+invoice\b|\b(?:right|entitlement)\s+to\s+payment\b/i;
 
-          function sentencePreservesPayment(sentence: string): boolean {
-            if (OTHER_INVOICE_SCOPE_RE.test(sentence)) return false;
-            return EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence) || SAME_SCOPE_PAYMENT_REMAINS_RE.test(sentence);
-          }
+function sentencePreservesPayment(sentence: string): boolean {
+  if (OTHER_INVOICE_SCOPE_RE.test(sentence)) return false;
+  return EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence) || SAME_SCOPE_PAYMENT_REMAINS_RE.test(sentence);
+}
 
-          function hasPaymentRightPreservationEvidence(block: string): boolean {
-            const sentences = block.split(/(?<=[.!?])\s+/);
-            const waiverIndex = sentences.findIndex((sentence) => INVOICE_PAYMENT_WAIVER_RE.test(sentence));
-            if (waiverIndex < 0) return false;
-            if (sentencePreservesPayment(sentences[waiverIndex])) return true;
+function hasPaymentRightPreservationEvidence(block: string): boolean {
+  const sentences = block.split(/(?<=[.!?])\s+/);
+  const waiverIndex = sentences.findIndex((sentence) => INVOICE_PAYMENT_WAIVER_RE.test(sentence));
+  if (waiverIndex < 0) return false;
+  if (sentencePreservesPayment(sentences[waiverIndex])) return true;
 
-            const nextSentence = sentences[waiverIndex + 1] ?? "";
-            return AFFECTED_PAYMENT_SCOPE_RE.test(nextSentence) && sentencePreservesPayment(nextSentence);
-          }''',
-              'payment preservation bound to waiver scope',
+  const nextSentence = sentences[waiverIndex + 1] ?? "";
+  return AFFECTED_PAYMENT_SCOPE_RE.test(nextSentence) && sentencePreservesPayment(nextSentence);
+}''',
+              'bind payment preservation to waiver scope',
           )
 
           replace_once(
               'lib/analyzer/deterministic.ts',
-              r'''const DIRECT_PRIME_PASSIVE_USE_RE =
-            /may\s+be\s+used\s+by\s+(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))/i;''',
-              r'''const DIRECT_PRIME_PASSIVE_USE_RE =
-            /(?:may|shall|will)\s+be\s+used\s+by\s+(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))/i;''',
-              'passive mandatory Prime-use grants',
+              r'''/may\s+be\s+used\s+by\s+(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))/i''',
+              r'''/(?:may|shall|will)\s+be\s+used\s+by\s+(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))/i''',
+              'support passive may shall will Prime use',
           )
 
           replace_once(
               'lib/analyzer/deterministic.ts',
-              r'''\bdefendant\b[^.]{0,100}(?:resides?|is\s+located|has\s+its\s+principal\s+place\s+of\s+business)/i;''',
-              r'''\bdefendants?\b[^.]{0,100}(?:resides?|is\s+located|has\s+(?:its|their)\s+principal\s+place\s+of\s+business)/i;''',
-              'singular and plural defendant-location guard',
+              r'''\bdefendant\b[^.]{0,100}(?:resides?|is\s+located|has\s+its\s+principal\s+place\s+of\s+business)/i''',
+              r'''\bdefendants?\b[^.]{0,100}(?:resides?|is\s+located|has\s+(?:its|their)\s+principal\s+place\s+of\s+business)/i''',
+              'support plural defendants',
           )
 
           test_path = Path('lib/analyzer/__tests__/orion-parity-regression.test.mjs')
           tests = test_path.read_text()
           marker = 'const reverseIpActor = productionPath(`\n'
           additions = '''const namedInvoicePreservation = productionPath(`
-          2.8 Invoice Requirements
-          Failure to submit a complete invoice within 30 calendar days waives the right to payment for the affected invoice. However, all amounts for performed work under Invoice 104 rather than the affected invoice remain payable.
-          `);
-          check(
-            "named unrelated invoice preservation does not hide affected-invoice forfeiture",
-            namedInvoicePreservation.findings.some((finding) => finding.regulation === "Invoice Submission Deadline / Payment Waiver")
-          );
+2.8 Invoice Requirements
+Failure to submit a complete invoice within 30 calendar days waives the right to payment for the affected invoice. However, all amounts for performed work under Invoice 104 rather than the affected invoice remain payable.
+`);
+check(
+  "named unrelated invoice preservation does not hide affected-invoice forfeiture",
+  namedInvoicePreservation.findings.some((finding) => finding.regulation === "Invoice Submission Deadline / Payment Waiver")
+);
 
-          const followingAffectedPreservation = productionPath(`
-          2.8 Invoice Requirements
-          Failure to submit a complete invoice within 30 calendar days waives the right to payment. However, the affected amount remains payable for performed work.
-          `);
-          check(
-            "following sentence tied to the affected amount suppresses invoice payment waiver",
-            !followingAffectedPreservation.findings.some((finding) => finding.regulation === "Invoice Submission Deadline / Payment Waiver")
-          );
+const followingAffectedPreservation = productionPath(`
+2.8 Invoice Requirements
+Failure to submit a complete invoice within 30 calendar days waives the right to payment. However, the affected amount remains payable for performed work.
+`);
+check(
+  "following sentence tied to the affected amount suppresses invoice payment waiver",
+  !followingAffectedPreservation.findings.some((finding) => finding.regulation === "Invoice Submission Deadline / Payment Waiver")
+);
 
-          for (const [label, clause] of [
-            ["passive shall-use grant", "Improvements shall be used by Prime Contractor without additional payment to Subcontractor."],
-            ["passive will-use grant", "Improvements will be used by Prime Contractor without additional payment to Subcontractor."],
-          ]) {
-            const result = productionPath(`2.17 Improvements\n${clause}`);
-            const finding = result.findings.find((candidate) => candidate.regulation === "Conditioned Pre-Existing IP Retention / Unpaid Use of Improvements");
-            check(`${label}: direct unpaid Prime use triggers`, Boolean(finding));
-            check(`${label}: analysis remains finding-local`, Boolean(finding && verifyFindings([finding], finding.foundText).verified.length === 1));
-          }
+for (const [label, clause] of [
+  ["passive shall-use grant", "Improvements shall be used by Prime Contractor without additional payment to Subcontractor."],
+  ["passive will-use grant", "Improvements will be used by Prime Contractor without additional payment to Subcontractor."],
+]) {
+  const result = productionPath(`2.17 Improvements\n${clause}`);
+  const finding = result.findings.find((candidate) => candidate.regulation === "Conditioned Pre-Existing IP Retention / Unpaid Use of Improvements");
+  check(`${label}: direct unpaid Prime use triggers`, Boolean(finding));
+  check(`${label}: analysis remains finding-local`, Boolean(finding && verifyFindings([finding], finding.foundText).verified.length === 1));
+}
 
-          const pluralDefendantVenue = productionPath(`
-          2.23 Venue
-          Any action must be brought in the courts where the defendants reside.
-          `);
-          check(
-            "plural defendant-location venue remains clean",
-            !pluralDefendantVenue.findings.some((finding) => finding.regulation === "Out-of-State Venue, Governing Law, or Arbitration Burden")
-          );
+const pluralDefendantVenue = productionPath(`
+2.23 Venue
+Any action must be brought in the courts where the defendants reside.
+`);
+check(
+  "plural defendant-location venue remains clean",
+  !pluralDefendantVenue.findings.some((finding) => finding.regulation === "Out-of-State Venue, Governing Law, or Arbitration Burden")
+);
 
-          const certificationDocumentReference = productionPath(`
-          5. Attachment List
-          Attachment B Prime Contract Flow-Down Matrix Not included in current package.
-          6. Certifications. The attached Statement of Work is incorporated for purposes of these certifications.
-          `);
-          const documentReferenceBoundedMissing = certificationDocumentReference.findings.find((finding) => finding.regulation === "Missing / Deferred Contract Documents");
-          check(
-            "document-referencing Certifications section is excluded from Attachment List evidence",
-            Boolean(documentReferenceBoundedMissing && !/Certifications|attached Statement of Work/i.test(documentReferenceBoundedMissing.foundText)),
-            documentReferenceBoundedMissing?.foundText ?? "missing finding"
-          );
+const certificationDocumentReference = productionPath(`
+5. Attachment List
+Attachment B Prime Contract Flow-Down Matrix Not included in current package.
+6. Certifications. The attached Statement of Work is incorporated for purposes of these certifications.
+`);
+const documentReferenceBoundedMissing = certificationDocumentReference.findings.find((finding) => finding.regulation === "Missing / Deferred Contract Documents");
+check(
+  "document-referencing Certifications section is excluded from Attachment List evidence",
+  Boolean(documentReferenceBoundedMissing && !/Certifications|attached Statement of Work/i.test(documentReferenceBoundedMissing.foundText)),
+  documentReferenceBoundedMissing?.foundText ?? "missing finding"
+);
 
-          const ordinaryImprovementOwnership = {
-            triggerType: "Contract Risk Trigger",
-            regulation: "Prime Ownership of Improvements",
-            severity: "Medium",
-            foundText: "All Improvements created under this subcontract are owned by Prime Contractor.",
-            riskAnalysis: "This clause gives Prime ownership of improvements created during performance.",
-            redlineFix: "Clarify ownership and licensing rights.",
-            familyKey: "data-rights",
-          };
-          check(
-            "ordinary improvement ownership is not mistaken for unpaid-use analysis",
-            verifyFindings([ordinaryImprovementOwnership], ordinaryImprovementOwnership.foundText).verified.length === 1
-          );
+const ordinaryImprovementOwnership = {
+  triggerType: "Contract Risk Trigger",
+  regulation: "Prime Ownership of Improvements",
+  severity: "Medium",
+  foundText: "All Improvements created under this subcontract are owned by Prime Contractor.",
+  riskAnalysis: "This clause gives Prime ownership of improvements created during performance.",
+  redlineFix: "Clarify ownership and licensing rights.",
+  familyKey: "data-rights",
+};
+check(
+  "ordinary improvement ownership is not mistaken for unpaid-use analysis",
+  verifyFindings([ordinaryImprovementOwnership], ordinaryImprovementOwnership.foundText).verified.length === 1
+);
 
-          '''
+'''
           if tests.count(marker) != 1:
-              raise SystemExit('scope-aware hardening insertion marker missing or duplicated')
+              raise SystemExit('scope-aware regression insertion marker missing or duplicated')
           test_path.write_text(tests.replace(marker, additions + marker, 1))
           PY
+          STATUS=$?
 
-      - name: Install locked dependencies
-        run: npm ci
+          if [ "$STATUS" -eq 0 ]; then npm ci >> "$LOG_TMP" 2>&1; STATUS=$?; fi
+          if [ "$STATUS" -eq 0 ]; then npm run test:accuracy >> "$LOG_TMP" 2>&1; STATUS=$?; fi
+          if [ "$STATUS" -eq 0 ]; then npx tsc --noEmit >> "$LOG_TMP" 2>&1; STATUS=$?; fi
+          if [ "$STATUS" -eq 0 ]; then NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=build-placeholder npm run build >> "$LOG_TMP" 2>&1; STATUS=$?; fi
 
-      - name: Run full analyzer accuracy suite
-        run: npm run test:accuracy
-
-      - name: Validate TypeScript
-        run: npx tsc --noEmit
-
-      - name: Build production application
-        env:
-          NEXT_PUBLIC_BASE_URL: http://localhost:3000
-          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
-          SUPABASE_URL: https://example.supabase.co
-          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
-          STRIPE_SECRET_KEY: sk_test_ci_placeholder
-          STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
-          NEXT_PUBLIC_STRIPE_PRICE_SINGLE_REVIEW_CYCLE: price_ci_single
-          NEXT_PUBLIC_STRIPE_PRICE_ACTIVE_BIDDER_PLAN: price_ci_active
-          NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE_PLAN: price_ci_enterprise
-          OPENAI_API_KEY: sk-ci-placeholder
-          RESEND_API_KEY: re_ci_placeholder
-          CONTACT_FROM_EMAIL: ci@example.com
-          CONTACT_TO_EMAIL: ci@example.com
-        run: npm run build
-
-      - name: Commit verified correction and restore workflow
-        shell: bash
-        run: |
-          git checkout origin/main -- .github/workflows/analyzer-accuracy.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [ "$STATUS" -ne 0 ]; then
+            git reset --hard HEAD
+            cp "$LOG_TMP" ORION_SCOPE_DIAGNOSTIC.txt
+            git add ORION_SCOPE_DIAGNOSTIC.txt
+            git commit -m "Record Orion scope correction diagnostic"
+            git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
+            exit "$STATUS"
+          fi
+
+          git checkout origin/main -- .github/workflows/analyzer-accuracy.yml
+          rm -f .github/workflows/orion-scope-final.yml ORION_SCOPE_FINAL_TRIGGER.txt ORION_SCOPE_DIAGNOSTIC.txt
           git add -A
           git commit -m "Bind Orion guards to finding and payment scope"
           git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
