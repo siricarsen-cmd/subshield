@@ -59,7 +59,7 @@ jobs:
           for prop in ('familyKey', 'regulation', 'severity', 'patterns', 'findCandidate', 'riskAnalysis', 'redlineFix', 'buildRiskAnalysis'):
               script = script.replace(f'\n  {prop}:', f'\n    {prop}:')
 
-          robust_sanity_patch = r'''sanity_path = Path('lib/analyzer/sanity.ts')
+          robust_sanity_patch = r"""sanity_path = Path('lib/analyzer/sanity.ts')
           sanity = sanity_path.read_text()
           function_start = sanity.index('function unsupportedFindingLocalClaim')
           return_marker = '  return null;\n}'
@@ -85,7 +85,7 @@ jobs:
           sanity = sanity[:insert_at] + guards + sanity[insert_at:]
           sanity_path.write_text(sanity)
 
-          '''
+          """
           sanity_start = script.index("sanity_path = Path('lib/analyzer/sanity.ts')")
           sanity_end = script.index("fixture_path = Path('lib/analyzer/__fixtures__/orion-parity-regression-fixture.mjs')", sanity_start)
           script = script[:sanity_start] + robust_sanity_patch + script[sanity_end:]
