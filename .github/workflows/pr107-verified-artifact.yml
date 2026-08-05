@@ -26,7 +26,6 @@ jobs:
         run: |
           python - <<'EXTRACT'
           from pathlib import Path
-          import textwrap
 
           lines = Path('.github/workflows/pr107-verified-artifact-v2.yml').read_text().splitlines(True)
           start = next(i for i, line in enumerate(lines) if "python - <<'PY'" in line)
@@ -35,7 +34,9 @@ jobs:
               if line.strip() == 'PY':
                   break
               body.append(line)
-          script = textwrap.dedent(''.join(body))
+          prefix = len(body[0]) - len(body[0].lstrip(' '))
+          padding = ' ' * prefix
+          script = ''.join(line[prefix:] if line.startswith(padding) else line for line in body)
           exec(compile(script, 'pr107-verified-patch.py', 'exec'))
           EXTRACT
 
