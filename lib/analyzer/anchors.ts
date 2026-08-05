@@ -92,8 +92,10 @@ const PARTIES = /this\s+subcontract(?:\s+agreement)?\s+is\s+(?:made\s+)?(?:enter
 // keyword-matching the whole document, which can false-positive on a passing
 // mention (e.g. "purchase order number" in an unrelated clause). Checked first;
 // the keyword patterns below are only a fallback when no explicit label exists.
-const EXPLICIT_TYPE_LABEL =
-  /(?:subcontract\s+type|type\s+of\s+(?:subcontract|agreement)|contract\s+type)\s*(?::|[-\u2010-\u2015])?\s*(?:\n\s*)?([^\n.]{1,100})/i;
+const EXPLICIT_TYPE_LABEL_WITH_SEPARATOR =
+  /(?:subcontract\s+type|type\s+of\s+(?:subcontract|agreement)|contract\s+type)\s*(?::|[-\u2010-\u2015])\s*(?:\n\s*)?([^\n.]{1,100})/i;
+const EXPLICIT_TYPE_LABEL_DIRECT =
+  /(?:subcontract\s+type|type\s+of\s+(?:subcontract|agreement)|contract\s+type)\s*(?:\n\s*)?((?:Hybrid\s*(?:\(\s*)?)?(?:T\s*&\s*M|FFP\b|firm[\s-]*fixed[\s-]*price|time[\s-]*(?:and|&)[\s-]*materials|labor[\s-]hour|cost[\s-]*plus[\s-]*fixed[\s-]*fee|cost[\s-]reimburs(?:ement|able)|indefinite[\s-]delivery|IDIQ\b|purchase\s+order|teaming\s+agreement)[^\n.]{0,60})/i;
 
 // [\s-]* (not \s*) so hyphenated forms like "Time-and-Materials" still match.
 const CONTRACT_TYPE_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
@@ -119,7 +121,9 @@ export function extractAnchorCandidates(documentText: string, fileName?: string)
   // Prefer the document's own explicit label verbatim; only fall back to
   // whole-document keyword matching (which can false-positive on a passing
   // mention) when the document doesn't state its own type directly.
-  const explicitTypeLabelCandidate = firstMatch(text, EXPLICIT_TYPE_LABEL);
+  const explicitTypeLabelCandidate =
+    firstMatch(text, EXPLICIT_TYPE_LABEL_WITH_SEPARATOR) ||
+    firstMatch(text, EXPLICIT_TYPE_LABEL_DIRECT);
   const explicitTypeLabel =
     explicitTypeLabelCandidate &&
     CONTRACT_TYPE_PATTERNS.some((pattern) => pattern.pattern.test(explicitTypeLabelCandidate))
