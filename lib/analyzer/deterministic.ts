@@ -653,7 +653,7 @@ function buildGeneralWithholdingAnalysis(foundText: string): string {
 const INVOICE_PAYMENT_WAIVER_RE =
   /failure\s+to\s+submit[^.]{0,140}(?:complete\s+)?invoice[^.]{0,140}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?[^.]{0,120}(?:waives?|forfeits?)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const INVOICE_SUBMISSION_DEADLINE_RE =
-  /\binvoices?\b[^.]{0,120}(?:(?:must|shall|should)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)[^.]{0,80}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?/i;
+  /(?:\binvoices?\b[^.]{0,120}(?:(?:must|shall|should)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)|\b(?:must|shall|should|is\s+required\s+to)\s+submit\s+(?:a\s+|all\s+|complete\s+|timely\s+)*invoices?\b)[^.]{0,80}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?/i;
 const INVOICE_PAYMENT_FORFEITURE_SENTENCE_RE =
   /failure\s+to\s+submit[^.]{0,160}\binvoice\b[^.]{0,120}(?:waives?|forfeits?)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const INVOICE_PAYMENT_FORFEITURE_CONTEXT_RE =
@@ -662,6 +662,8 @@ const EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE =
   /(?:does|shall|will)\s+not\s+(?:waive|forfeit)[^.]{0,80}(?:right|entitlement)\s+to\s+payment|(?:right|entitlement)\s+to\s+payment[^.]{0,80}(?:is|shall|will)\s+not\s+(?:waived|forfeited)/i;
 const SAME_SCOPE_PAYMENT_REMAINS_RE =
   /(?:except(?:\s+that)?|however|provided\s+that|but|notwithstanding)[^.]{0,180}(?:(?:the\s+)?(?:affected|subject|late|delayed)\s+(?:invoice|amount|payment)|(?:all\s+)?(?:amounts?|payment)\s+for\s+(?:performed|completed|accepted)\s+(?:work|services|deliverables)|(?:all\s+)?(?:amounts?|payment)\s+(?:for|under)\s+(?:the\s+)?(?:affected|subject|late|delayed)\s+invoice)[^.]{0,120}(?:remain|remains|shall\s+remain|will\s+remain)\s+(?:payable|due)/i;
+const ADJACENT_SAME_SCOPE_PAYMENT_REMAINS_RE =
+  /^\s*(?:(?:the\s+)?(?:affected|subject|late|delayed)\s+(?:invoice|amount|payment)|(?:all\s+)?(?:amounts?|payment)\s+for\s+(?:performed|completed|accepted)\s+(?:work|services|deliverables)|(?:all\s+)?(?:amounts?|payment)\s+(?:for|under)\s+(?:the\s+)?(?:affected|subject|late|delayed)\s+invoice)[^.]{0,120}(?:remain|remains|shall\s+remain|will\s+remain)\s+(?:payable|due)/i;
 const OTHER_INVOICE_SCOPE_RE = /\b(?:other|unrelated|separate)\s+invoices?\b|\brather\s+than\b/i;
 const PAYMENT_PRESERVATION_CONNECTOR_RE =
   /(?:,\s*)?\b(?:except(?:\s+that)?|however|provided\s+that|but|notwithstanding)\b/i;
@@ -727,7 +729,11 @@ function sentencePreservesPayment(sentence: string, waivedInvoiceIds: string[]):
     return preservesWaivedInvoice;
   }
   if (OTHER_INVOICE_SCOPE_RE.test(sentence)) return false;
-  return EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence) || SAME_SCOPE_PAYMENT_REMAINS_RE.test(sentence);
+  return (
+    EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence) ||
+    SAME_SCOPE_PAYMENT_REMAINS_RE.test(sentence) ||
+    ADJACENT_SAME_SCOPE_PAYMENT_REMAINS_RE.test(sentence)
+  );
 }
 
 function invoiceWaiverSentenceIndexes(sentences: string[]): number[] {
