@@ -1001,12 +1001,12 @@ function hasMandatoryVenueOrArbitrationEvidence(text: string): boolean {
   return hasMandatoryForumEvidence(text) || MANDATORY_ARBITRATION_EVIDENCE_RE.test(text);
 }
 
+export function hasVenueGoverningLawOrArbitrationEvidence(text: string): boolean {
+  return hasMandatoryVenueOrArbitrationEvidence(text) || GOVERNING_LAW_EVIDENCE_RE.test(text);
+}
+
 function findVenueOrGoverningLawCandidate(documentText: string): string | null {
-  return findClauseCandidate(
-    documentText,
-    (block) =>
-      hasMandatoryVenueOrArbitrationEvidence(block) || GOVERNING_LAW_EVIDENCE_RE.test(block)
-  );
+  return findClauseCandidate(documentText, hasVenueGoverningLawOrArbitrationEvidence);
 }
 
 function buildVenueOrGoverningLawAnalysis(foundText: string): string {

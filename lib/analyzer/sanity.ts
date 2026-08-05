@@ -9,7 +9,7 @@ import {
   hasComprehensiveTerminationRecoveryEvidence,
   hasProtectiveTerminationForConvenienceRestrictionEvidence,
   hasTerminationForConvenienceRiskEvidence,
-  hasMandatoryForumEvidence,
+  hasVenueGoverningLawOrArbitrationEvidence,
   hasUnpaidPrimeImprovementsUseEvidence,
 } from "./deterministic";
 import type { Finding } from "./types";
@@ -135,7 +135,7 @@ function unsupportedFindingLocalClaim(finding: Finding): string | null {
 
   const forumBurdenClaim =
     /litigat|arbitrat|forum\s+(?:far|stated|required)|must\s+be\s+brought|filed\s+in/i.test(claim);
-  const forumBurdenEvidence = hasMandatoryForumEvidence(quote);
+  const forumBurdenEvidence = hasVenueGoverningLawOrArbitrationEvidence(quote);
   if (forumBurdenClaim && !forumBurdenEvidence) {
     return "Finding's analysis claims a litigation, arbitration, or forum requirement that is not stated in the finding's own verified quote.";
   }
