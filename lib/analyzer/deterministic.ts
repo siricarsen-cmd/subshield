@@ -811,11 +811,16 @@ function invoicePaymentWaiverDeadline(foundText: string): string | undefined {
   );
   if (waiverIndex === undefined) return undefined;
 
-  const deadlinePattern = /(?:within|no\s+later\s+than)\s+(\d{1,3}\s*(?:calendar|business|working)?\s*days?)/i;
-  return (
-    deadlinePattern.exec(sentences[waiverIndex])?.[1] ??
-    deadlinePattern.exec(sentences[waiverIndex - 1] ?? "")?.[1]
-  );
+  const latestDeadline = (sentence: string): string | undefined => {
+    const matches = [
+      ...sentence.matchAll(
+        /(?:within|no\s+later\s+than)\s+(\d{1,3}\s*(?:calendar|business|working)?\s*days?)/gi
+      ),
+    ];
+    return matches.at(-1)?.[1];
+  };
+
+  return latestDeadline(sentences[waiverIndex]) ?? latestDeadline(sentences[waiverIndex - 1] ?? "");
 }
 
 function buildInvoicePaymentWaiverAnalysis(foundText: string): string {
