@@ -133,8 +133,11 @@ function unsupportedFindingLocalClaim(finding: Finding): string | null {
     }
   }
 
-  const forumBurdenClaim =
-    /litigat|arbitrat|forum\s+(?:far|stated|required)|must\s+be\s+brought|filed\s+in/i.test(claim);
+  const forumSelectionCategory =
+    /out-of-state\s+venue|governing\s+law|arbitration\s+burden/i.test(reg);
+  const explicitForumSelectionClaim =
+    /forum\s+(?:far|stated|required)|must\s+be\s+brought|filed\s+in|(?:must|shall|required\s+to)\s+(?:litigate|arbitrate)/i.test(claim);
+  const forumBurdenClaim = forumSelectionCategory || explicitForumSelectionClaim;
   const forumBurdenEvidence = hasVenueGoverningLawOrArbitrationEvidence(quote);
   if (forumBurdenClaim && !forumBurdenEvidence) {
     return "Finding's analysis claims a litigation, arbitration, or forum requirement that is not stated in the finding's own verified quote.";

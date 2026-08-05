@@ -719,7 +719,7 @@ function namedInvoicePaymentRightIsPreserved(sentence: string, invoiceId: string
 
 function sentencePreservesPayment(sentence: string, waivedInvoiceIds: string[]): boolean {
   const preservedInvoiceIds = extractInvoiceIds(sentence);
-  if (preservedInvoiceIds.length > 0) {
+  if (preservedInvoiceIds.length > 0 && waivedInvoiceIds.length > 0) {
     const mentionsWaivedInvoice =
       waivedInvoiceIds.length > 0 && preservedInvoiceIds.some((invoiceId) => waivedInvoiceIds.includes(invoiceId));
     if (!mentionsWaivedInvoice) return false;
