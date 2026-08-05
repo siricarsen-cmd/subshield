@@ -7,14 +7,17 @@ on:
       - .github/workflows/pr107-verified-artifact-v2.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  build-verified-artifact:
+  build-verify-and-commit:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: fix/orion-parity-grounding-invoice-waiver
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -69,13 +72,29 @@ jobs:
           CONTACT_FROM_EMAIL: ci@example.com
           CONTACT_TO_EMAIL: ci@example.com
         run: npm run build
-      - run: git diff --check
-      - uses: actions/upload-artifact@v4
-        with:
-          name: pr107-verified-correction-files-v3
-          path: |
-            lib/analyzer/deterministic.ts
-            lib/analyzer/sanity.ts
-            lib/analyzer/__tests__/orion-parity-regression.test.mjs
-          if-no-files-found: error
-          retention-days: 7
+
+      - name: Restore six-file scope and push verified correction
+        shell: bash
+        run: |
+          rm .github/workflows/pr107-verified-artifact.yml
+          rm .github/workflows/pr107-verified-artifact-v2.yml
+          expected=$(printf '%s\n' \
+            'lib/analyzer/__fixtures__/orion-parity-regression-fixture.mjs' \
+            'lib/analyzer/__tests__/orion-parity-regression.test.mjs' \
+            'lib/analyzer/anchors.ts' \
+            'lib/analyzer/deterministic.ts' \
+            'lib/analyzer/sanity.ts' \
+            'package.json')
+          actual=$(git diff --name-only 13d4d8f43f24440ebbb0ec77e61736adfd1ad82f | sort)
+          test "$actual" = "$expected" || {
+            echo 'Unexpected final PR scope:'
+            printf '%s\n' "$actual"
+            exit 1
+          }
+          git diff --check
+          git config user.name 'siricarsen-cmd'
+          git config user.email '287561052+siricarsen-cmd@users.noreply.github.com'
+          git add lib/analyzer/deterministic.ts lib/analyzer/sanity.ts lib/analyzer/__tests__/orion-parity-regression.test.mjs .github/workflows/pr107-verified-artifact.yml .github/workflows/pr107-verified-artifact-v2.yml
+          git diff --cached --check
+          git commit -m 'Address PR107 exact-head review findings'
+          git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
