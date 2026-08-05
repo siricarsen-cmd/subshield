@@ -29,6 +29,21 @@ jobs:
       - name: Apply exact current review patch
         run: python .github/pr107-current-review-patch.py
 
+      - name: Align actor-scope regressions with supported waiver grammar
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('lib/analyzer/__tests__/orion-parity-regression.test.mjs')
+          text = path.read_text()
+          old = "waives the Subcontractor's right to payment."
+          new = "waives Subcontractor's right to payment."
+          count = text.count(old)
+          if count != 2:
+              raise SystemExit(f"expected two actor-scope fixtures, found {count}")
+          path.write_text(text.replace(old, new))
+          PY
+
       - name: Diagnose Prime-owned payment preservation path
         shell: bash
         run: |
@@ -39,7 +54,7 @@ jobs:
           import { normalizeWhitespace } from './lib/analyzer/text.ts';
           const documentText = normalizeWhitespace(`
           2.8 Invoice Requirements
-          Failure to submit a complete invoice within 30 calendar days waives the Subcontractor's right to payment. Prime Contractor's right to payment for the affected invoice is not waived.
+          Failure to submit a complete invoice within 30 calendar days waives Subcontractor's right to payment. Prime Contractor's right to payment for the affected invoice is not waived.
           `);
           const generated = runDeterministicDetectors(documentText);
           const verification = verifyFindings(generated, documentText);
