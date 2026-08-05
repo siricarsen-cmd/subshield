@@ -1,1 +1,0 @@
-Trigger exact-head checks after aligning the stale governing-law regression.
