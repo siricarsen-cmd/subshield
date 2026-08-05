@@ -655,7 +655,7 @@ function buildGeneralWithholdingAnalysis(foundText: string): string {
 const INVOICE_PAYMENT_WAIVER_RE =
   /failure\s+to\s+submit[^.]{0,140}(?:complete\s+)?invoice[^.]{0,140}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?[^.]{0,120}(?:waives?|forfeits?)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const INVOICE_SUBMISSION_DEADLINE_RE =
-  /(?:\binvoices?\b[^.]{0,120}(?:(?:must|shall|should)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)|\b(?:must|shall|should|is\s+required\s+to)\s+submit\s+(?:a\s+|all\s+|complete\s+|timely\s+)*invoices?\b)[^.]{0,80}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?/i;
+  /(?:\binvoices?\b[^.]{0,120}(?:(?:must|shall|should)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)|\b(?:must|shall|should|is\s+required\s+to)\s+submit\s+(?:(?:a|all|the|complete|timely|monthly|proper|final|correct|accurate|valid|itemized|detailed|supported|compliant|periodic|interim|recurring|certified|acceptable)\s+)*invoices?\b)[^.]{0,80}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?/i;
 const INVOICE_PAYMENT_FORFEITURE_SENTENCE_RE =
   /failure\s+to\s+submit[^.]{0,160}\binvoice\b[^.]{0,120}(?:waives?|forfeits?)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const INVOICE_PAYMENT_FORFEITURE_CONTEXT_RE =
@@ -847,9 +847,9 @@ function buildInvoicePaymentWaiverAnalysis(foundText: string): string {
 const CONDITIONED_PREEXISTING_IP_RE =
   /pre[\s-]existing\s+(?:ip|intellectual\s+property|tools?|materials|methods|know[\s-]how)[^.]{0,200}only\s+if[^.]{0,150}(?:identif|disclos|approve[sd]?|written\s+approval)/i;
 const DIRECT_PRIME_PASSIVE_IMPROVEMENT_USE_RE =
-  /(?:any\s+)?(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)(?:\s*,\s*(?:including|such\s+as)\s+(?:any\s+)?(?:adaptations?|enhancements?|modifications?)(?:\s+(?:and|or)\s+(?:adaptations?|enhancements?|modifications?))*\s*,)?(?:\s+(?:that|which|are|were|is|was|created|developed|generated|made|produced|conceived|arising|during|under|in|for|through|the|this|such|subcontract|agreement|performance|by|Subcontractor)){0,16}\s+(?:may|shall|will)\s+be\s+used\s+by\s+(?:the\s+)?(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))/i;
+  /(?:any\s+)?(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)(?:\s*,\s*(?:including|such\s+as)\s+(?:any\s+)?(?:adaptations?|enhancements?|modifications?)(?:\s+(?:and|or)\s+(?:adaptations?|enhancements?|modifications?))*\s*,)?(?:\s+(?:that|which|are|were|is|was|created|developed|generated|made|produced|conceived|arising|during|under|in|for|through|the|this|such|subcontract|agreement|performance|by|Subcontractor)){0,16}\s+(?:may|shall|will)\s+be\s+used\s+by\s+(?:the\s+)?(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?![\s-]+(?:customers?|clients?|affiliates?|agenc(?:y|ies)|end[\s-]?users?|affiliated(?:[\s-]+entities?)?)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?![\s-]+(?:customers?|clients?|affiliates?|agenc(?:y|ies)|end[\s-]?users?|affiliated(?:[\s-]+entities?)?)\b))/i;
 const DIRECT_PRIME_ACTIVE_IMPROVEMENT_USE_RE =
-  /(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))\s+(?:(?:may|shall|will)\s+use|(?:has|shall\s+have|will\s+have)\s+the\s+right\s+to\s+use|(?:is|shall\s+be|will\s+be)\s+entitled\s+to\s+use)\s+(?:(?:all|any|the|such|stated|those|Subcontractor(?:['\u2019]s|[\s-](?:created|owned)))\s+){0,3}(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)\b/i;
+  /(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?![\s-]+(?:customers?|clients?|affiliates?|agenc(?:y|ies)|end[\s-]?users?|affiliated(?:[\s-]+entities?)?)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?![\s-]+(?:customers?|clients?|affiliates?|agenc(?:y|ies)|end[\s-]?users?|affiliated(?:[\s-]+entities?)?)\b))\s+(?:(?:may|shall|will)\s+use|(?:has|shall\s+have|will\s+have)\s+the\s+right\s+to\s+use|(?:is|shall\s+be|will\s+be)\s+entitled\s+to\s+use)\s+(?:(?:all|any|the|such|stated|those|Subcontractor(?:['\u2019]s|[\s-](?:created|owned)))\s+){0,3}(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)\b/i;
 const WITHOUT_ADDITIONAL_PAYMENT_RE =
   /without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|royalty[\s-]?free|free\s+of\s+charge|at\s+no\s+(?:additional\s+)?(?:cost|charge|fee|expense)/i;
 
@@ -953,7 +953,7 @@ function forumEvidenceSentences(text: string): string[] {
 function forumEvidenceClauses(sentence: string): string[] {
   return sentence
     .split(
-      /\s*;\s*|,\s*(?:but|however|while|whereas)\s+|\s+(?:and|but)\s+(?=(?:(?:all|any)\s+)?(?:actions?|lawsuits?|claims?|disputes?|proceedings?)\b[^.]{0,120}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:brought|filed)\b)/i
+      /\s*;\s*|,\s*(?:but|however|while|whereas)\s+|\s+(?:and|but)\s+(?=(?:(?:(?:all|any)\s+)?(?:actions?|lawsuits?|claims?|disputes?|proceedings?)\b[^.]{0,120}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:brought|filed)\b|(?:exclusive\s+)?(?:venue|jurisdiction)\s+(?:(?:must|shall|will)\s+be|is|lies)\s+(?:in|located\s+in)\b))/i
     )
     .map((clause) => clause.trim())
     .filter(Boolean);
