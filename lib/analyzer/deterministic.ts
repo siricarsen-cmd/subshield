@@ -652,6 +652,8 @@ function buildGeneralWithholdingAnalysis(foundText: string): string {
   return `This clause permits Prime to ${action} amounts under the conditions stated in the quote, creating direct payment exposure for the Subcontractor.`;
 }
 
+const NEGATED_INVOICE_PAYMENT_WAIVER_RE =
+  /failure\s+to\s+(?:submit[^.]{0,180}\binvoice\b|do\s+so|submit\s+(?:it|them)|timely\s+submit(?:\s+(?:it|them))?|submit\s+on\s+time)[^.]{0,200}(?:(?:does|shall|will|may)\s+not|never)\s+(?:waive|forfeit)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const INVOICE_PAYMENT_WAIVER_RE =
   /failure\s+to\s+submit[^.]{0,140}(?:complete\s+)?invoice[^.]{0,140}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?[^.]{0,120}(?:waives?|forfeits?)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const INVOICE_SUBMISSION_DEADLINE_RE =
@@ -762,6 +764,7 @@ function sentencePreservesPayment(
 
 function invoiceWaiverSentenceIndexes(sentences: string[]): number[] {
   return sentences.flatMap((sentence, index) => {
+    if (NEGATED_INVOICE_PAYMENT_WAIVER_RE.test(sentence)) return [];
     if (INVOICE_PAYMENT_WAIVER_RE.test(sentence)) return [index];
     if (
       INVOICE_PAYMENT_FORFEITURE_CONTEXT_RE.test(sentence) &&
@@ -878,6 +881,8 @@ const DIRECT_PRIME_PASSIVE_IMPROVEMENT_USE_RE =
   /(?:any\s+)?(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)(?:\s*,\s*(?:including|such\s+as)\s+(?:any\s+)?(?:adaptations?|enhancements?|modifications?)(?:\s+(?:and|or)\s+(?:adaptations?|enhancements?|modifications?))*\s*,)?(?:\s+(?!(?:deliverables?|services?|work\s+products?|may|shall|will)\b)[A-Za-z][A-Za-z'-]*){0,20}\s+(?:may|shall|will)\s+be\s+used\s+by\s+(?:the\s+)?(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?![\s-]+(?:customers?|clients?|affiliates?|agenc(?:y|ies)|end[\s-]?users?|affiliated(?:[\s-]+entities?)?)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?![\s-]+(?:customers?|clients?|affiliates?|agenc(?:y|ies)|end[\s-]?users?|affiliated(?:[\s-]+entities?)?)\b))/i;
 const DIRECT_PRIME_ACTIVE_IMPROVEMENT_USE_RE =
   /(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?![\s-]+(?:customers?|clients?|affiliates?|agenc(?:y|ies)|end[\s-]?users?|affiliated(?:[\s-]+entities?)?)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?![\s-]+(?:customers?|clients?|affiliates?|agenc(?:y|ies)|end[\s-]?users?|affiliated(?:[\s-]+entities?)?)\b))\s+(?:(?:may|shall|will)\s+use|(?:has|shall\s+have|will\s+have)\s+the\s+right\s+to\s+use|(?:is|shall\s+be|will\s+be)\s+entitled\s+to\s+use)\s+(?:(?:any\s+and\s+all|all|any|the|such|stated|those|Subcontractor(?:['\u2019]s|[\s-](?:created|owned)))\s+){0,3}(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)\b/i;
+const NON_ROYALTY_FREE_IMPROVEMENT_LICENSE_RE =
+  /\bnon[\s-]+royalty[\s-]?free\b|\broyalty[\s-]+bearing\b|\bsubject\s+to\s+(?:a\s+)?royalt(?:y|ies)\b/i;
 const NEGATED_PRIME_IMPROVEMENT_LICENSE_RE =
   /\bSubcontractor\b[^.]{0,100}(?:(?:does|shall|will|may)\s+not|never)\s+grant\b[^.]{0,220}\b(?:the\s+)?Prime(?:\s+Contractor)?\b[^.]{0,220}\blicense\b[^.]{0,160}\b(?:improvements?|adaptations?)\b|\bno\s+(?:royalty[\s-]?free\s+)?license\b[^.]{0,180}\b(?:improvements?|adaptations?)\b[^.]{0,120}\b(?:is|shall|will)\s+be\s+granted\b[^.]{0,100}\b(?:to\s+)?(?:the\s+)?Prime(?:\s+Contractor)?\b/i;
 const DIRECT_PRIME_UNPAID_IMPROVEMENT_LICENSE_RE =
@@ -898,7 +903,12 @@ const COMPETING_IP_GRANT_BOUNDARY_RE =
   /\b(?:and|but|while|whereas)\s+(?=(?:deliverables?|services?|work\s+products?|improvements?|adaptations?|Subcontractor|Prime(?:\s+Contractor)?)\b[^.]{0,100}\b(?:may|shall|will|is|are|has|have)\b)/i;
 
 function primeImprovementsUseGrantWindow(segment: string): string | null {
-  if (NEGATED_PRIME_IMPROVEMENT_LICENSE_RE.test(segment)) return null;
+  if (
+    NEGATED_PRIME_IMPROVEMENT_LICENSE_RE.test(segment) ||
+    NON_ROYALTY_FREE_IMPROVEMENT_LICENSE_RE.test(segment)
+  ) {
+    return null;
+  }
   const candidates = [
     DIRECT_PRIME_PASSIVE_IMPROVEMENT_USE_RE.exec(segment),
     DIRECT_PRIME_ACTIVE_IMPROVEMENT_USE_RE.exec(segment),
@@ -958,7 +968,7 @@ function buildConditionedPreExistingIpAnalysis(foundText: string): string {
 const BASE_FORUM_EVIDENCE_RE =
   /(?:exclusive\s+(?:venue|jurisdiction)\s+(?:(?:shall|must|will)\s+be\s+|is\s+|lies\s+)?(?:in|located\s+in)|(?:venue|jurisdiction)\s+(?:(?:shall|must|will)\s+be\s+|is\s+|lies\s+)(?:in|located\s+in))[^.]{0,120}(?:courts?|County|State|Commonwealth)|binding\s+arbitration|Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i;
 const NEGATED_EXCLUSIVE_JURISDICTION_RE =
-  /\b(?:neither\s+party|no\s+party)\b[^.]{0,120}(?:irrevocably\s+)?(?:submits?|consents?)\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\b|\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,120}(?:(?:does|do|shall|will|may)\s+not|never)\s+(?:submit|consent)\b[^.]{0,120}\bexclusive\s+jurisdiction\b|\b(?:does|do|shall|will|may)\s+not\s+(?:submit|consent)\b[^.]{0,120}\bexclusive\s+jurisdiction\b/i;
+  /\b(?:neither\s+party|no\s+party)\b[^.]{0,120}(?:irrevocably\s+)?(?:submits?|consents?)\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\b|\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,120}(?:(?:does|do|shall|will|may)\s+not|never)\s+(?:submit|consent)\b[^.]{0,120}\bexclusive\s+jurisdiction\b|\b(?:does|do|shall|will|may)\s+not\s+(?:submit|consent)\b[^.]{0,120}\bexclusive\s+jurisdiction\b|\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,140}(?:expressly\s+)?(?:refuses?|declines?)\s+to\s+(?:submit|consent)\b[^.]{0,140}\bexclusive\s+jurisdiction\b|\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,140}(?:expressly\s+)?disclaims?\s+(?:any\s+)?(?:submission|consent)\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\b/i;
 const EXCLUSIVE_JURISDICTION_SUBMISSION_RE =
   /(?:\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,120})?(?:irrevocably\s+)?(?:submits?|consents?)\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\s+of[^.]{0,220}(?:courts?|County|State|Commonwealth|District|City)|\bcourts?\b[^.]{0,180}\b(?:shall|will)\s+have\s+exclusive\s+jurisdiction\b|\bcourts?\b[^.]{0,180}\bhaving\s+exclusive\s+jurisdiction\b/i;
 const DIRECT_MANDATORY_FORUM_RE =
