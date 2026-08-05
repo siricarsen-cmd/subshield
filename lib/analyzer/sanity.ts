@@ -135,15 +135,21 @@ function unsupportedFindingLocalClaim(finding: Finding): string | null {
 
   const forumSelectionCategory =
     /out-of-state\s+venue|governing\s+law|arbitration\s+burden/i.test(reg);
+  const filedInForumClaim =
+    /filed\s+in\s+(?:(?:a|the)\s+)?(?:courts?|forum)\b|filed\s+in\s+(?:(?:the\s+)?(?:State|Commonwealth)\s+of\s+)?[A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,4}\s+(?:County|State|Commonwealth|District|City)\b/i.test(claim);
   const explicitForumSelectionClaim =
-    /forum\s+(?:far|stated|required)|must\s+be\s+brought|filed\s+in|(?:must|shall|required\s+to)\s+(?:litigate|arbitrate)/i.test(claim);
+    /forum\s+(?:far|stated|required)|must\s+be\s+brought|(?:must|shall|required\s+to)\s+(?:litigate|arbitrate)/i.test(claim) ||
+    filedInForumClaim;
   const forumBurdenClaim = forumSelectionCategory || explicitForumSelectionClaim;
   const forumBurdenEvidence = hasVenueGoverningLawOrArbitrationEvidence(quote);
   if (forumBurdenClaim && !forumBurdenEvidence) {
     return "Finding's analysis claims a litigation, arbitration, or forum requirement that is not stated in the finding's own verified quote.";
   }
 
+  const primeImprovementUseClaim =
+    /\bPrime(?:\s+Contractor)?\b[^.]{0,180}\b(?:use|uses|using|license|licensed|receives?|retains?|may\s+use|right\s+to\s+use)\b[^.]{0,140}\b(?:improvements?|adaptations?)\b|\b(?:improvements?|adaptations?)\b[^.]{0,140}\b(?:used|licensed)\b[^.]{0,80}\b(?:by|to)\s+(?:the\s+)?Prime(?:\s+Contractor)?\b/i.test(claim);
   const unpaidImprovementClaim =
+    primeImprovementUseClaim &&
     /(?:improvements?|adaptations?)[^.]{0,100}(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use|royalty[\s-]?free|free\s+of\s+charge)|(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use|royalty[\s-]?free|free\s+of\s+charge)[^.]{0,100}(?:improvements?|adaptations?)/i.test(claim);
   const unpaidImprovementEvidence = hasUnpaidPrimeImprovementsUseEvidence(quote);
   if (unpaidImprovementClaim && !unpaidImprovementEvidence) {
