@@ -1,1 +1,0 @@
-Trigger exact-head checks after the final verified analyzer patch.
