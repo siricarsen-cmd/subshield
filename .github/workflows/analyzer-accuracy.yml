@@ -13,88 +13,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  apply-final-ip-and-venue-fixes:
-    name: Apply final IP and venue fixes
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - name: Check out exact PR branch
-        uses: actions/checkout@v4
-        with:
-          ref: fix/orion-parity-grounding-invoice-waiver
-          fetch-depth: 0
-
-      - name: Detect correction task
-        id: gate
-        shell: bash
-        run: |
-          if test -f ORION_FINAL_IP_VENUE_PATCH.py; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Use Node.js 24
-        if: steps.gate.outputs.run == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Install locked dependencies
-        if: steps.gate.outputs.run == 'true'
-        run: npm ci
-
-      - name: Apply reviewed corrections
-        if: steps.gate.outputs.run == 'true'
-        run: python3 ORION_FINAL_IP_VENUE_PATCH.py
-
-      - name: Run Orion regression suite
-        if: steps.gate.outputs.run == 'true'
-        run: npm run test:accuracy:orion
-
-      - name: Run full accuracy suite
-        if: steps.gate.outputs.run == 'true'
-        run: npm run test:accuracy
-
-      - name: Validate TypeScript
-        if: steps.gate.outputs.run == 'true'
-        run: npx tsc --noEmit
-
-      - name: Build production application
-        if: steps.gate.outputs.run == 'true'
-        env:
-          NEXT_PUBLIC_BASE_URL: http://localhost:3000
-          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
-          SUPABASE_URL: https://example.supabase.co
-          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
-          STRIPE_SECRET_KEY: sk_test_ci_placeholder
-          STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
-          NEXT_PUBLIC_STRIPE_PRICE_SINGLE_REVIEW_CYCLE: price_ci_single
-          NEXT_PUBLIC_STRIPE_PRICE_ACTIVE_BIDDER_PLAN: price_ci_active
-          NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE_PLAN: price_ci_enterprise
-          OPENAI_API_KEY: sk-ci-placeholder
-          RESEND_API_KEY: re_ci_placeholder
-          CONTACT_FROM_EMAIL: ci@example.com
-          CONTACT_TO_EMAIL: ci@example.com
-        run: npm run build
-
-      - name: Restore workflow, remove task, and commit
-        if: steps.gate.outputs.run == 'true'
-        shell: bash
-        run: |
-          git show c6d42ad32fb17ce53a847ea267a3758158d8d05b:.github/workflows/analyzer-accuracy.yml > .github/workflows/analyzer-accuracy.yml
-          rm ORION_FINAL_IP_VENUE_PATCH.py
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib/analyzer/deterministic.ts lib/analyzer/__tests__/orion-parity-regression.test.mjs .github/workflows/analyzer-accuracy.yml ORION_FINAL_IP_VENUE_PATCH.py
-          git commit -m "Cover definite Prime actor and plain-but venue clauses"
-          git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
-
   accuracy-benchmarks:
     name: QA-B / QA-C / QA-D / QA-E1
     runs-on: ubuntu-latest
@@ -175,6 +96,8 @@ jobs:
         continue-on-error: true
         shell: bash
         env:
+          # Non-secret placeholders used only to let Next.js evaluate modules
+          # during CI. No network, payment, email, database, or AI call is made.
           NEXT_PUBLIC_BASE_URL: http://localhost:3000
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
