@@ -837,12 +837,26 @@ function primeImprovementsUseGrantWindow(segment: string): string | null {
   return segment.slice(match.index, grantEnd);
 }
 
+const COMPETING_IP_OBJECT_UNPAID_SCOPE_RE =
+  /\b(?:being\s+)?(?:due|owed|payable)?\s*(?:for|with\s+respect\s+to|in\s+connection\s+with)\s+(?:the\s+)?(?:deliverables?|services?|work\s+products?)\b/i;
+
+function unpaidQualifierTargetsCompetingIpObject(grantWindow: string): boolean {
+  const unpaidQualifier = WITHOUT_ADDITIONAL_PAYMENT_RE.exec(grantWindow);
+  if (!unpaidQualifier) return false;
+  const qualifierTail = grantWindow.slice(unpaidQualifier.index + unpaidQualifier[0].length);
+  return COMPETING_IP_OBJECT_UNPAID_SCOPE_RE.test(qualifierTail);
+}
+
 export function hasUnpaidPrimeImprovementsUseEvidence(text: string): boolean {
   const sentences = text.split(/(?<=[.!?])\s+/);
   return sentences.some((sentence) =>
     coordinatedIpUseSegments(sentence).some((segment) => {
       const grantWindow = primeImprovementsUseGrantWindow(segment);
-      return Boolean(grantWindow && WITHOUT_ADDITIONAL_PAYMENT_RE.test(grantWindow));
+      return Boolean(
+        grantWindow &&
+          WITHOUT_ADDITIONAL_PAYMENT_RE.test(grantWindow) &&
+          !unpaidQualifierTargetsCompetingIpObject(grantWindow)
+      );
     })
   );
 }
@@ -902,11 +916,14 @@ function forumEvidenceClauses(sentence: string): string[] {
     .filter(Boolean);
 }
 
-function optionalForumChoiceSpansSemicolon(sentence: string): boolean {
-  return OPTIONAL_FORUM_EVIDENCE_RES.some((pattern) => {
-    const match = pattern.exec(sentence);
-    return Boolean(match?.[0].includes(";"));
-  });
+function stripSemicolonSpanningOptionalForumChoices(sentence: string): string {
+  let remaining = sentence;
+  for (const pattern of OPTIONAL_FORUM_EVIDENCE_RES) {
+    const match = pattern.exec(remaining);
+    if (!match || !match[0].includes(";")) continue;
+    remaining = `${remaining.slice(0, match.index)} ${remaining.slice(match.index + match[0].length)}`;
+  }
+  return remaining;
 }
 
 function clauseHasOptionalForumChoice(clause: string): boolean {
@@ -928,8 +945,8 @@ function clauseHasMandatoryForumEvidence(clause: string): boolean {
 
 export function hasMandatoryForumEvidence(text: string): boolean {
   return forumEvidenceSentences(text).some((sentence) => {
-    if (optionalForumChoiceSpansSemicolon(sentence)) return false;
-    return forumEvidenceClauses(sentence).some(clauseHasMandatoryForumEvidence);
+    const evaluableSentence = stripSemicolonSpanningOptionalForumChoices(sentence);
+    return forumEvidenceClauses(evaluableSentence).some(clauseHasMandatoryForumEvidence);
   });
 }
 const GOVERNING_LAW_EVIDENCE_RE =
