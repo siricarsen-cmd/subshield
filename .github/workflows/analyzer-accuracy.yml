@@ -6,6 +6,7 @@ on:
       - "lib/analyzer/**"
       - "package.json"
       - "package-lock.json"
+      - ".github/orion-last-review-patch.py"
       - ".github/workflows/analyzer-accuracy.yml"
   workflow_dispatch:
 
@@ -33,7 +34,7 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Apply reviewed corrections
+      - name: Apply corrected reviewed changes
         run: python .github/orion-last-review-patch.py
 
       - name: Install locked dependencies
