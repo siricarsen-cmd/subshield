@@ -38,6 +38,18 @@ deterministic = replace_once(
     "reject Prime-owned payment-right savings",
 )
 
+old_sentence_start = r'''): boolean {
+  const preservedInvoiceIds = extractInvoiceIds(sentence);'''
+new_sentence_start = r'''): boolean {
+  if (PRIME_PAYMENT_RIGHT_PRESERVATION_RE.test(sentence)) return false;
+  const preservedInvoiceIds = extractInvoiceIds(sentence);'''
+deterministic = replace_once(
+    deterministic,
+    old_sentence_start,
+    new_sentence_start,
+    "reject Prime-owned named-invoice savings",
+)
+
 license_marker = "const WITHOUT_ADDITIONAL_PAYMENT_RE ="
 postfix_license = r'''const DIRECT_PRIME_POSTFIX_UNPAID_IMPROVEMENT_LICENSE_RE =
   /\bSubcontractor\b[^.]{0,100}\bgrants?\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,180})\b(?:the\s+)?Prime(?:\s+Contractor)?\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,160})\blicense\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,140})\b(?:improvements?|adaptations?)\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,100})\b(?:on\s+(?:a\s+)?royalty[\s-]?free\s+basis|royalty[\s-]?free|free\s+of\s+charge|without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|at\s+no\s+(?:additional\s+)?(?:cost|charge|fee|expense))\b/i;
@@ -68,13 +80,32 @@ deterministic = replace_once(
 
 old_governing_law = r'''const GOVERNING_LAW_EVIDENCE_RE =
   /(?:\bgoverned\s+by\s+the\s+laws?\s+of|\bgoverning\s+law\s*(?::|[-–—])\s*(?:the\s+laws?\s+of)?)(?:\s+(?:(?:the\s+)?(?:State|Commonwealth)\s+of\s+)?[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,2})/i;'''
-new_governing_law = r'''const GOVERNING_LAW_EVIDENCE_RE =
+new_governing_law = r'''const DEFERRED_OR_UNSELECTED_GOVERNING_LAW_RE =
+  /\bgoverning\s+law\b[^.]{0,140}\b(?:has|have|is|was)\s+not\s+(?:been\s+)?selected\b|\bgoverning\s+law\b[^.]{0,140}\bshall\s+be\s+(?:agreed|selected|determined)\s+later\b/i;
+const GOVERNING_LAW_EVIDENCE_RE =
   /(?:\bgoverned\s+by\s+the\s+laws?\s+of|\bgoverning\s+law(?:\s+of[^.]{0,80})?\s*(?::|[-–—]|(?:shall|will|is)\s+be)\s*(?:the\s+laws?\s+of)?)(?:\s+(?:(?:the\s+)?(?:State|Commonwealth)\s+of\s+)?[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,2})/i;'''
 deterministic = replace_once(
     deterministic,
     old_governing_law,
     new_governing_law,
     "governing-law shall-be formulation",
+)
+
+old_evidence_return = r'''export function hasVenueGoverningLawOrArbitrationEvidence(text: string): boolean {
+  return hasMandatoryVenueOrArbitrationEvidence(text) || GOVERNING_LAW_EVIDENCE_RE.test(text);
+}'''
+new_evidence_return = r'''export function hasVenueGoverningLawOrArbitrationEvidence(text: string): boolean {
+  return (
+    hasMandatoryVenueOrArbitrationEvidence(text) ||
+    (GOVERNING_LAW_EVIDENCE_RE.test(text) &&
+      !DEFERRED_OR_UNSELECTED_GOVERNING_LAW_RE.test(text))
+  );
+}'''
+deterministic = replace_once(
+    deterministic,
+    old_evidence_return,
+    new_evidence_return,
+    "deferred governing-law rejection",
 )
 
 deterministic_path.write_text(deterministic)
