@@ -689,16 +689,42 @@ function namedInvoiceRemainsPayable(sentence: string, invoiceId: string): boolea
   return invoiceThenPayable.test(sentence) || payableThenInvoice.test(sentence);
 }
 
+function namedInvoicePaymentRightIsPreserved(sentence: string, invoiceId: string): boolean {
+  const escapedInvoiceId = escapeRegexLiteral(invoiceId);
+  const invoiceRef = `\\binvoice\\s+(?:no\\.?\\s*)?${escapedInvoiceId}\\b`;
+  const otherInvoiceBoundary = String.raw`\binvoice\s+(?:no\.?\s*)?[A-Z0-9-]*\d[A-Z0-9-]*\b`;
+  const boundedGap = `(?:(?!${otherInvoiceBoundary})[^.])`;
+  const invoiceThenPreserved = new RegExp(
+    `${invoiceRef}${boundedGap}{0,120}(?:right|entitlement)\\s+to\\s+payment${boundedGap}{0,100}(?:is|shall|will)\\s+not\\s+(?:waived|forfeited)`,
+    "i"
+  );
+  const preservedThenInvoice = new RegExp(
+    `(?:right|entitlement)\\s+to\\s+payment${boundedGap}{0,100}\\b(?:under|for)\\s+${invoiceRef}${boundedGap}{0,100}(?:is|shall|will)\\s+not\\s+(?:waived|forfeited)`,
+    "i"
+  );
+  const activePreservation = new RegExp(
+    `(?:does|shall|will)\\s+not\\s+(?:waive|forfeit)${boundedGap}{0,100}${invoiceRef}${boundedGap}{0,100}(?:right|entitlement)\\s+to\\s+payment`,
+    "i"
+  );
+  return (
+    invoiceThenPreserved.test(sentence) ||
+    preservedThenInvoice.test(sentence) ||
+    activePreservation.test(sentence)
+  );
+}
+
 function sentencePreservesPayment(sentence: string, waivedInvoiceIds: string[]): boolean {
   const preservedInvoiceIds = extractInvoiceIds(sentence);
   if (preservedInvoiceIds.length > 0) {
     const mentionsWaivedInvoice =
       waivedInvoiceIds.length > 0 && preservedInvoiceIds.some((invoiceId) => waivedInvoiceIds.includes(invoiceId));
     if (!mentionsWaivedInvoice) return false;
-    const makesWaivedInvoicePayable = waivedInvoiceIds.some((invoiceId) =>
-      namedInvoiceRemainsPayable(sentence, invoiceId)
+    const preservesWaivedInvoice = waivedInvoiceIds.some(
+      (invoiceId) =>
+        namedInvoiceRemainsPayable(sentence, invoiceId) ||
+        namedInvoicePaymentRightIsPreserved(sentence, invoiceId)
     );
-    return makesWaivedInvoicePayable || EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence);
+    return preservesWaivedInvoice;
   }
   if (OTHER_INVOICE_SCOPE_RE.test(sentence)) return false;
   return EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence) || SAME_SCOPE_PAYMENT_REMAINS_RE.test(sentence);
@@ -774,7 +800,7 @@ const DIRECT_PRIME_PASSIVE_IMPROVEMENT_USE_RE =
 const DIRECT_PRIME_ACTIVE_IMPROVEMENT_USE_RE =
   /(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))\s+(?:(?:may|shall|will)\s+use|(?:has|shall\s+have|will\s+have)\s+the\s+right\s+to\s+use|(?:is|shall\s+be|will\s+be)\s+entitled\s+to\s+use)\s+(?:(?:any|the|such|stated|those|Subcontractor[\s-]created)\s+){0,3}(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)\b/i;
 const WITHOUT_ADDITIONAL_PAYMENT_RE =
-  /without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)/i;
+  /without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|royalty[\s-]?free|free\s+of\s+charge|at\s+no\s+(?:additional\s+)?(?:cost|charge|fee|expense)/i;
 
 function coordinatedIpUseSegments(sentence: string): string[] {
   return sentence

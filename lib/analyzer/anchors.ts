@@ -126,7 +126,8 @@ export function extractAnchorCandidates(documentText: string, fileName?: string)
     firstMatch(text, EXPLICIT_TYPE_LABEL_DIRECT);
   const explicitTypeLabel =
     explicitTypeLabelCandidate &&
-    CONTRACT_TYPE_PATTERNS.some((pattern) => pattern.pattern.test(explicitTypeLabelCandidate))
+    (CONTRACT_TYPE_PATTERNS.some((pattern) => pattern.pattern.test(explicitTypeLabelCandidate)) ||
+      /^Hybrid(?:\s+(?:subcontract|contract|agreement))?$/i.test(explicitTypeLabelCandidate))
       ? explicitTypeLabelCandidate.trim()
       : undefined;
   const contractTypeMatch = CONTRACT_TYPE_PATTERNS.find((p) => p.pattern.test(text));
