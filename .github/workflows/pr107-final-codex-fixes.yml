@@ -1,0 +1,189 @@
+name: PR107 Deterministic Final Apply
+
+on:
+  push:
+    branches:
+      - fix/orion-parity-grounding-invoice-waiver
+    paths:
+      - .github/workflows/pr107-final-codex-fixes.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/orion-parity-grounding-invoice-waiver
+          fetch-depth: 0
+
+      - name: Apply exact reviewed changes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
+              return text.replace(old, new, 1)
+
+          deterministic_path = Path("lib/analyzer/deterministic.ts")
+          deterministic = deterministic_path.read_text()
+
+          active_pattern = re.compile(
+              r'(  const activePreservation = new RegExp\(\n.*?\n  \);\n)'
+              r'  return \(\n'
+              r'    invoiceThenPreserved\.test\(sentence\) \|\|\n'
+              r'    preservedThenInvoice\.test\(sentence\) \|\|\n'
+              r'    activePreservation\.test\(sentence\)\n'
+              r'  \);',
+              re.S,
+          )
+          active_replacement = r'''\1  const activePreservationAfterRight = new RegExp(
+            `(?:does|shall|will)\\s+not\\s+(?:waive|forfeit)${boundedGap}{0,100}(?:right|entitlement)\\s+to\\s+payment${boundedGap}{0,100}\\b(?:under|for)\\s+${invoiceRef}`,
+            "i"
+          );
+          return (
+            invoiceThenPreserved.test(sentence) ||
+            preservedThenInvoice.test(sentence) ||
+            activePreservation.test(sentence) ||
+            activePreservationAfterRight.test(sentence)
+          );'''
+          deterministic, count = active_pattern.subn(active_replacement, deterministic, count=1)
+          if count != 1:
+              raise SystemExit(f"same-invoice active preservation: expected one match, found {count}")
+
+          deterministic = replace_once(
+              deterministic,
+              r'''(?:[-–—:]\s*)?(?:is\s+)?$/i.test(''',
+              r'''(?:[-–—:]\s*)?(?:(?:is|will\s+be|shall\s+be)\s+)?$/i.test(''',
+              "deferred attachment row wording",
+          )
+          deterministic = replace_once(
+              deterministic,
+              r'''(?:(?:all|any|the|such|stated|those|Subcontractor(?:['\u2019]s|[\s-](?:created|owned)))\s+){0,3}''',
+              r'''(?:(?:any\s+and\s+all|all|any|the|such|stated|those|Subcontractor(?:['\u2019]s|[\s-](?:created|owned)))\s+){0,3}''',
+              "any-and-all Improvements grant",
+          )
+          deterministic_path.write_text(deterministic)
+
+          sanity_path = Path("lib/analyzer/sanity.ts")
+          sanity = sanity_path.read_text()
+          sanity = replace_once(
+              sanity,
+              r'''/(?:improvements?|adaptations?)[^.]{0,100}(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use)|(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use)[^.]{0,100}(?:improvements?|adaptations?)/i.test(claim);''',
+              r'''/(?:improvements?|adaptations?)[^.]{0,100}(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use|royalty[\s-]?free|free\s+of\s+charge)|(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use|royalty[\s-]?free|free\s+of\s+charge)[^.]{0,100}(?:improvements?|adaptations?)/i.test(claim);''',
+              "royalty-free finding-local guard",
+          )
+          sanity_path.write_text(sanity)
+
+          test_path = Path("lib/analyzer/__tests__/orion-parity-regression.test.mjs")
+          tests = test_path.read_text()
+          marker = "\nif (failures > 0) {\n"
+          additions = r'''
+
+          const sameInvoiceActivePreservation = productionPath(`
+          2.8 Invoice Requirements
+          Failure to submit Invoice 104 within 30 calendar days waives the right to payment for Invoice 104. This does not waive the right to payment for Invoice 104 after cure.
+          `);
+          check(
+            "active same-invoice right-to-payment preservation suppresses permanent payment-loss finding",
+            !sameInvoiceActivePreservation.findings.some(
+              (finding) => finding.regulation === "Invoice Submission Deadline / Payment Waiver"
+            )
+          );
+
+          for (const unsupportedUnpaidPhrase of ["royalty-free", "free of charge"]) {
+            const ownershipOnlyQuote = "All Improvements are owned by Prime Contractor.";
+            const unsupportedUnpaidFinding = {
+              triggerType: "Contract Risk Trigger",
+              regulation: "Conditioned Pre-Existing IP Retention / Unpaid Use of Improvements",
+              severity: "Medium-High",
+              foundText: ownershipOnlyQuote,
+              riskAnalysis: `Prime Contractor receives ${unsupportedUnpaidPhrase} use of Subcontractor-created Improvements.`,
+              redlineFix: "Require a separately negotiated license and compensation for any Prime use of Improvements.",
+            };
+            const unsupportedVerification = verifyFindings([unsupportedUnpaidFinding], ownershipOnlyQuote);
+            check(
+              `${unsupportedUnpaidPhrase} improvement-use claim requires quote-local unpaid-use evidence`,
+              unsupportedVerification.verified.length === 0,
+              unsupportedVerification.dropped.map(({ reason }) => reason).join(" | ")
+            );
+          }
+
+          const fullSentenceDeferredAttachmentRows = productionPath(`
+          1. Attachment List
+          1. Statement of Work will be included after award.
+          2. Prime Contract Flow-Down Matrix shall be provided after award.
+          3. Certifications
+          Subcontractor certifies that its representations remain current.
+          `);
+          const deferredAttachmentFinding = fullSentenceDeferredAttachmentRows.findings.find(
+            (finding) => finding.regulation === "Missing / Deferred Contract Documents"
+          );
+          check(
+            "full-sentence deferred Attachment List rows remain inside focused evidence",
+            Boolean(
+              deferredAttachmentFinding &&
+                /Statement of Work/i.test(deferredAttachmentFinding.foundText) &&
+                /Prime Contract Flow-Down Matrix/i.test(deferredAttachmentFinding.foundText)
+            ),
+            deferredAttachmentFinding?.foundText ?? "missing finding"
+          );
+          check(
+            "full-sentence deferred Attachment List rows stop before the next peer section",
+            Boolean(deferredAttachmentFinding && !/Certifications/i.test(deferredAttachmentFinding.foundText)),
+            deferredAttachmentFinding?.foundText ?? "missing finding"
+          );
+
+          const anyAndAllPrimeUse = productionPath(`
+          2.17 Improvements
+          Prime Contractor may use any and all Improvements without additional payment to Subcontractor.
+          `);
+          const anyAndAllIpFinding = anyAndAllPrimeUse.findings.find(
+            (finding) => finding.regulation === "Conditioned Pre-Existing IP Retention / Unpaid Use of Improvements"
+          );
+          check("active any-and-all Improvements unpaid-use grant triggers", Boolean(anyAndAllIpFinding));
+          check(
+            "any-and-all Improvements finding remains quote-local",
+            Boolean(
+              anyAndAllIpFinding &&
+                verifyFindings([anyAndAllIpFinding], anyAndAllIpFinding.foundText).verified.length === 1
+            )
+          );
+          '''
+          if tests.count(marker) != 1:
+              raise SystemExit(f"test marker: expected one match, found {tests.count(marker)}")
+          tests = tests.replace(marker, additions + marker, 1)
+          test_path.write_text(tests)
+          PY
+
+      - name: Restore six-file scope and push
+        shell: bash
+        run: |
+          rm .github/workflows/pr107-final-codex-fixes.yml
+          expected=$(printf '%s\n' \
+            'lib/analyzer/__tests__/orion-parity-regression.test.mjs' \
+            'lib/analyzer/anchors.ts' \
+            'lib/analyzer/deterministic.ts' \
+            'lib/analyzer/sanity.ts' \
+            'package-lock.json' \
+            'package.json')
+          actual=$(git diff --name-only 13d4d8f43f24440ebbb0ec77e61736adfd1ad82f | sort)
+          test "$actual" = "$expected" || {
+            echo 'Unexpected final PR scope:'
+            printf '%s\n' "$actual"
+            exit 1
+          }
+          git diff --check
+          git config user.name 'siricarsen-cmd'
+          git config user.email '287561052+siricarsen-cmd@users.noreply.github.com'
+          git add lib/analyzer/deterministic.ts lib/analyzer/sanity.ts lib/analyzer/__tests__/orion-parity-regression.test.mjs .github/workflows/pr107-final-codex-fixes.yml
+          git diff --cached --check
+          git commit -m 'Address PR107 final review threads'
+          git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
