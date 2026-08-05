@@ -811,16 +811,32 @@ function invoicePaymentWaiverDeadline(foundText: string): string | undefined {
   );
   if (waiverIndex === undefined) return undefined;
 
-  const latestDeadline = (sentence: string): string | undefined => {
-    const matches = [
+  const invoiceSubmissionDeadline = (sentence: string): string | undefined => {
+    const deadlines = [
       ...sentence.matchAll(
         /(?:within|no\s+later\s+than)\s+(\d{1,3}\s*(?:calendar|business|working)?\s*days?)/gi
       ),
-    ];
-    return matches.at(-1)?.[1];
+    ].filter((deadline) => {
+      const prefix = sentence.slice(0, deadline.index ?? 0);
+      const boundaries = [
+        ...prefix.matchAll(/(?:;|,\s*(?:and|but|while|whereas)\s+|\s+(?:and|but|while|whereas)\s+)/gi),
+      ];
+      const lastBoundary = boundaries.at(-1);
+      const localPrefix = lastBoundary
+        ? prefix.slice((lastBoundary.index ?? 0) + lastBoundary[0].length)
+        : prefix;
+      return (
+        /\binvoices?\b/i.test(localPrefix) &&
+        /\b(?:submit(?:ted|ting)?|submission)\b/i.test(localPrefix)
+      );
+    });
+    return deadlines.at(-1)?.[1];
   };
 
-  return latestDeadline(sentences[waiverIndex]) ?? latestDeadline(sentences[waiverIndex - 1] ?? "");
+  return (
+    invoiceSubmissionDeadline(sentences[waiverIndex]) ??
+    invoiceSubmissionDeadline(sentences[waiverIndex - 1] ?? "")
+  );
 }
 
 function buildInvoicePaymentWaiverAnalysis(foundText: string): string {
@@ -977,13 +993,26 @@ export function hasMandatoryForumEvidence(text: string): boolean {
   });
 }
 const GOVERNING_LAW_EVIDENCE_RE =
-  /(?:governing\s+law|governed\s+by\s+the\s+laws\s+of)[^.]{0,100}(?:State\s+of|Commonwealth\s+of)\s+[A-Z][a-zA-Z]+/i;
+  /(?:\bgoverned\s+by\s+the\s+laws?\s+of|\bgoverning\s+law\s*(?::|[-–—])\s*(?:the\s+laws?\s+of\s+)?)(?:(?:the\s+)?(?:State|Commonwealth)\s+of\s+)?[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,2}/i;
+const MANDATORY_ARBITRATION_EVIDENCE_RE =
+  /\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,180}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:resolved|settled|decided|submitted)\s+(?:exclusively\s+)?(?:by|through|to)\s+(?:binding\s+)?arbitration\b/i;
+
+function hasMandatoryVenueOrArbitrationEvidence(text: string): boolean {
+  return hasMandatoryForumEvidence(text) || MANDATORY_ARBITRATION_EVIDENCE_RE.test(text);
+}
 
 function findVenueOrGoverningLawCandidate(documentText: string): string | null {
-  return findClauseCandidate(documentText, hasMandatoryForumEvidence);
+  return findClauseCandidate(
+    documentText,
+    (block) =>
+      hasMandatoryVenueOrArbitrationEvidence(block) || GOVERNING_LAW_EVIDENCE_RE.test(block)
+  );
 }
 
 function buildVenueOrGoverningLawAnalysis(foundText: string): string {
+  if (MANDATORY_ARBITRATION_EVIDENCE_RE.test(foundText)) {
+    return "This clause requires disputes to be resolved through arbitration as stated in the quote, which can limit access to court and add arbitration-administration, forum, or travel costs.";
+  }
   if (hasMandatoryForumEvidence(foundText)) {
     return "This clause requires or permits disputes to be litigated, mediated, or arbitrated in the forum stated in the quote, which can increase the cost and difficulty of pursuing or defending a claim for a Subcontractor located elsewhere.";
   }
