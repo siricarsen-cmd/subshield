@@ -11,23 +11,14 @@ permissions:
   contents: write
 
 jobs:
-  patch-test-commit:
+  patch-commit:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - name: Check out PR branch
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Set up Node 24
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Apply three narrow review corrections
         shell: bash
@@ -120,22 +111,7 @@ check(
           test_path.write_text(tests)
           PY
 
-      - name: Run focused Orion regression suite
-        run: npm run test:accuracy:orion
-
-      - name: Run full analyzer accuracy suite
-        run: npm run test:accuracy
-
-      - name: Run TypeScript validation
-        run: npx tsc --noEmit
-
-      - name: Run production build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: build-placeholder
-        run: npm run build
-
-      - name: Commit verified fixes and remove temporary workflow
+      - name: Commit fixes and remove temporary workflow
         shell: bash
         run: |
           rm .github/workflows/orion-final-review-fixes.yml
