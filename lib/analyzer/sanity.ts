@@ -144,7 +144,7 @@ function unsupportedFindingLocalClaim(finding: Finding): string | null {
   }
 
   const unpaidImprovementClaim =
-    /(?:improvements?|adaptations?)[^.]{0,100}(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use)|(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use)[^.]{0,100}(?:improvements?|adaptations?)/i.test(claim);
+    /(?:improvements?|adaptations?)[^.]{0,100}(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use|royalty[\s-]?free|free\s+of\s+charge)|(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use|royalty[\s-]?free|free\s+of\s+charge)[^.]{0,100}(?:improvements?|adaptations?)/i.test(claim);
   const unpaidImprovementEvidence = hasUnpaidPrimeImprovementsUseEvidence(quote);
   if (unpaidImprovementClaim && !unpaidImprovementEvidence) {
     return "Finding's analysis claims unpaid Prime use of improvements or adaptations that is not stated in the finding's own verified quote.";
