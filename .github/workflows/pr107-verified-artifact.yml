@@ -29,6 +29,28 @@ jobs:
       - name: Apply exact current review patch
         run: python .github/pr107-current-review-patch.py
 
+      - name: Diagnose Prime-owned payment preservation path
+        shell: bash
+        run: |
+          node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs --input-type=module <<'NODE'
+          import { runDeterministicDetectors } from './lib/analyzer/deterministic.ts';
+          import { dedupeFindings, rankFindings } from './lib/analyzer/report.ts';
+          import { verifyFindings } from './lib/analyzer/sanity.ts';
+          import { normalizeWhitespace } from './lib/analyzer/text.ts';
+          const documentText = normalizeWhitespace(`
+          2.8 Invoice Requirements
+          Failure to submit a complete invoice within 30 calendar days waives the Subcontractor's right to payment. Prime Contractor's right to payment for the affected invoice is not waived.
+          `);
+          const generated = runDeterministicDetectors(documentText);
+          const verification = verifyFindings(generated, documentText);
+          const ranked = rankFindings(dedupeFindings(verification.verified, documentText));
+          console.log(JSON.stringify({
+            generated: generated.map(({ regulation, foundText }) => ({ regulation, foundText })),
+            dropped: verification.dropped.map(({ finding, reason }) => ({ regulation: finding.regulation, reason })),
+            final: [...ranked.primaryTraps, ...ranked.secondaryConcerns].map(({ regulation, foundText }) => ({ regulation, foundText })),
+          }, null, 2));
+          NODE
+
       - run: npm run test:accuracy:orion
       - run: npm run test:accuracy
       - run: npx tsc --noEmit
