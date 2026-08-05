@@ -784,7 +784,11 @@ function invoiceWaiverIsPreserved(sentences: string[], waiverIndex: number): boo
 }
 
 function hasUnpreservedInvoicePaymentWaiver(block: string): boolean {
-  const sentences = block.split(/(?<=[.!?])\s+/);
+  const invoiceSentenceSafeBlock = block.replace(
+    /\binvoice\s+no\.\s*(?=[A-Z0-9-]*\d)/gi,
+    "Invoice No "
+  );
+  const sentences = invoiceSentenceSafeBlock.split(/(?<=[.!?])\s+/);
   return invoiceWaiverSentenceIndexes(sentences).some(
     (waiverIndex) => !invoiceWaiverIsPreserved(sentences, waiverIndex)
   );
@@ -804,7 +808,7 @@ const CONDITIONED_PREEXISTING_IP_RE =
 const DIRECT_PRIME_PASSIVE_IMPROVEMENT_USE_RE =
   /(?:any\s+)?(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)(?:\s*,\s*(?:including|such\s+as)\s+(?:any\s+)?(?:adaptations?|enhancements?|modifications?)(?:\s+(?:and|or)\s+(?:adaptations?|enhancements?|modifications?))*\s*,)?(?:\s+(?:that|which|are|were|is|was|created|developed|generated|made|produced|conceived|arising|during|under|in|for|through|the|this|such|subcontract|agreement|performance|by|Subcontractor)){0,16}\s+(?:may|shall|will)\s+be\s+used\s+by\s+(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))/i;
 const DIRECT_PRIME_ACTIVE_IMPROVEMENT_USE_RE =
-  /(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))\s+(?:(?:may|shall|will)\s+use|(?:has|shall\s+have|will\s+have)\s+the\s+right\s+to\s+use|(?:is|shall\s+be|will\s+be)\s+entitled\s+to\s+use)\s+(?:(?:any|the|such|stated|those|Subcontractor[\s-]created)\s+){0,3}(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)\b/i;
+  /(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?!\s+(?:customer|client|affiliate|agency|end[\s-]?user)\b))\s+(?:(?:may|shall|will)\s+use|(?:has|shall\s+have|will\s+have)\s+the\s+right\s+to\s+use|(?:is|shall\s+be|will\s+be)\s+entitled\s+to\s+use)\s+(?:(?:all|any|the|such|stated|those|Subcontractor[\s-]created)\s+){0,3}(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)\b/i;
 const WITHOUT_ADDITIONAL_PAYMENT_RE =
   /without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|royalty[\s-]?free|free\s+of\s+charge|at\s+no\s+(?:additional\s+)?(?:cost|charge|fee|expense)/i;
 
