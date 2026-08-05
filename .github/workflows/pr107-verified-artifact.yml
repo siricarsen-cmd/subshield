@@ -38,6 +38,14 @@ jobs:
           padding = ' ' * prefix
           script = ''.join(line[prefix:] if line.startswith(padding) else line for line in body)
           exec(compile(script, 'pr107-verified-patch.py', 'exec'))
+
+          deterministic_path = Path('lib/analyzer/deterministic.ts')
+          deterministic = deterministic_path.read_text()
+          old = r'''(?:payment|amounts?)[^.]{0,80}(?:is|are|shall|will)\s+not\s+(?:waived|forfeited)'''
+          new = r'''(?:payment|amounts?)[^.]{0,80}(?:is|are|shall|will)\s+not\s+(?:be\s+)?(?:waived|forfeited)'''
+          if deterministic.count(old) != 1:
+              raise SystemExit(f"passive bare payment preservation: expected one match, found {deterministic.count(old)}")
+          deterministic_path.write_text(deterministic.replace(old, new, 1))
           EXTRACT
 
       - run: npm run test:accuracy:orion
