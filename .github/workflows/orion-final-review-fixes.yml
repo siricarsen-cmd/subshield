@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - .github/workflows/orion-final-review-fixes.yml
+      - .orion-final-patch-trigger
 
 permissions:
   contents: write
@@ -114,13 +115,14 @@ check(
           test_path.write_text(tests)
           PY
 
-      - name: Commit fixes and remove temporary workflow
+      - name: Commit fixes and remove temporary files
         shell: bash
         run: |
           rm .github/workflows/orion-final-review-fixes.yml
+          rm -f .orion-final-patch-trigger
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib/analyzer/deterministic.ts lib/analyzer/__tests__/orion-parity-regression.test.mjs .github/workflows/orion-final-review-fixes.yml
+          git add lib/analyzer/deterministic.ts lib/analyzer/__tests__/orion-parity-regression.test.mjs .github/workflows/orion-final-review-fixes.yml .orion-final-patch-trigger
           git diff --cached --check
           git commit -m "Resolve final Orion review findings"
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
