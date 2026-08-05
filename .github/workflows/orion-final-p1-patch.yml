@@ -1,0 +1,180 @@
+name: Orion Final P1 Patch
+
+on:
+  push:
+    branches:
+      - fix/orion-parity-grounding-invoice-waiver
+    paths:
+      - .github/workflows/orion-final-p1-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply narrow analyzer and regression fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          deterministic_path = Path("lib/analyzer/deterministic.ts")
+          deterministic = deterministic_path.read_text()
+
+          old_ip = '''export function hasUnpaidPrimeImprovementsUseEvidence(text: string): boolean {
+            const sentences = text.split(/(?<=[.!?])\\s+/);
+            return sentences.some((sentence) =>
+              coordinatedIpUseSegments(sentence).some((segment) => {
+                const grantWindow = primeImprovementsUseGrantWindow(segment);
+                return Boolean(grantWindow && WITHOUT_ADDITIONAL_PAYMENT_RE.test(grantWindow));
+              })
+            );
+          }'''
+          new_ip = '''const COMPETING_IP_OBJECT_UNPAID_SCOPE_RE =
+            /\\b(?:being\\s+)?(?:due|owed|payable)?\\s*(?:for|with\\s+respect\\s+to|in\\s+connection\\s+with)\\s+(?:the\\s+)?(?:deliverables?|services?|work\\s+products?)\\b/i;
+
+          function unpaidQualifierTargetsCompetingIpObject(grantWindow: string): boolean {
+            const unpaidQualifier = WITHOUT_ADDITIONAL_PAYMENT_RE.exec(grantWindow);
+            if (!unpaidQualifier) return false;
+            const qualifierTail = grantWindow.slice(unpaidQualifier.index + unpaidQualifier[0].length);
+            return COMPETING_IP_OBJECT_UNPAID_SCOPE_RE.test(qualifierTail);
+          }
+
+          export function hasUnpaidPrimeImprovementsUseEvidence(text: string): boolean {
+            const sentences = text.split(/(?<=[.!?])\\s+/);
+            return sentences.some((sentence) =>
+              coordinatedIpUseSegments(sentence).some((segment) => {
+                const grantWindow = primeImprovementsUseGrantWindow(segment);
+                return Boolean(
+                  grantWindow &&
+                    WITHOUT_ADDITIONAL_PAYMENT_RE.test(grantWindow) &&
+                    !unpaidQualifierTargetsCompetingIpObject(grantWindow)
+                );
+              })
+            );
+          }'''
+          if old_ip not in deterministic:
+              raise SystemExit("Expected IP evidence block was not found")
+          deterministic = deterministic.replace(old_ip, new_ip, 1)
+
+          old_optional = '''function optionalForumChoiceSpansSemicolon(sentence: string): boolean {
+            return OPTIONAL_FORUM_EVIDENCE_RES.some((pattern) => {
+              const match = pattern.exec(sentence);
+              return Boolean(match?.[0].includes(";"));
+            });
+          }'''
+          new_optional = '''function stripSemicolonSpanningOptionalForumChoices(sentence: string): string {
+            let remaining = sentence;
+            for (const pattern of OPTIONAL_FORUM_EVIDENCE_RES) {
+              const match = pattern.exec(remaining);
+              if (!match || !match[0].includes(";")) continue;
+              remaining = `${remaining.slice(0, match.index)} ${remaining.slice(match.index + match[0].length)}`;
+            }
+            return remaining;
+          }'''
+          if old_optional not in deterministic:
+              raise SystemExit("Expected semicolon optionality helper was not found")
+          deterministic = deterministic.replace(old_optional, new_optional, 1)
+
+          old_mandatory = '''export function hasMandatoryForumEvidence(text: string): boolean {
+            return forumEvidenceSentences(text).some((sentence) => {
+              if (optionalForumChoiceSpansSemicolon(sentence)) return false;
+              return forumEvidenceClauses(sentence).some(clauseHasMandatoryForumEvidence);
+            });
+          }'''
+          new_mandatory = '''export function hasMandatoryForumEvidence(text: string): boolean {
+            return forumEvidenceSentences(text).some((sentence) => {
+              const evaluableSentence = stripSemicolonSpanningOptionalForumChoices(sentence);
+              return forumEvidenceClauses(evaluableSentence).some(clauseHasMandatoryForumEvidence);
+            });
+          }'''
+          if old_mandatory not in deterministic:
+              raise SystemExit("Expected mandatory forum evidence block was not found")
+          deterministic = deterministic.replace(old_mandatory, new_mandatory, 1)
+          deterministic_path.write_text(deterministic)
+
+          test_path = Path("lib/analyzer/__tests__/orion-parity-regression.test.mjs")
+          tests = test_path.read_text()
+          marker = '''if (failures > 0) {'''
+          additions = '''const compensatedImprovementsWithDeliverablesNoPayment = productionPath(`
+          2.17 Improvements
+          Prime Contractor may use Improvements only under a separately compensated license without additional payment being due for Deliverables.
+          `);
+          check(
+            "Deliverables no-payment qualifier does not convert compensated Improvements use into unpaid use",
+            !compensatedImprovementsWithDeliverablesNoPayment.findings.some(
+              (finding) => finding.regulation === "Conditioned Pre-Existing IP Retention / Unpaid Use of Improvements"
+            )
+          );
+
+          const directImprovementsNoPaymentDue = productionPath(`
+          2.17 Improvements
+          Prime Contractor may use Improvements without additional payment being due to Subcontractor.
+          `);
+          check(
+            "no-payment qualifier tied directly to Improvements still triggers unpaid-use finding",
+            directImprovementsNoPaymentDue.findings.some(
+              (finding) => finding.regulation === "Conditioned Pre-Existing IP Retention / Unpaid Use of Improvements"
+            )
+          );
+
+          const optionalPairThenIndependentMandatoryForum = productionPath(`
+          2.23 Venue
+          At the Subcontractor's option, any action shall be brought in Fairfax County; the Subcontractor may instead bring the action in any other court with jurisdiction; any action shall be brought in Arlington County, Virginia.
+          `);
+          check(
+            "semicolon-spanning optional pair does not hide a later independent mandatory forum",
+            optionalPairThenIndependentMandatoryForum.findings.some(
+              (finding) => finding.regulation === "Out-of-State Venue, Governing Law, or Arbitration Burden"
+            )
+          );
+
+          '''
+          if marker not in tests:
+              raise SystemExit("Orion regression insertion marker was not found")
+          tests = tests.replace(marker, additions + marker, 1)
+          test_path.write_text(tests)
+          PY
+
+      - name: Run focused Orion regression suite
+        run: npm run test:accuracy:orion
+
+      - name: Run full analyzer accuracy suite
+        run: npm run test:accuracy
+
+      - name: Run TypeScript validation
+        run: npx tsc --noEmit
+
+      - name: Run production build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: build-placeholder
+        run: npm run build
+
+      - name: Commit verified fix and remove temporary workflow
+        shell: bash
+        run: |
+          rm .github/workflows/orion-final-p1-patch.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/analyzer/deterministic.ts lib/analyzer/__tests__/orion-parity-regression.test.mjs .github/workflows/orion-final-p1-patch.yml
+          git diff --cached --check
+          git commit -m "Resolve final Orion exact-head findings"
+          git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
