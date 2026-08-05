@@ -199,7 +199,7 @@ const ATTACHMENT_LIST_NAMED_END_RE =
   /\b(?:\d+\.\s*)?(?:Subcontractor\s+Questions\s+Form|Quote\s+Submission\s+Instructions)\b/i;
 const NUMBERED_ATTACHMENT_BLOCK_RE = /\b(?:Section\s+)?\d+\.\s+/g;
 const ATTACHMENT_ROW_STATUS_RE =
-  /\b(?:not\s+included|to\s+be\s+provided|provided\s+after|not\s+attached|included|attached|missing|omitted)\b/i;
+  /\b(?:not\s+(?:included|provided|available|attached)|to\s+be\s+provided|provided\s+after|included|attached|missing|omitted)\b/i;
 const ATTACHMENT_DOCUMENT_TITLE_SOURCE =
   String.raw`(?:statement\s+of\s+work|SOW\b|prime\s+contract(?:\s+flow[\s-]?down\s+(?:matrix|matrices)|\s+excerpts?)?|flow[\s-]?down\s+(?:lists?|matrix|matrices)|cybersecurity(?:\s+and\s+CUI\s+requirements?)?|CUI\s+requirements?|wage\s+determination(?:\s+and\s+labor\s+category\s+mapping)?|labor\s+category(?:\s+mapping)?|quality\s+surveillance(?:\s+and\s+acceptance\s+criteria)?|acceptance\s+criteria|system\s+security\s+plan|SSP\b)`;
 const ATTACHMENT_ROW_DOCUMENT_RE = new RegExp(
@@ -683,7 +683,6 @@ function namedInvoiceRemainsPayable(sentence: string, invoiceId: string): boolea
 }
 
 function sentencePreservesPayment(sentence: string, waivedInvoiceIds: string[]): boolean {
-  if (OTHER_INVOICE_SCOPE_RE.test(sentence)) return false;
   const preservedInvoiceIds = extractInvoiceIds(sentence);
   if (preservedInvoiceIds.length > 0) {
     const mentionsWaivedInvoice =
@@ -694,6 +693,7 @@ function sentencePreservesPayment(sentence: string, waivedInvoiceIds: string[]):
     );
     return makesWaivedInvoicePayable || EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence);
   }
+  if (OTHER_INVOICE_SCOPE_RE.test(sentence)) return false;
   return EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence) || SAME_SCOPE_PAYMENT_REMAINS_RE.test(sentence);
 }
 
@@ -766,13 +766,22 @@ const DIRECT_PRIME_ACTIVE_IMPROVEMENT_USE_RE =
 const WITHOUT_ADDITIONAL_PAYMENT_RE =
   /without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)/i;
 
+function coordinatedIpUseSegments(sentence: string): string[] {
+  return sentence
+    .split(/;\s*|,\s*(?:and|but|while|whereas)\s+/i)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}
+
 export function hasUnpaidPrimeImprovementsUseEvidence(text: string): boolean {
   const sentences = text.split(/(?<=[.!?])\s+/);
-  return sentences.some(
-    (sentence) =>
-      WITHOUT_ADDITIONAL_PAYMENT_RE.test(sentence) &&
-      (DIRECT_PRIME_PASSIVE_IMPROVEMENT_USE_RE.test(sentence) ||
-        DIRECT_PRIME_ACTIVE_IMPROVEMENT_USE_RE.test(sentence))
+  return sentences.some((sentence) =>
+    coordinatedIpUseSegments(sentence).some(
+      (segment) =>
+        WITHOUT_ADDITIONAL_PAYMENT_RE.test(segment) &&
+        (DIRECT_PRIME_PASSIVE_IMPROVEMENT_USE_RE.test(segment) ||
+          DIRECT_PRIME_ACTIVE_IMPROVEMENT_USE_RE.test(segment))
+    )
   );
 }
 
@@ -810,14 +819,27 @@ const OPTIONAL_VENUE_NOUN_ALTERNATIVE_RE =
 const BILATERAL_OPTIONAL_FORUM_RE =
   /(?:the\s+)?parties\s+(?:may|can)\s+(?:agree|select|choose|elect)[^.]{0,180}(?:venue|jurisdiction|forum)[^.]{0,180}\bor\b[^.]{0,140}(?:another|other|mutually\s+convenient)\s+(?:court|forum)/i;
 
+function forumEvidenceSentences(text: string): string[] {
+  return text
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+}
+
 export function hasMandatoryForumEvidence(text: string): boolean {
-  if (
-    OPTIONAL_SUBCONTRACTOR_ALTERNATIVE_FORUM_RE.test(text) ||
-    ELECTIVE_EITHER_FORUM_RE.test(text) ||
-    OPTIONAL_VENUE_NOUN_ALTERNATIVE_RE.test(text) ||
-    BILATERAL_OPTIONAL_FORUM_RE.test(text)
-  ) return false;
-  return BASE_FORUM_EVIDENCE_RE.test(text) || DIRECT_MANDATORY_FORUM_RE.test(text) || EXCLUSIVE_FORUM_RE.test(text);
+  return forumEvidenceSentences(text).some((sentence) => {
+    if (
+      OPTIONAL_SUBCONTRACTOR_ALTERNATIVE_FORUM_RE.test(sentence) ||
+      ELECTIVE_EITHER_FORUM_RE.test(sentence) ||
+      OPTIONAL_VENUE_NOUN_ALTERNATIVE_RE.test(sentence) ||
+      BILATERAL_OPTIONAL_FORUM_RE.test(sentence)
+    ) return false;
+    return (
+      BASE_FORUM_EVIDENCE_RE.test(sentence) ||
+      DIRECT_MANDATORY_FORUM_RE.test(sentence) ||
+      EXCLUSIVE_FORUM_RE.test(sentence)
+    );
+  });
 }
 const BILATERAL_DEFENDANT_VENUE_RE =
   /(?:(?:exclusive\s+)?venue|(?:any\s+)?(?:action|lawsuit|claim|dispute|proceeding))[^.]{0,240}(?:where|located\s+where|in\s+(?:a\s+)?court\s+where)[^.]{0,100}\bdefendants?\b[^.]{0,100}(?:resides?|is\s+located|has\s+(?:its|their)\s+principal\s+place\s+of\s+business)/i;
