@@ -677,11 +677,16 @@ function escapeRegexLiteral(value: string): string {
 
 function namedInvoiceRemainsPayable(sentence: string, invoiceId: string): boolean {
   const escapedInvoiceId = escapeRegexLiteral(invoiceId);
+  const otherInvoiceBoundary = String.raw`\binvoice\s+(?:no\.?\s*)?[A-Z0-9-]*\d[A-Z0-9-]*\b`;
   const invoiceThenPayable = new RegExp(
-    `\\binvoice\\s+(?:no\\.?\\s*)?${escapedInvoiceId}\\b(?:(?!\\binvoice\\s+(?:no\\.?\\s*)?[A-Z0-9-]*\\d[A-Z0-9-]*\\b)[^.]){0,100}(?:remain|remains|shall\\s+remain|will\\s+remain)\\s+(?:payable|due)`,
+    `\\binvoice\\s+(?:no\\.?\\s*)?${escapedInvoiceId}\\b(?:(?!${otherInvoiceBoundary})[^.]){0,140}(?:remain|remains|shall\\s+remain|will\\s+remain)\\s+(?:payable|due)`,
     "i"
   );
-  return invoiceThenPayable.test(sentence);
+  const payableThenInvoice = new RegExp(
+    `(?:payment|amounts?|(?:performed|completed|accepted)\\s+(?:work|services|deliverables))(?:(?!${otherInvoiceBoundary})[^.]){0,140}(?:remain|remains|shall\\s+remain|will\\s+remain)\\s+(?:payable|due)(?:(?!${otherInvoiceBoundary})[^.]){0,100}\\b(?:under|for)\\s+invoice\\s+(?:no\\.?\\s*)?${escapedInvoiceId}\\b`,
+    "i"
+  );
+  return invoiceThenPayable.test(sentence) || payableThenInvoice.test(sentence);
 }
 
 function sentencePreservesPayment(sentence: string, waivedInvoiceIds: string[]): boolean {
@@ -856,7 +861,7 @@ function forumEvidenceSentences(text: string): string[] {
 
 function forumEvidenceClauses(sentence: string): string[] {
   return sentence
-    .split(/\s*;\s*/)
+    .split(/\s*;\s*|,\s*(?:but|however|while|whereas)\s+/i)
     .map((clause) => clause.trim())
     .filter(Boolean);
 }
@@ -872,31 +877,30 @@ function clauseHasOptionalForumChoice(clause: string): boolean {
   return OPTIONAL_FORUM_EVIDENCE_RES.some((pattern) => pattern.test(clause));
 }
 
+const BILATERAL_DEFENDANT_VENUE_RE =
+  /(?:(?:exclusive\s+)?venue|(?:any\s+)?(?:action|lawsuit|claim|dispute|proceeding))[^.]{0,240}(?:where|located\s+where|in\s+(?:a\s+)?court\s+where)[^.]{0,100}\bdefendants?\b[^.]{0,100}(?:resides?|is\s+located|has\s+(?:its|their)\s+principal\s+place\s+of\s+business)/i;
+
+function clauseHasMandatoryForumEvidence(clause: string): boolean {
+  if (clauseHasOptionalForumChoice(clause)) return false;
+  if (BILATERAL_DEFENDANT_VENUE_RE.test(clause)) return false;
+  return (
+    BASE_FORUM_EVIDENCE_RE.test(clause) ||
+    DIRECT_MANDATORY_FORUM_RE.test(clause) ||
+    EXCLUSIVE_FORUM_RE.test(clause)
+  );
+}
+
 export function hasMandatoryForumEvidence(text: string): boolean {
   return forumEvidenceSentences(text).some((sentence) => {
     if (optionalForumChoiceSpansSemicolon(sentence)) return false;
-    return forumEvidenceClauses(sentence).some((clause) => {
-      if (clauseHasOptionalForumChoice(clause)) return false;
-      return (
-        BASE_FORUM_EVIDENCE_RE.test(clause) ||
-        DIRECT_MANDATORY_FORUM_RE.test(clause) ||
-        EXCLUSIVE_FORUM_RE.test(clause)
-      );
-    });
+    return forumEvidenceClauses(sentence).some(clauseHasMandatoryForumEvidence);
   });
 }
-const BILATERAL_DEFENDANT_VENUE_RE =
-  /(?:(?:exclusive\s+)?venue|(?:any\s+)?(?:action|lawsuit|claim|dispute|proceeding))[^.]{0,240}(?:where|located\s+where|in\s+(?:a\s+)?court\s+where)[^.]{0,100}\bdefendants?\b[^.]{0,100}(?:resides?|is\s+located|has\s+(?:its|their)\s+principal\s+place\s+of\s+business)/i;
 const GOVERNING_LAW_EVIDENCE_RE =
   /(?:governing\s+law|governed\s+by\s+the\s+laws\s+of)[^.]{0,100}(?:State\s+of|Commonwealth\s+of)\s+[A-Z][a-zA-Z]+/i;
 
 function findVenueOrGoverningLawCandidate(documentText: string): string | null {
-  return findClauseCandidate(
-    documentText,
-    (block) =>
-      hasMandatoryForumEvidence(block) &&
-      !BILATERAL_DEFENDANT_VENUE_RE.test(block)
-  );
+  return findClauseCandidate(documentText, hasMandatoryForumEvidence);
 }
 
 function buildVenueOrGoverningLawAnalysis(foundText: string): string {
