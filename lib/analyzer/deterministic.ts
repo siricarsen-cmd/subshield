@@ -800,8 +800,26 @@ function findInvoicePaymentWaiverCandidate(documentText: string): string | null 
   return findClauseCandidate(documentText, hasUnpreservedInvoicePaymentWaiver);
 }
 
+function invoicePaymentWaiverDeadline(foundText: string): string | undefined {
+  const invoiceSentenceSafeText = foundText.replace(
+    /\binvoice\s+no\.\s*(?=[A-Z0-9-]*\d)/gi,
+    "Invoice No "
+  );
+  const sentences = invoiceSentenceSafeText.split(/(?<=[.!?])\s+/);
+  const waiverIndex = invoiceWaiverSentenceIndexes(sentences).find(
+    (index) => !invoiceWaiverIsPreserved(sentences, index)
+  );
+  if (waiverIndex === undefined) return undefined;
+
+  const deadlinePattern = /(?:within|no\s+later\s+than)\s+(\d{1,3}\s*(?:calendar|business|working)?\s*days?)/i;
+  return (
+    deadlinePattern.exec(sentences[waiverIndex])?.[1] ??
+    deadlinePattern.exec(sentences[waiverIndex - 1] ?? "")?.[1]
+  );
+}
+
 function buildInvoicePaymentWaiverAnalysis(foundText: string): string {
-  const deadline = /(?:within|no\s+later\s+than)\s+(\d{1,3}\s*(?:calendar|business|working)?\s*days?)/i.exec(foundText)?.[1];
+  const deadline = invoicePaymentWaiverDeadline(foundText);
   return `This clause makes a missed invoice-submission deadline${deadline ? ` of ${deadline}` : ""} waive or forfeit the Subcontractor's right to payment, creating a permanent payment-loss risk even when the underlying work was performed.`;
 }
 
@@ -885,7 +903,7 @@ function buildConditionedPreExistingIpAnalysis(foundText: string): string {
 const BASE_FORUM_EVIDENCE_RE =
   /(?:exclusive\s+(?:venue|jurisdiction)\s+(?:(?:shall|must|will)\s+be\s+|is\s+|lies\s+)?(?:in|located\s+in)|(?:venue|jurisdiction)\s+(?:(?:shall|must|will)\s+be\s+|is\s+|lies\s+)(?:in|located\s+in))[^.]{0,120}(?:courts?|County|State|Commonwealth)|binding\s+arbitration|Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i;
 const DIRECT_MANDATORY_FORUM_RE =
-  /(?:(?:(?:all|any)\s+)?(?:actions?|lawsuits?|claims?|disputes?|proceedings?)|arbitration|mediation|court\s+proceedings?)[^.]{0,180}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:brought|filed)\s+(?:exclusively\s+)?in/i;
+  /(?:(?:(?:all|any)\s+)?(?:actions?|lawsuits?|claims?|disputes?|proceedings?)|arbitration|mediation|court\s+proceedings?)[^.]{0,180}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:brought|filed)\s+(?:exclusively\s+)?in\s+(?:(?:the\s+)?(?:(?:state|federal|county|municipal|district|circuit|superior|commonwealth)\s+)?(?:courts?|forum)\b|(?:[A-Za-z][A-Za-z.'-]*\s+){0,5}(?:County|State|Commonwealth|District|City)\b|(?:the\s+)?(?:Commonwealth|State)\s+of\s+[A-Za-z][A-Za-z.'-]*\b)/i;
 const EXCLUSIVE_FORUM_RE =
   /(?:the\s+)?exclusive\s+forum(?:\s+for[^.]{0,100})?\s+(?:shall|must|will)\s+be[^.]{0,140}(?:courts?|County|State|Commonwealth)/i;
 const OPTIONAL_SUBCONTRACTOR_ALTERNATIVE_FORUM_RE =
