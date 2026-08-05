@@ -993,7 +993,7 @@ export function hasMandatoryForumEvidence(text: string): boolean {
   });
 }
 const GOVERNING_LAW_EVIDENCE_RE =
-  /(?:\bgoverned\s+by\s+the\s+laws?\s+of|\bgoverning\s+law\s*(?::|[-–—])\s*(?:the\s+laws?\s+of\s+)?)(?:(?:the\s+)?(?:State|Commonwealth)\s+of\s+)?[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,2}/i;
+  /(?:\bgoverned\s+by\s+the\s+laws?\s+of|\bgoverning\s+law\s*(?::|[-–—])\s*(?:the\s+laws?\s+of)?)(?:\s+(?:(?:the\s+)?(?:State|Commonwealth)\s+of\s+)?[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,2})/i;
 const MANDATORY_ARBITRATION_EVIDENCE_RE =
   /\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,180}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:resolved|settled|decided|submitted)\s+(?:exclusively\s+)?(?:by|through|to)\s+(?:binding\s+)?arbitration\b/i;
 
