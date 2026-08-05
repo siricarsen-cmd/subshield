@@ -1,9 +1,9 @@
 name: Orion Final Review Fixes
 
 on:
-  push:
+  pull_request:
     branches:
-      - fix/orion-parity-grounding-invoice-waiver
+      - main
     paths:
       - .github/workflows/orion-final-review-fixes.yml
 
@@ -12,12 +12,14 @@ permissions:
 
 jobs:
   patch-commit:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Check out PR branch
+      - name: Check out exact PR head
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
       - name: Apply three narrow review corrections
@@ -57,6 +59,7 @@ jobs:
           marker = '''if (failures > 0) {'''
           additions = '''for (const [label, clause] of [
   ["possessive Improvements grant", "Prime Contractor may use Subcontractor's Improvements without additional payment to Subcontractor."],
+  ["curly possessive Improvements grant", "Prime Contractor may use Subcontractor’s Improvements without additional payment to Subcontractor."],
   ["owned Improvements grant", "Prime Contractor may use Subcontractor-owned Improvements without additional payment to Subcontractor."],
 ]) {
   const result = productionPath(`2.17 Improvements\n${clause}`);
@@ -120,4 +123,4 @@ check(
           git add lib/analyzer/deterministic.ts lib/analyzer/__tests__/orion-parity-regression.test.mjs .github/workflows/orion-final-review-fixes.yml
           git diff --cached --check
           git commit -m "Resolve final Orion review findings"
-          git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
