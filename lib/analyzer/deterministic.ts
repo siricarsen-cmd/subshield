@@ -203,7 +203,7 @@ const ATTACHMENT_ROW_STATUS_RE =
 const ATTACHMENT_DOCUMENT_TITLE_SOURCE =
   String.raw`(?:statement\s+of\s+work|SOW\b|prime\s+contract(?:\s+flow[\s-]?down\s+(?:matrix|matrices)|\s+excerpts?)?|flow[\s-]?down\s+(?:lists?|matrix|matrices)|cybersecurity(?:\s+and\s+CUI\s+requirements?)?|CUI\s+requirements?|wage\s+determination(?:\s+and\s+labor\s+category\s+mapping)?|labor\s+category(?:\s+mapping)?|quality\s+surveillance(?:\s+and\s+acceptance\s+criteria)?|acceptance\s+criteria|system\s+security\s+plan|SSP\b)`;
 const ATTACHMENT_ROW_DOCUMENT_RE = new RegExp(
-  String.raw`^(?:(?:exhibit|attachment|appendix|schedule)\s+[A-Z0-9]+\s+)?${ATTACHMENT_DOCUMENT_TITLE_SOURCE}|^(?:exhibit|attachment|appendix|schedule)\s+[A-Z0-9]+\b`,
+  String.raw`^(?:(?:exhibit|attachment|appendix|schedule)\s+[A-Z0-9]+\s*(?:[-–—:]\s*)?)?${ATTACHMENT_DOCUMENT_TITLE_SOURCE}|^(?:exhibit|attachment|appendix|schedule)\s+[A-Z0-9]+\b`,
   "i"
 );
 
@@ -656,6 +656,8 @@ const INVOICE_SUBMISSION_DEADLINE_RE =
   /\binvoices?\b[^.]{0,120}(?:(?:must|shall|should)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)[^.]{0,80}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?/i;
 const INVOICE_PAYMENT_FORFEITURE_SENTENCE_RE =
   /failure\s+to\s+submit[^.]{0,160}\binvoice\b[^.]{0,120}(?:waives?|forfeits?)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
+const INVOICE_PAYMENT_FORFEITURE_CONTEXT_RE =
+  /failure\s+to\s+(?:do\s+so|submit\s+(?:it|them)|timely\s+submit(?:\s+(?:it|them))?|submit\s+on\s+time)[^.]{0,120}(?:waives?|forfeits?)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE =
   /(?:does|shall|will)\s+not\s+(?:waive|forfeit)[^.]{0,80}(?:right|entitlement)\s+to\s+payment|(?:right|entitlement)\s+to\s+payment[^.]{0,80}(?:is|shall|will)\s+not\s+(?:waived|forfeited)/i;
 const SAME_SCOPE_PAYMENT_REMAINS_RE =
@@ -700,8 +702,11 @@ function sentencePreservesPayment(sentence: string, waivedInvoiceIds: string[]):
 function invoiceWaiverSentenceIndexes(sentences: string[]): number[] {
   return sentences.flatMap((sentence, index) => {
     if (INVOICE_PAYMENT_WAIVER_RE.test(sentence)) return [index];
+    const carriesPriorInvoiceDeadline =
+      INVOICE_PAYMENT_FORFEITURE_SENTENCE_RE.test(sentence) ||
+      INVOICE_PAYMENT_FORFEITURE_CONTEXT_RE.test(sentence);
     if (
-      INVOICE_PAYMENT_FORFEITURE_SENTENCE_RE.test(sentence) &&
+      carriesPriorInvoiceDeadline &&
       index > 0 &&
       INVOICE_SUBMISSION_DEADLINE_RE.test(sentences[index - 1])
     ) {
@@ -716,11 +721,11 @@ function waivedInvoiceIdsForSentence(sentences: string[], waiverIndex: number, w
   if (directIds.length > 0) return directIds;
 
   const previousSentence = sentences[waiverIndex - 1] ?? "";
-  if (
-    INVOICE_PAYMENT_FORFEITURE_SENTENCE_RE.test(waiverScope) &&
-    /\b(?:the|this|such)\s+invoice\b/i.test(waiverScope) &&
-    INVOICE_SUBMISSION_DEADLINE_RE.test(previousSentence)
-  ) {
+  const refersBackToPriorInvoice =
+    (INVOICE_PAYMENT_FORFEITURE_SENTENCE_RE.test(waiverScope) &&
+      /\b(?:the|this|such)\s+invoice\b/i.test(waiverScope)) ||
+    INVOICE_PAYMENT_FORFEITURE_CONTEXT_RE.test(waiverScope);
+  if (refersBackToPriorInvoice && INVOICE_SUBMISSION_DEADLINE_RE.test(previousSentence)) {
     return extractInvoiceIds(previousSentence);
   }
   return [];
@@ -768,20 +773,36 @@ const WITHOUT_ADDITIONAL_PAYMENT_RE =
 
 function coordinatedIpUseSegments(sentence: string): string[] {
   return sentence
-    .split(/;\s*|,\s*(?:and|but|while|whereas)\s+/i)
+    .split(
+      /;\s*|,\s*(?:and|but|while|whereas)\s+|\s+and\s+(?=(?:deliverables?|services?|work\s+products?|improvements?|adaptations?)\b[^.]{0,80}\b(?:may|shall|will|is|are|has|have)\b)/i
+    )
     .map((segment) => segment.trim())
     .filter(Boolean);
+}
+
+const COMPETING_IP_GRANT_BOUNDARY_RE =
+  /\b(?:and|but|while|whereas)\s+(?=(?:deliverables?|services?|work\s+products?|improvements?|adaptations?|Subcontractor|Prime(?:\s+Contractor)?)\b[^.]{0,100}\b(?:may|shall|will|is|are|has|have)\b)/i;
+
+function primeImprovementsUseGrantWindow(segment: string): string | null {
+  const candidates = [
+    DIRECT_PRIME_PASSIVE_IMPROVEMENT_USE_RE.exec(segment),
+    DIRECT_PRIME_ACTIVE_IMPROVEMENT_USE_RE.exec(segment),
+  ].filter((match): match is RegExpExecArray => match !== null);
+  if (candidates.length === 0) return null;
+  const match = candidates.sort((left, right) => left.index - right.index)[0];
+  const afterMatch = segment.slice(match.index + match[0].length);
+  const boundary = COMPETING_IP_GRANT_BOUNDARY_RE.exec(afterMatch);
+  const grantEnd = boundary ? match.index + match[0].length + boundary.index : segment.length;
+  return segment.slice(match.index, grantEnd);
 }
 
 export function hasUnpaidPrimeImprovementsUseEvidence(text: string): boolean {
   const sentences = text.split(/(?<=[.!?])\s+/);
   return sentences.some((sentence) =>
-    coordinatedIpUseSegments(sentence).some(
-      (segment) =>
-        WITHOUT_ADDITIONAL_PAYMENT_RE.test(segment) &&
-        (DIRECT_PRIME_PASSIVE_IMPROVEMENT_USE_RE.test(segment) ||
-          DIRECT_PRIME_ACTIVE_IMPROVEMENT_USE_RE.test(segment))
-    )
+    coordinatedIpUseSegments(sentence).some((segment) => {
+      const grantWindow = primeImprovementsUseGrantWindow(segment);
+      return Boolean(grantWindow && WITHOUT_ADDITIONAL_PAYMENT_RE.test(grantWindow));
+    })
   );
 }
 
@@ -819,6 +840,13 @@ const OPTIONAL_VENUE_NOUN_ALTERNATIVE_RE =
 const BILATERAL_OPTIONAL_FORUM_RE =
   /(?:the\s+)?parties\s+(?:may|can)\s+(?:agree|select|choose|elect)[^.]{0,180}(?:venue|jurisdiction|forum)[^.]{0,180}\bor\b[^.]{0,140}(?:another|other|mutually\s+convenient)\s+(?:court|forum)/i;
 
+const OPTIONAL_FORUM_EVIDENCE_RES = [
+  OPTIONAL_SUBCONTRACTOR_ALTERNATIVE_FORUM_RE,
+  ELECTIVE_EITHER_FORUM_RE,
+  OPTIONAL_VENUE_NOUN_ALTERNATIVE_RE,
+  BILATERAL_OPTIONAL_FORUM_RE,
+];
+
 function forumEvidenceSentences(text: string): string[] {
   return text
     .split(/(?<=[.!?])\s+/)
@@ -826,19 +854,35 @@ function forumEvidenceSentences(text: string): string[] {
     .filter(Boolean);
 }
 
+function forumEvidenceClauses(sentence: string): string[] {
+  return sentence
+    .split(/\s*;\s*/)
+    .map((clause) => clause.trim())
+    .filter(Boolean);
+}
+
+function optionalForumChoiceSpansSemicolon(sentence: string): boolean {
+  return OPTIONAL_FORUM_EVIDENCE_RES.some((pattern) => {
+    const match = pattern.exec(sentence);
+    return Boolean(match?.[0].includes(";"));
+  });
+}
+
+function clauseHasOptionalForumChoice(clause: string): boolean {
+  return OPTIONAL_FORUM_EVIDENCE_RES.some((pattern) => pattern.test(clause));
+}
+
 export function hasMandatoryForumEvidence(text: string): boolean {
   return forumEvidenceSentences(text).some((sentence) => {
-    if (
-      OPTIONAL_SUBCONTRACTOR_ALTERNATIVE_FORUM_RE.test(sentence) ||
-      ELECTIVE_EITHER_FORUM_RE.test(sentence) ||
-      OPTIONAL_VENUE_NOUN_ALTERNATIVE_RE.test(sentence) ||
-      BILATERAL_OPTIONAL_FORUM_RE.test(sentence)
-    ) return false;
-    return (
-      BASE_FORUM_EVIDENCE_RE.test(sentence) ||
-      DIRECT_MANDATORY_FORUM_RE.test(sentence) ||
-      EXCLUSIVE_FORUM_RE.test(sentence)
-    );
+    if (optionalForumChoiceSpansSemicolon(sentence)) return false;
+    return forumEvidenceClauses(sentence).some((clause) => {
+      if (clauseHasOptionalForumChoice(clause)) return false;
+      return (
+        BASE_FORUM_EVIDENCE_RE.test(clause) ||
+        DIRECT_MANDATORY_FORUM_RE.test(clause) ||
+        EXCLUSIVE_FORUM_RE.test(clause)
+      );
+    });
   });
 }
 const BILATERAL_DEFENDANT_VENUE_RE =
