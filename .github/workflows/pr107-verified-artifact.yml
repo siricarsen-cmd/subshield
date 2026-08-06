@@ -29,6 +29,29 @@ jobs:
       - name: Apply lagged exact-head review patch
         run: python .github/pr107-lagged-review-patch.py
 
+      - name: Diagnose mixed refused and affirmative license path
+        shell: bash
+        run: |
+          node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs --input-type=module <<'NODE'
+          import { hasUnpaidPrimeImprovementsUseEvidence, runDeterministicDetectors } from './lib/analyzer/deterministic.ts';
+          import { normalizeWhitespace } from './lib/analyzer/text.ts';
+          import { verifyFindings } from './lib/analyzer/sanity.ts';
+          import { dedupeFindings, rankFindings } from './lib/analyzer/report.ts';
+          const text = normalizeWhitespace(`
+          2.17 Improvements
+          Subcontractor refuses to grant Prime Contractor a royalty-free license to Adaptations, but Subcontractor grants Prime Contractor a royalty-free license to Improvements.
+          `);
+          const generated = runDeterministicDetectors(text);
+          const verification = verifyFindings(generated, text);
+          const ranked = rankFindings(dedupeFindings(verification.verified, text));
+          console.log(JSON.stringify({
+            hasEvidence: hasUnpaidPrimeImprovementsUseEvidence(text),
+            generated: generated.map(({ regulation, foundText }) => ({ regulation, foundText })),
+            dropped: verification.dropped.map(({ finding, reason }) => ({ regulation: finding.regulation, reason })),
+            final: [...ranked.primaryTraps, ...ranked.secondaryConcerns].map(({ regulation, foundText }) => ({ regulation, foundText })),
+          }, null, 2));
+          NODE
+
       - run: npm run test:accuracy:orion
       - run: npm run test:accuracy
       - run: npx tsc --noEmit
