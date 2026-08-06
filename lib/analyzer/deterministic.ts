@@ -1132,14 +1132,14 @@ const GOVERNING_LAW_EVIDENCE_RE = new RegExp(
 const MANDATORY_ARBITRATION_EVIDENCE_RE =
   /\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,180}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:resolved|settled|decided|submitted)\s+(?:exclusively\s+)?(?:by|through|to)\s+(?:binding\s+)?arbitration\b/i;
 const BINDING_ARBITRATION_REQUIREMENT_RE =
-  /\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,180}\bbinding\s+arbitration\b|\b(?:parties?|Subcontractor|Prime(?:\s+Contractor)?)\b[^.]{0,140}\b(?:agree|consent)\s+to\s+binding\s+arbitration\b|\bbinding\s+arbitration\b[^.]{0,120}(?:(?:is|shall|must|will)\s+(?:be\s+)?(?:required|mandatory)\b|(?:is|shall|must|will)\s+(?:be\s+)?(?:the\s+)?exclusive\s+(?:remedy|means|method|forum|procedure)\b)/i;
+  /\b(?:parties?|Subcontractor|Prime(?:\s+Contractor)?)\b[^.]{0,140}\b(?:agree|consent)\s+to\s+binding\s+arbitration\b|\bbinding\s+arbitration\b[^.]{0,120}(?:(?:is|shall|must|will)\s+(?:be\s+)?(?:required|mandatory)\b|(?:is|shall|must|will)\s+(?:be\s+)?(?:the\s+)?exclusive\s+(?:remedy|means|method|forum|procedure)\b)/i;
 const NEGATED_MANDATORY_ARBITRATION_EVIDENCE_RE =
   /\b(?:no|neither)\s+(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,220}(?:binding\s+)?arbitration\b|\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,180}(?:(?:must|shall|will)\s+not\s+be|(?:is|are)\s+not\s+required\s+to\s+be)\s+(?:resolved|settled|decided|submitted)\s+(?:exclusively\s+)?(?:by|through|to)\s+(?:binding\s+)?arbitration\b|\b(?:neither|no)\s+part(?:y|ies)\b[^.]{0,160}(?:agree|consent)\s+to\s+binding\s+arbitration\b|\b(?:no|neither)\s+binding\s+arbitration\b[^.]{0,160}(?:(?:is|shall|must|will)\s+(?:be\s+)?(?:required|mandatory)\b|(?:is|shall|must|will)\s+(?:be\s+)?(?:the\s+)?exclusive\s+(?:remedy|means|method|forum|procedure)\b)|\bbinding\s+arbitration\b[^.]{0,160}(?:is|shall|must|will)\s+not\s+(?:be\s+)?(?:(?:required|mandatory)\b|(?:the\s+)?exclusive\s+(?:remedy|means|method|forum|procedure)\b)/i;
 
 function arbitrationEvidenceClauses(text: string): string[] {
   return text
     .split(
-      /(?<=[.!?])\s+|\s*;\s*|,\s*(?:but|however|while|whereas)\s+|\s+(?:and|but)\s+(?=(?:(?:all|any|the)\s+)?(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,120}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be))/i
+      /(?<=[.!?])\s+|\s*;\s*|,\s*(?:but|however|while|whereas)\s+|\s+(?:and|but)\s+(?=(?:(?:(?:all|any|the)\s+)?(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,120}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)|binding\s+arbitration\b[^.]{0,120}(?:is|shall|must|will)\s+(?:be\s+)?(?:(?:required|mandatory)\b|(?:the\s+)?exclusive\s+(?:remedy|means|method|forum|procedure)\b)))/i
     )
     .map((clause) => clause.trim())
     .filter(Boolean);
