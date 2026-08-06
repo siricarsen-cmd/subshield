@@ -1,6 +1,9 @@
 name: Analyzer Accuracy Benchmarks
 
 on:
+  push:
+    branches:
+      - "fix/orion-parity-grounding-invoice-waiver"
   pull_request:
     paths:
       - "lib/analyzer/**"
@@ -147,10 +150,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      TARGET_BRANCH: ${{ github.head_ref }}
+      TARGET_BRANCH: fix/orion-parity-grounding-invoice-waiver
 
     steps:
-      - name: Check out exact PR head
+      - name: Check out exact branch head
         uses: actions/checkout@v4
 
       - name: Confirm temporary guard files
