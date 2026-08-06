@@ -665,7 +665,7 @@ const INVOICE_PAYMENT_FORFEITURE_SENTENCE_RE =
 const INVOICE_PAYMENT_FORFEITURE_CONTEXT_RE =
   /failure\s+to\s+(?:do\s+so|submit\s+(?:it|them)|timely\s+submit(?:\s+(?:it|them))?|submit\s+on\s+time)[^.]{0,120}(?:waives?|forfeits?)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE =
-  /(?:does|shall|will)\s+not\s+(?:waive|forfeit)[^.]{0,80}(?:right|entitlement)\s+to\s+payment|(?:right|entitlement)\s+to\s+payment[^.]{0,80}(?:is|shall|will)\s+not\s+(?:waived|forfeited)/i;
+  /(?:does|shall|will)\s+not\s+(?:waive|forfeit)[^.]{0,80}(?:right|entitlement)\s+to\s+payment|(?:right|entitlement)\s+to\s+payment[^.]{0,80}(?:is|are|shall|will)\s+not\s+(?:waived|forfeited)/i;
 const BARE_PAYMENT_PRESERVED_RE =
   /(?:payment|amounts?)[^.]{0,80}(?:is|are|shall|will)\s+not\s+(?:be\s+)?(?:waived|forfeited)|(?:does|shall|will)\s+not\s+(?:waive|forfeit)\s+(?:the\s+)?(?:payment|amounts?)/i;
 const SAME_SCOPE_BARE_PAYMENT_CONTEXT_RE =
@@ -674,6 +674,8 @@ const SAME_SCOPE_EXPLICIT_PAYMENT_CONTEXT_RE =
   /\b(?:affected|subject|late|delayed)\s+(?:invoice|amount|payment)\b|\b(?:cure|grace)\s+period\b|\binvoices?\b|^\s*(?:this|such|the\s+foregoing)\b|\bSubcontractor(?:'s|\u2019s)?\s+(?:right|entitlement)\s+to\s+payment\b/i;
 const PRIME_PAYMENT_RIGHT_PRESERVATION_RE =
   /\bPrime(?:\s+Contractor)?(?:'s|\u2019s)\s+(?:right|entitlement)\s+to\s+payment\b/i;
+const SUBCONTRACTOR_PAYMENT_RIGHT_PRESERVATION_RE =
+  /\bSubcontractor(?:'s|\u2019s)\s+(?:right|entitlement)\s+to\s+payment\b/i;
 const SAME_SCOPE_PAYMENT_REMAINS_RE =
   /(?:except(?:\s+that)?|however|provided\s+that|but|notwithstanding)[^.]{0,180}(?:(?:the\s+)?(?:affected|subject|late|delayed)\s+(?:invoice|amount|payment)|(?:all\s+)?(?:amounts?|payment)\s+for\s+(?:performed|completed|accepted)\s+(?:work|services|deliverables)|(?:all\s+)?(?:amounts?|payment)\s+(?:for|under)\s+(?:the\s+)?(?:affected|subject|late|delayed)\s+invoice)[^.]{0,120}(?:remain|remains|shall\s+remain|will\s+remain)\s+(?:payable|due)/i;
 const ADJACENT_SAME_SCOPE_PAYMENT_REMAINS_RE =
@@ -739,7 +741,10 @@ function sentencePreservesPayment(
   waivedInvoiceIds: string[],
   isWaiverSentenceScope = false
 ): boolean {
-  if (PRIME_PAYMENT_RIGHT_PRESERVATION_RE.test(sentence)) return false;
+  if (
+    PRIME_PAYMENT_RIGHT_PRESERVATION_RE.test(sentence) &&
+    !SUBCONTRACTOR_PAYMENT_RIGHT_PRESERVATION_RE.test(sentence)
+  ) return false;
   const preservedInvoiceIds = extractInvoiceIds(sentence);
   if (preservedInvoiceIds.length > 0 && waivedInvoiceIds.length > 0) {
     const mentionsWaivedInvoice =
@@ -755,7 +760,8 @@ function sentencePreservesPayment(
   if (OTHER_INVOICE_SCOPE_RE.test(sentence)) return false;
   const sameScopeExplicitPaymentPreservation =
     EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence) &&
-    !PRIME_PAYMENT_RIGHT_PRESERVATION_RE.test(sentence) &&
+    (!PRIME_PAYMENT_RIGHT_PRESERVATION_RE.test(sentence) ||
+      SUBCONTRACTOR_PAYMENT_RIGHT_PRESERVATION_RE.test(sentence)) &&
     (isWaiverSentenceScope || SAME_SCOPE_EXPLICIT_PAYMENT_CONTEXT_RE.test(sentence));
   const sameScopeBarePaymentPreservation =
     BARE_PAYMENT_PRESERVED_RE.test(sentence) &&
@@ -1016,25 +1022,27 @@ const WITHOUT_ADDITIONAL_PAYMENT_RE =
 const DIRECT_PRIME_LICENSE_ACTOR_RE =
   /\bSubcontractor\b[^.]{0,100}\bgrants?\b[^.]{0,180}\b(?:the\s+)?Prime(?:\s+Contractor)?\b/i;
 const COORDINATED_LICENSE_CONTINUATION_RE =
-  /^(?:(?:a|an|the)\s+)?[^.]{0,80}\blicense\b/i;
+  /^(?:(?:(?:a|an|the)\s+)?[^.]{0,80}\blicense\b|grants?\b)/i;
 
 function coordinatedIpUseSegments(sentence: string): string[] {
   const directLicenseActor = DIRECT_PRIME_LICENSE_ACTOR_RE.exec(sentence)?.[0] ?? null;
+  const subcontractorSubject = /\bSubcontractor\b/i.test(sentence) ? "Subcontractor" : null;
   return sentence
     .split(
-      /;\s*|,\s*(?:and|but|while|whereas)\s+|\s+(?:and|but)\s+(?=(?:deliverables?|services?|work\s+products?|improvements?|adaptations?)\b[^.]{0,80}\b(?:may|shall|will|is|are|has|have)\b)|\s+and\s+(?=(?:(?:a|an|the)\s+)?[^.;]{0,80}\blicense\b)/i
+      /;\s*|,\s*(?:and|but|while|whereas)\s+|\s+(?:and|but)\s+(?=(?:deliverables?|services?|work\s+products?|improvements?|adaptations?)\b[^.]{0,80}\b(?:may|shall|will|is|are|has|have)\b)|\s+and\s+(?=(?:(?:a|an|the)\s+)?[^.;]{0,80}\blicense\b)|\s+(?:and|but)\s+(?=(?:Subcontractor\s+)?grants?\b)/i
     )
     .map((segment, index) => {
       const trimmed = segment.trim();
-      if (
-        !trimmed ||
-        index === 0 ||
-        !directLicenseActor ||
-        !COORDINATED_LICENSE_CONTINUATION_RE.test(trimmed)
-      ) {
+      if (!trimmed || index === 0 || !COORDINATED_LICENSE_CONTINUATION_RE.test(trimmed)) {
         return trimmed;
       }
-      return `${directLicenseActor} ${trimmed}`;
+      if (/^grants?\b/i.test(trimmed) && subcontractorSubject) {
+        return `${subcontractorSubject} ${trimmed}`;
+      }
+      if (directLicenseActor) {
+        return `${directLicenseActor} ${trimmed}`;
+      }
+      return trimmed;
     })
     .filter(Boolean);
 }
@@ -1144,7 +1152,7 @@ function forumEvidenceSentences(text: string): string[] {
 function forumEvidenceClauses(sentence: string): string[] {
   return sentence
     .split(
-      /\s*;\s*|,\s*(?:but|however|while|whereas)\s+|\s+(?:and|but)\s+instead\s+(?=(?:irrevocably\s+)?(?:submits?|consents?)\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\b)|\s+(?:and|but)\s+(?=(?:(?:(?:all|any)\s+)?(?:actions?|lawsuits?|claims?|disputes?|proceedings?)\b[^.]{0,120}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:brought|filed)\b|(?:exclusive\s+)?(?:venue|jurisdiction)\s+(?:(?:must|shall|will)\s+be|is|lies)\s+(?:in|located\s+in)\b))/i
+      /\s*;\s*|,\s*(?:but|however|while|whereas)\s+|\s+(?:and|but)\s+instead\s+(?=(?:irrevocably\s+)?(?:submits?|consents?)\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\b)|\s+(?:and|but)\s+(?=(?:(?:each|either|both|the)\s+part(?:y|ies)\s+)?(?:(?:hereby|irrevocably|expressly)\s+)*(?:submits?|consents?)\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\b)|\s+(?:and|but)\s+(?=(?:(?:(?:all|any)\s+)?(?:actions?|lawsuits?|claims?|disputes?|proceedings?)\b[^.]{0,120}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:brought|filed)\b|(?:exclusive\s+)?(?:venue|jurisdiction)\s+(?:(?:must|shall|will)\s+be|is|lies)\s+(?:in|located\s+in)\b))/i
     )
     .map((clause) => clause.trim())
     .filter(Boolean);
@@ -1207,13 +1215,13 @@ const NEGATED_MANDATORY_ARBITRATION_EVIDENCE_RE =
 function arbitrationEvidenceClauses(text: string): string[] {
   return text
     .split(
-      /(?<=[.!?])\s+|\s*;\s*|,\s*(?:but|however|while|whereas)\s+|\s+(?:and|but)\s+(?=(?:(?:(?:all|any|the)\s+)?(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,120}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)|binding\s+arbitration\b[^.]{0,120}(?:is|shall|must|will)\s+(?:be\s+)?(?:(?:required|mandatory)\b|(?:the\s+)?exclusive\s+(?:remedy|means|method|forum|procedure)\b)))/i
+      /(?<=[.!?])\s+|\s*;\s*|,\s*(?:but|however|while|whereas)\s+|\s+(?:and|but)\s+(?=(?:the\s+)?part(?:y|ies)\b\s+(?:(?:hereby|irrevocably|expressly|mutually)\s+)*(?:(?:agree|agrees|consent|consents)|(?:shall|must|will)\s+(?:agree|consent))\s+to\s+binding\s+arbitration\b)|\s+(?:and|but)\s+(?=(?:(?:(?:all|any|the)\s+)?(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,120}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)|binding\s+arbitration\b[^.]{0,120}(?:is|shall|must|will)\s+(?:be\s+)?(?:(?:required|mandatory)\b|(?:the\s+)?exclusive\s+(?:remedy|means|method|forum|procedure)\b)))/i
     )
     .map((clause) => clause.trim())
     .filter(Boolean);
 }
 
-function hasMandatoryArbitrationEvidence(text: string): boolean {
+export function hasMandatoryArbitrationEvidence(text: string): boolean {
   return arbitrationEvidenceClauses(text).some(
     (clause) =>
       !NEGATED_MANDATORY_ARBITRATION_EVIDENCE_RE.test(clause) &&
@@ -1229,13 +1237,13 @@ function hasMandatoryVenueOrArbitrationEvidence(text: string): boolean {
 function governingLawEvidenceClauses(text: string): string[] {
   return text
     .split(
-      /(?<=[.!?])\s+|\s*;\s*|,\s*(?:but|however|while|whereas)\s+|\s+(?:and|but)\s+(?=(?:(?:this\s+)?(?:Agreement|Subcontract|Contract)\b[^.]{0,100}(?:(?:shall|will|must)\s+(?:not\s+)?be|is\s+(?:not\s+)?)\s+governed\s+by|governing\s+law\b))/i
+      /(?<=[.!?])\s+|\s*;\s*|,\s*(?:but|however|while|whereas)\s+|\s+(?:and|but)\s+instead\s+(?=(?:shall|will|must)\s+be\s+governed\s+by\s+the\s+laws?\s+of\b)|\s+(?:and|but)\s+(?=(?:(?:this\s+)?(?:Agreement|Subcontract|Contract)\b[^.]{0,100}(?:(?:shall|will|must)\s+(?:not\s+)?be|is\s+(?:not\s+)?)\s+governed\s+by|governing\s+law\b))/i
     )
     .map((clause) => clause.trim())
     .filter(Boolean);
 }
 
-function hasSelectedGoverningLawEvidence(text: string): boolean {
+export function hasSelectedGoverningLawEvidence(text: string): boolean {
   return governingLawEvidenceClauses(text).some(
     (clause) =>
       GOVERNING_LAW_EVIDENCE_RE.test(clause) &&
