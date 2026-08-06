@@ -29,6 +29,20 @@ jobs:
       - name: Apply exact-head final review patch
         run: python .github/pr107-final-five-review-patch.py
 
+      - name: Correct mixed-waiver regression report field
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('lib/analyzer/__tests__/orion-parity-regression.test.mjs')
+          text = path.read_text()
+          old = 'sameSentenceMixedInvoiceWaiverFinding?.analysis.includes'
+          new = 'sameSentenceMixedInvoiceWaiverFinding?.riskAnalysis?.includes'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one mixed-waiver report-field access, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
       - run: npm run test:accuracy:orion
       - run: npm run test:accuracy
       - run: npx tsc --noEmit
