@@ -655,9 +655,9 @@ function buildGeneralWithholdingAnalysis(foundText: string): string {
 const NEGATED_INVOICE_PAYMENT_WAIVER_RE =
   /failure\s+to\s+(?:submit[^.]{0,180}\binvoice\b|do\s+so|submit\s+(?:it|them)|timely\s+submit(?:\s+(?:it|them))?|submit\s+on\s+time)[^.]{0,200}(?:(?:(?:does|shall|will|may|can)\s+not|cannot|never)\s+(?:waive|forfeit|constitute\s+(?:a\s+)?waiver\s+of|result\s+in\s+(?:the\s+)?forfeiture\s+of)|(?:is|shall|will|may|can)\s+not\s+(?:be\s+)?deemed\s+(?:a\s+)?waiver\s+of)\s+(?:(?:the\s+)?Subcontractor(?:'s|\u2019s)?\s+|the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const EXPLICIT_NON_SUBCONTRACTOR_INVOICE_DUTY_RE =
-  /\b(?:Prime(?:\s+Contractor)?|Government|Customer)(?:(?:'s|\u2019s)\s+failure\s+to\s+(?:submit|do\s+so)|\s+(?:(?:must|shall|should|will)\s+submit|is\s+required\s+to\s+submit|fails?\s+to\s+submit))\b|\binvoices?\b[^.]{0,120}(?:(?:must|shall|should|will)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)(?:\s+(?!(?:by|and|but|or)\b)[A-Za-z][A-Za-z-]*){0,12}\s+by\s+(?:Prime(?:\s+Contractor)?|Government|Customer)\b/i;
+  /\b(?:Prime(?:\s+Contractor)?|Government|Customer)(?:(?:'s|\u2019s)\s+failure\s+to\s+(?:submit|do\s+so)|\s+(?:(?:must|shall|should|will)\s+submit|is\s+required\s+to\s+submit|fails?\s+to\s+submit))\b|\binvoices?\b[^.]{0,120}(?:(?:must|shall|should|will)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)(?:\s+(?!(?:by|and|but|or)\b)[A-Za-z][A-Za-z-]*){0,12}\s+by\s+(?:Prime(?:\s+Contractor)?|Government|Customer)\b|\binvoices?\b[^.]{0,120}(?:(?:must|shall|should|will)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)[^.]{0,140}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?[^.;]{0,80}\bby\s+(?:Prime(?:\s+Contractor)?|Government|Customer)\b/i;
 const EXPLICIT_SUBCONTRACTOR_INVOICE_DUTY_RE =
-  /\bSubcontractor(?:(?:'s|\u2019s)\s+failure\s+to\s+(?:submit|do\s+so)|\s+(?:(?:must|shall|should|will)\s+submit|is\s+required\s+to\s+submit|fails?\s+to\s+submit))\b|\binvoices?\b[^.]{0,160}(?:(?:must|shall|should|will)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)(?:\s+(?!(?:by|and|but|or)\b)[A-Za-z][A-Za-z-]*){0,12}\s+by[^.]{0,120}\bSubcontractor\b/i;
+  /\bSubcontractor(?:(?:'s|\u2019s)\s+failure\s+to\s+(?:submit|do\s+so)|\s+(?:(?:must|shall|should|will)\s+submit|is\s+required\s+to\s+submit|fails?\s+to\s+submit))\b|\binvoices?\b[^.]{0,160}(?:(?:must|shall|should|will)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)(?:\s+(?!(?:by|and|but|or)\b)[A-Za-z][A-Za-z-]*){0,12}\s+by[^.]{0,120}\bSubcontractor\b|\binvoices?\b[^.]{0,160}(?:(?:must|shall|should|will)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)[^.]{0,140}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?[^.;]{0,120}\bby\s+Subcontractor\b/i;
 const INVOICE_PAYMENT_WAIVER_RE =
   /failure\s+to\s+submit[^.]{0,140}(?:complete\s+)?invoice[^.]{0,140}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?[^.]{0,120}(?:(?:waives?|forfeits?)\s+|(?:(?:shall\s+|will\s+|must\s+)?constitutes?\s+(?:a\s+)?waiver\s+of|(?:is|shall\s+be|will\s+be|must\s+be)\s+deemed\s+(?:a\s+)?waiver\s+of|results?\s+in\s+(?:the\s+)?forfeiture\s+of)\s+)(?:(?:the\s+)?Subcontractor(?:'s|\u2019s)?\s+|the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const INVOICE_SUBMISSION_DEADLINE_RE =
@@ -1099,12 +1099,19 @@ function unpaidQualifierTargetsCompetingIpObject(grantWindow: string): boolean {
   return COMPETING_IP_OBJECT_UNPAID_SCOPE_RE.test(qualifierTail);
 }
 
+const NEGATED_PRIME_UNPAID_IMPROVEMENT_RIGHTS_RE =
+  /\b(?:Prime\s+Contractor|Prime)\b[^.;]{0,60}(?:(?:(?:does|shall|will|may|can)\s+not|never)\s+(?:own|hold|have|receive|obtain)|(?:refuses?|declines?)\s+to\s+(?:own|hold|receive|obtain))\b[^.;]{0,120}\b(?:royalty[\s-]?free|free\s+of\s+charge|without\s+(?:additional\s+)?(?:payment|compensation|charge|fee))\b[^.;]{0,100}\b(?:rights?|interests?)\b[^.;]{0,80}\b(?:improvements?|adaptations?)\b|\b(?:royalty[\s-]?free|free\s+of\s+charge|without\s+(?:additional\s+)?(?:payment|compensation|charge|fee))\b[^.;]{0,100}\b(?:rights?|interests?)\b[^.;]{0,80}\b(?:improvements?|adaptations?)\b[^.;]{0,80}(?:(?:are|shall|will|may|can)\s+not|cannot|never)\s+(?:be\s+)?(?:held|owned)\s+by\s+(?:the\s+)?(?:Prime\s+Contractor|Prime)\b/i;
+const DIRECT_PRIME_UNPAID_IMPROVEMENT_RIGHTS_RE =
+  /\b(?:Prime\s+Contractor|Prime)\b[^.;]{0,40}\b(?:owns?|holds?|has|receives?|obtains?)\b[^.;]{0,60}\b(?<!non-)(?<!non\s)(?<!not\s)(?:royalty[\s-]?free|free\s+of\s+charge|without\s+(?:additional\s+)?(?:payment|compensation|charge|fee))\b[^.;]{0,80}\b(?:rights?|interests?)\b[^.;]{0,60}\b(?:in|to)\s+(?:(?:all|any|the|such)\s+){0,2}(?:improvements?|adaptations?)\b|\b(?<!non-)(?<!non\s)(?<!not\s)(?:royalty[\s-]?free|free\s+of\s+charge|without\s+(?:additional\s+)?(?:payment|compensation|charge|fee))\b[^.;]{0,80}\b(?:rights?|interests?)\b[^.;]{0,60}\b(?:in|to)\s+(?:(?:all|any|the|such)\s+){0,2}(?:improvements?|adaptations?)\b[^.;]{0,80}\b(?:are|shall\s+be|will\s+be)\s+(?:held|owned)\s+by\s+(?:the\s+)?(?:Prime\s+Contractor|Prime)\b/i;
+
 export function hasUnpaidPrimeImprovementsUseEvidence(text: string): boolean {
   const clauses = text.split(
     /(?<=[.!?])\s+|\s*;\s*|,\s*(?:but|however|while|whereas)\s+/i
   );
   return clauses.some((clause) =>
     coordinatedIpUseSegments(clause).some((segment) => {
+      if (NEGATED_PRIME_UNPAID_IMPROVEMENT_RIGHTS_RE.test(segment)) return false;
+      if (DIRECT_PRIME_UNPAID_IMPROVEMENT_RIGHTS_RE.test(segment)) return true;
       const grantWindow = primeImprovementsUseGrantWindow(segment);
       return Boolean(
         grantWindow &&
