@@ -142,7 +142,7 @@ function unsupportedFindingLocalClaim(finding: Finding): string | null {
     !/\bfiled\s+in\s+writing\b/i.test(claim) &&
     /filed\s+in\s+(?:(?:a|the)\s+)?(?:courts?|forum)\b|filed\s+in\s+(?:(?:the\s+)?(?:State|Commonwealth)\s+of\s+)?[A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,4}\s+(?:County|State|Commonwealth|District|City)\b/i.test(claim);
   const affirmativeClaim = claim.replace(
-    /\b(?:does|do|did|is|are|was|were|shall|will|would|can|could|may|might)\s+not\b[^.]*\.?/gi,
+    /\b(?:does|do|did|is|are|was|were|shall|will|would|can|could|may|might)\s+not\b[^.;]*?(?=\s*,\s*(?:and|but|however|while|whereas)\b|\s+(?:and|but|however|while|whereas)\b|[.;]|$)/gi,
     " "
   );
   const arbitrationRequirementClaim =

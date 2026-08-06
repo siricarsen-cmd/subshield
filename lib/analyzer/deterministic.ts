@@ -683,6 +683,10 @@ const SAME_SCOPE_PAYMENT_REMAINS_RE =
 const ADJACENT_SAME_SCOPE_PAYMENT_REMAINS_RE =
   /^\s*(?:(?:the\s+)?(?:affected|subject|late|delayed)\s+(?:invoice|amount|payment)|(?:all\s+)?(?:amounts?|payment)\s+for\s+(?:performed|completed|accepted)\s+(?:work|services|deliverables)|(?:all\s+)?(?:amounts?|payment)\s+(?:for|under)\s+(?:the\s+)?(?:affected|subject|late|delayed)\s+invoice)[^.]{0,120}(?:remain|remains|shall\s+remain|will\s+remain)\s+(?:payable|due)/i;
 const OTHER_INVOICE_SCOPE_RE = /\b(?:other|unrelated|separate)\s+invoices?\b|\brather\s+than\b/i;
+const UNRELATED_PAYMENT_RIGHT_SCOPE_RE =
+  /\b(?:under|for|arising\s+(?:under|from)|related\s+to)\s+(?:(?:a|the)\s+)?(?:separate|other|unrelated|different)\s+(?:Task\s+Order(?:\s+(?:No\.?\s*)?[A-Z0-9-]+)?|agreement|contract|subcontract|purchase\s+order|invoice)\b/i;
+const PAYMENT_PRESERVATION_BRANCH_SPLIT_RE =
+  /\s*;\s*|,\s*(?:but|however|while|whereas)\s+|\s+(?:and|but)\s+(?=(?:Subcontractor(?:'s|\u2019s)?\s+(?:rights?|entitlements?)\s+to\s+payment|(?:the\s+)?(?:affected|subject|late|delayed)\s+(?:invoice|amount|payment)\b))/i;
 const PAYMENT_PRESERVATION_CONNECTOR_RE =
   /(?:,\s*)?\b(?:except(?:\s+that)?|however|provided\s+that|but|notwithstanding)\b/i;
 function extractInvoiceIds(text: string): string[] {
@@ -759,23 +763,30 @@ function sentencePreservesPayment(
     );
     return preservesWaivedInvoice;
   }
-  if (OTHER_INVOICE_SCOPE_RE.test(sentence)) return false;
-  const sameScopeExplicitPaymentPreservation =
-    EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(sentence) &&
-    (!PRIME_PAYMENT_RIGHT_PRESERVATION_RE.test(sentence) ||
-      SUBCONTRACTOR_PAYMENT_RIGHT_PRESERVATION_RE.test(sentence)) &&
-    (isWaiverSentenceScope ||
-      SAME_SCOPE_EXPLICIT_PAYMENT_CONTEXT_RE.test(sentence) ||
-      SUBCONTRACTOR_PAYMENT_RIGHT_PRESERVATION_RE.test(sentence));
-  const sameScopeBarePaymentPreservation =
-    BARE_PAYMENT_PRESERVED_RE.test(sentence) &&
-    SAME_SCOPE_BARE_PAYMENT_CONTEXT_RE.test(sentence);
-  return (
-    sameScopeExplicitPaymentPreservation ||
-    sameScopeBarePaymentPreservation ||
-    SAME_SCOPE_PAYMENT_REMAINS_RE.test(sentence) ||
-    ADJACENT_SAME_SCOPE_PAYMENT_REMAINS_RE.test(sentence)
-  );
+  return sentence
+    .split(PAYMENT_PRESERVATION_BRANCH_SPLIT_RE)
+    .map((branch) => branch.trim())
+    .filter(Boolean)
+    .some((branch) => {
+      if (OTHER_INVOICE_SCOPE_RE.test(branch)) return false;
+      if (UNRELATED_PAYMENT_RIGHT_SCOPE_RE.test(branch)) return false;
+      const sameScopeExplicitPaymentPreservation =
+        EXPLICIT_PAYMENT_RIGHT_PRESERVED_RE.test(branch) &&
+        (!PRIME_PAYMENT_RIGHT_PRESERVATION_RE.test(branch) ||
+          SUBCONTRACTOR_PAYMENT_RIGHT_PRESERVATION_RE.test(branch)) &&
+        (isWaiverSentenceScope ||
+          SAME_SCOPE_EXPLICIT_PAYMENT_CONTEXT_RE.test(branch) ||
+          SUBCONTRACTOR_PAYMENT_RIGHT_PRESERVATION_RE.test(branch));
+      const sameScopeBarePaymentPreservation =
+        BARE_PAYMENT_PRESERVED_RE.test(branch) &&
+        SAME_SCOPE_BARE_PAYMENT_CONTEXT_RE.test(branch);
+      return (
+        sameScopeExplicitPaymentPreservation ||
+        sameScopeBarePaymentPreservation ||
+        SAME_SCOPE_PAYMENT_REMAINS_RE.test(branch) ||
+        ADJACENT_SAME_SCOPE_PAYMENT_REMAINS_RE.test(branch)
+      );
+    });
 }
 
 function invoiceSubmissionDutyTargetsSubcontractor(text: string): boolean {
@@ -1215,7 +1226,7 @@ const GOVERNING_LAW_EVIDENCE_RE = new RegExp(
   "i"
 );
 const NEGATED_GOVERNING_LAW_EVIDENCE_RE =
-  /\b(?:this\s+)?(?:Agreement|Subcontract|Contract)\b[^.]{0,100}(?:(?:shall|will|must)\s+not\s+be|is\s+not)\s+governed\s+by\s+the\s+laws?\s+of\b|\bgoverning\s+law\b[^.]{0,100}(?:(?:shall|will|must)\s+not\s+be|is\s+not)\b/i;
+  /\b(?:(?:(?:this|that|the)\s+)?(?:Agreement|Subcontract|Contract|instrument|document)|it|this|that)\b[^.;]{0,100}(?:(?:shall|will|must|may|can)\s+not\s+be|(?:is|are|was|were)\s+not)\s+governed\s+by\s+the\s+laws?\s+of\b|\b(?:(?:shall|will|must|may|can)\s+not\s+be|(?:is|are|was|were)\s+not)\s+governed\s+by\s+the\s+laws?\s+of\b|\bgoverning\s+law\b[^.;]{0,100}(?:(?:shall|will|must|may|can)\s+not\s+be|(?:is|are|was|were)\s+not)\b/i;
 const MANDATORY_ARBITRATION_EVIDENCE_RE =
   /\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,180}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:resolved|settled|decided|submitted)\s+(?:exclusively\s+)?(?:by|through|to)\s+(?:binding\s+)?arbitration\b|\b(?:all\s+)?(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,100}\b(?:(?:is|are)\s+subject\s+to\s+mandatory\s+(?:binding\s+)?arbitration|(?:shall|must|will)\s+be\s+subject\s+to\s+(?:(?:mandatory\s+(?:binding\s+)?)|(?:binding\s+))arbitration)\b/i;
 const RULE_QUALIFIED_MANDATORY_ARBITRATION_RE =
