@@ -32,7 +32,7 @@ new = r'''  const affirmativeClaim = claim.replace(
   const governingLawSelectionClaim =
     /\bselects?\s+(?:the\s+)?governing\s+law\b|\bgoverned\s+by\s+the\s+laws?\s+of\b|\bgoverning\s+law\s+(?:is|shall|will)\b/i.test(affirmativeClaim);
   const explicitForumSelectionClaim =
-    /\bforum\s+(?:far|stated|required|selected)\b|(?:requires?|must|shall|required\s+to|permits?)[^.]{0,80}\b(?:disputes?|actions?|lawsuits?|claims?|proceedings?)\b[^.]{0,100}\b(?:litigat(?:e|ed|ion)|brought|filed)\b|\b(?:exclusive\s+)?(?:venue|jurisdiction)\b[^.]{0,100}\b(?:required|selected|shall|must|will)\b/i.test(affirmativeClaim) ||
+    /\bforum\s+(?:far|stated|required|selected)\b|(?:requires?|must|shall|required\s+to|permits?)[^.]{0,80}\b(?:disputes?|actions?|lawsuits?|claims?|proceedings?)\b[^.]{0,100}\b(?:litigat(?:e|ed|ion)|brought)\b|\b(?:exclusive\s+)?(?:venue|jurisdiction)\b[^.]{0,100}\b(?:required|selected|shall|must|will)\b/i.test(affirmativeClaim) ||
     filedInForumClaim;'''
 if sanity.count(old) != 1:
     raise SystemExit(f"subtype classifier refinement: expected one match, found {sanity.count(old)}")
