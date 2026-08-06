@@ -11,6 +11,17 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 deterministic_path = Path("lib/analyzer/deterministic.ts")
 deterministic = deterministic_path.read_text()
 
+old_deadline_re = r'''const INVOICE_SUBMISSION_DEADLINE_RE =
+  /(?:\binvoices?\b[^.]{0,120}(?:(?:must|shall|should)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)|\b(?:must|shall|should|is\s+required\s+to)\s+submit\s+(?:(?:a|all|the|complete|timely|monthly|proper|final|correct|accurate|valid|itemized|detailed|supported|compliant|periodic|interim|recurring|certified|acceptable)\s+)*invoices?\b)[^.]{0,80}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?/i;'''
+new_deadline_re = r'''const INVOICE_SUBMISSION_DEADLINE_RE =
+  /(?:\binvoices?\b[^.]{0,120}(?:(?:must|shall|should)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)|\b(?:must|shall|should|is\s+required\s+to)\s+submit\s+(?:(?:a|all|the|its|complete|timely|monthly|proper|final|correct|accurate|valid|itemized|detailed|supported|compliant|periodic|interim|recurring|certified|acceptable)\s+)*invoices?\b)[^.]{0,80}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?/i;'''
+deterministic = replace_once(
+    deterministic,
+    old_deadline_re,
+    new_deadline_re,
+    "support possessive its-invoice deadline grammar",
+)
+
 old_actor_helper = r'''function invoiceSubmissionDutyTargetsSubcontractor(text: string): boolean {
   return !EXPLICIT_NON_SUBCONTRACTOR_INVOICE_DUTY_RE.test(text);
 }
@@ -18,6 +29,15 @@ old_actor_helper = r'''function invoiceSubmissionDutyTargetsSubcontractor(text: 
 function affirmativeInvoiceWaiverBranches(sentence: string): string[] {'''
 new_actor_helper = r'''function invoiceSubmissionDutyTargetsSubcontractor(text: string): boolean {
   return !EXPLICIT_NON_SUBCONTRACTOR_INVOICE_DUTY_RE.test(text);
+}
+
+function hasInvoiceSubmissionDeadlineEvidence(text: string): boolean {
+  return (
+    INVOICE_SUBMISSION_DEADLINE_RE.test(text) ||
+    /failure\s+to\s+submit[^.]{0,180}\binvoice\b[^.]{0,160}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?/i.test(
+      text
+    )
+  );
 }
 
 function invoiceDutyBranches(text: string): string[] {
@@ -32,7 +52,7 @@ function invoiceDutyBranches(text: string): string[] {
 function nearestInvoiceDeadlineTargetsSubcontractor(text: string): boolean {
   const branches = invoiceDutyBranches(text);
   for (let index = branches.length - 1; index >= 0; index--) {
-    if (!INVOICE_SUBMISSION_DEADLINE_RE.test(branches[index])) continue;
+    if (!hasInvoiceSubmissionDeadlineEvidence(branches[index])) continue;
     return invoiceSubmissionDutyTargetsSubcontractor(branches[index]);
   }
   return false;
@@ -46,7 +66,12 @@ deterministic = replace_once(
     "nearest invoice-deadline actor helper",
 )
 
-old_deadline_scope = r'''    if (
+old_deadline_scope = r'''    const sentenceCarriesInvoiceSubmissionDeadline =
+      INVOICE_SUBMISSION_DEADLINE_RE.test(sentence) ||
+      /failure\s+to\s+submit[^.]{0,180}\binvoice\b[^.]{0,160}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?/i.test(
+        sentence
+      );
+    if (
       sentenceCarriesInvoiceSubmissionDeadline &&
       invoiceSubmissionDutyTargetsSubcontractor(sentence)
     ) {
@@ -59,7 +84,9 @@ old_deadline_scope = r'''    if (
     ) {
       return [index];
     }'''
-new_deadline_scope = r'''    if (
+new_deadline_scope = r'''    const sentenceCarriesInvoiceSubmissionDeadline =
+      hasInvoiceSubmissionDeadlineEvidence(sentence);
+    if (
       sentenceCarriesInvoiceSubmissionDeadline &&
       nearestInvoiceDeadlineTargetsSubcontractor(sentence)
     ) {
@@ -67,7 +94,7 @@ new_deadline_scope = r'''    if (
     }
     if (
       index > 0 &&
-      INVOICE_SUBMISSION_DEADLINE_RE.test(sentences[index - 1]) &&
+      hasInvoiceSubmissionDeadlineEvidence(sentences[index - 1]) &&
       nearestInvoiceDeadlineTargetsSubcontractor(sentences[index - 1])
     ) {
       return [index];
@@ -84,7 +111,7 @@ old_governing_law = r'''const GOVERNING_LAW_EVIDENCE_RE =
 new_governing_law = r'''const GOVERNING_LAW_JURISDICTION_RE =
   /(?:Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New\s+Hampshire|New\s+Jersey|New\s+Mexico|New\s+York|North\s+Carolina|North\s+Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode\s+Island|South\s+Carolina|South\s+Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West\s+Virginia|Wisconsin|Wyoming|District\s+of\s+Columbia|Puerto\s+Rico|United\s+States)/i;
 const GOVERNING_LAW_EVIDENCE_RE = new RegExp(
-  String.raw`(?:\\bgoverned\\s+by\\s+the\\s+laws?\\s+of|\\bgoverning\\s+law(?:\\s+of[^.]{0,80})?\\s*(?::|[-–—]|(?:shall|will|is)\\s+be)\\s*(?:(?:the\\s+)?laws?\\s+of\\s+)?)(?:\\s+(?:(?:the\\s+)?(?:State|Commonwealth)\\s+of\\s+)?)${GOVERNING_LAW_JURISDICTION_RE.source}\\b`,
+  String.raw`(?:\bgoverned\s+by\s+the\s+laws?\s+of|\bgoverning\s+law(?:\s+of[^.]{0,80})?\s*(?::|[-–—]|(?:shall|will|is)\s+be)\s*(?:(?:the\s+)?laws?\s+of\s+)?)(?:\s+(?:(?:the\s+)?(?:State|Commonwealth)\s+of\s+)?)${GOVERNING_LAW_JURISDICTION_RE.source}\b`,
   "i"
 );'''
 deterministic = replace_once(
