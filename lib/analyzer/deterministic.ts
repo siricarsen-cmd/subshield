@@ -656,6 +656,8 @@ const NEGATED_INVOICE_PAYMENT_WAIVER_RE =
   /failure\s+to\s+(?:submit[^.]{0,180}\binvoice\b|do\s+so|submit\s+(?:it|them)|timely\s+submit(?:\s+(?:it|them))?|submit\s+on\s+time)[^.]{0,200}(?:(?:does|shall|will|may|can)\s+not|cannot|never)\s+(?:waive|forfeit)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const EXPLICIT_NON_SUBCONTRACTOR_INVOICE_DUTY_RE =
   /\b(?:Prime(?:\s+Contractor)?|Government|Customer)(?:(?:'s|\u2019s)\s+failure\s+to\s+(?:submit|do\s+so)|\s+(?:(?:must|shall|should|will)\s+submit|is\s+required\s+to\s+submit|fails?\s+to\s+submit))\b|\binvoices?\b[^.]{0,120}(?:(?:must|shall|should|will)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)\s+by\s+(?:Prime(?:\s+Contractor)?|Government|Customer)\b/i;
+const EXPLICIT_SUBCONTRACTOR_INVOICE_DUTY_RE =
+  /\bSubcontractor(?:(?:'s|\u2019s)\s+failure\s+to\s+(?:submit|do\s+so)|\s+(?:(?:must|shall|should|will)\s+submit|is\s+required\s+to\s+submit|fails?\s+to\s+submit))\b|\binvoices?\b[^.]{0,160}(?:(?:must|shall|should|will)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)\s+by[^.]{0,120}\bSubcontractor\b/i;
 const INVOICE_PAYMENT_WAIVER_RE =
   /failure\s+to\s+submit[^.]{0,140}(?:complete\s+)?invoice[^.]{0,140}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?[^.]{0,120}(?:waives?|forfeits?)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const INVOICE_SUBMISSION_DEADLINE_RE =
@@ -777,6 +779,7 @@ function sentencePreservesPayment(
 }
 
 function invoiceSubmissionDutyTargetsSubcontractor(text: string): boolean {
+  if (EXPLICIT_SUBCONTRACTOR_INVOICE_DUTY_RE.test(text)) return true;
   return !EXPLICIT_NON_SUBCONTRACTOR_INVOICE_DUTY_RE.test(text);
 }
 

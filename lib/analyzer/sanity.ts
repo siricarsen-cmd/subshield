@@ -150,7 +150,7 @@ function unsupportedFindingLocalClaim(finding: Finding): string | null {
   const governingLawSelectionClaim =
     /\bselects?\s+(?:the\s+)?governing\s+law\b|\bgoverned\s+by\s+the\s+laws?\s+of\b|\bgoverning\s+law\s+(?:is|shall|will)\b/i.test(affirmativeClaim);
   const explicitForumSelectionClaim =
-    /\bforum\s+(?:far|stated|required|selected)\b|(?:requires?|must|shall|required\s+to|permits?)[^.]{0,80}\b(?:disputes?|actions?|lawsuits?|claims?|proceedings?)\b[^.]{0,100}\b(?:litigat(?:e|ed|ion)|brought)\b|\b(?:exclusive\s+)?(?:venue|jurisdiction)\b[^.]{0,100}\b(?:required|selected|shall|must|will)\b/i.test(affirmativeClaim) ||
+    /\bforum\s+(?:far|stated|required|selected)\b|(?:requires?|must|shall|required\s+to|permits?)[^.]{0,80}\b(?:disputes?|actions?|lawsuits?|claims?|proceedings?)\b[^.]{0,100}\b(?:litigat(?:e|ed|ion)|brought)\b|\b(?:imposes?|establishes?|mandates?|requires?|selects?|sets?)\s+(?:(?:an?|the)\s+)?(?:(?:exclusive|mandatory)\s+)?(?:venue|forum|jurisdiction)\b|\b(?:exclusive|mandatory)\s+(?:venue|forum|jurisdiction)\b[^.]{0,100}\b(?:in|at|within|required|selected|shall|must|will)\b|\b(?:exclusive\s+)?(?:venue|jurisdiction)\b[^.]{0,100}\b(?:required|selected|shall|must|will)\b/i.test(affirmativeClaim) ||
     filedInForumClaim;
 
   if (arbitrationRequirementClaim && !hasMandatoryArbitrationEvidence(quote)) {
@@ -174,7 +174,7 @@ function unsupportedFindingLocalClaim(finding: Finding): string | null {
   }
 
   const primeImprovementUseClaim =
-    /\bPrime(?:\s+Contractor)?\b[^.]{0,180}\b(?:use|uses|using|license|licensed|receives?|retains?|may\s+use|right\s+to\s+use)\b[^.]{0,140}\b(?:improvements?|adaptations?)\b|\b(?:improvements?|adaptations?)\b[^.]{0,140}\b(?:used|licensed)\b[^.]{0,80}\b(?:by|to)\s+(?:the\s+)?Prime(?:\s+Contractor)?\b/i.test(claim);
+    /\bPrime(?:\s+Contractor)?\b[^.]{0,180}\b(?:use|uses|using|license|licensed|receives?|retains?|obtains?|acquires?|is\s+vested\s+with|may\s+use|right\s+to\s+use)\b[^.]{0,140}\b(?:improvements?|adaptations?)\b|\b(?:improvements?|adaptations?)\b[^.]{0,140}\b(?:used|licensed)\b[^.]{0,80}\b(?:by|to)\s+(?:the\s+)?Prime(?:\s+Contractor)?\b|\b(?:royalty[\s-]?free|free\s+of\s+charge|unpaid)\s+rights?\s+in\s+(?:improvements?|adaptations?)\b[^.]{0,120}\b(?:vests?|accrues?|belongs?|are\s+(?:granted|conveyed|assigned|transferred))\s+(?:in|to)\s+(?:the\s+)?Prime(?:\s+Contractor)?\b/i.test(claim);
   const unpaidImprovementClaim =
     primeImprovementUseClaim &&
     /(?:improvements?|adaptations?)[^.]{0,100}(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use|royalty[\s-]?free|free\s+of\s+charge)|(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use|royalty[\s-]?free|free\s+of\s+charge)[^.]{0,100}(?:improvements?|adaptations?)/i.test(claim);
