@@ -774,7 +774,9 @@ function invoiceSubmissionDutyTargetsSubcontractor(text: string): boolean {
 
 function affirmativeInvoiceWaiverBranches(sentence: string): string[] {
   return sentence
-    .split(/\s*(?:;|,\s*but\b|\bbut\b)\s*/i)
+    .split(
+      /\s*(?:;|,\s*but\b|\bbut\b|\band\b\s+(?=(?:Subcontractor(?:'s|\u2019s)?\s+)?failure\s+to\s+))\s*/i
+    )
     .map((branch) => branch.trim())
     .filter(Boolean)
     .filter(
@@ -1015,7 +1017,7 @@ function buildConditionedPreExistingIpAnalysis(foundText: string): string {
 const BASE_FORUM_EVIDENCE_RE =
   /(?:exclusive\s+(?:venue|jurisdiction)\s+(?:(?:shall|must|will)\s+be\s+|is\s+|lies\s+)?(?:in|located\s+in)|(?:venue|jurisdiction)\s+(?:(?:shall|must|will)\s+be\s+|is\s+|lies\s+)(?:in|located\s+in))[^.]{0,120}(?:courts?|County|State|Commonwealth)|binding\s+arbitration|Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i;
 const NEGATED_EXCLUSIVE_JURISDICTION_RE =
-  /\b(?:neither\s+party|no\s+party)\b[^.]{0,120}(?:irrevocably\s+)?(?:submits?|consents?)\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\b|\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,120}(?:(?:does|do|shall|will|may)\s+not|never)\s+(?:submit|consent)\b[^.]{0,120}\bexclusive\s+jurisdiction\b|\b(?:does|do|shall|will|may)\s+not\s+(?:submit|consent)\b[^.]{0,120}\bexclusive\s+jurisdiction\b|\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,140}(?:expressly\s+)?(?:refuses?|declines?)\s+to\s+(?:submit|consent)\b[^.]{0,140}\bexclusive\s+jurisdiction\b|\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,140}(?:expressly\s+)?disclaims?\s+(?:any\s+)?(?:submission|consent)\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\b/i;
+  /\b(?:neither\s+party|no\s+party)\b[^.]{0,120}(?:irrevocably\s+)?(?:submits?|consents?)\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\b|\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,120}(?:(?:does|do|shall|will|may)\s+not|never)\s+(?:submit|consent)\b[^.]{0,120}\bexclusive\s+jurisdiction\b|\b(?:does|do|shall|will|may)\s+not\s+(?:submit|consent)\b[^.]{0,120}\bexclusive\s+jurisdiction\b|\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,140}(?:expressly\s+)?(?:refuses?|declines?)\s+to\s+(?:submit|consent)\b[^.]{0,140}\bexclusive\s+jurisdiction\b|\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,140}(?:expressly\s+)?disclaims?\s+(?:any\s+)?(?:submission|consent)\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\b|\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,140}(?:expressly\s+)?den(?:y|ies|ied)\s+(?:any\s+)?consent\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\b|\bden(?:y|ies|ied)\s+(?:any\s+)?consent\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\b/i;
 const EXCLUSIVE_JURISDICTION_SUBMISSION_RE =
   /(?:\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,120})?(?:irrevocably\s+)?(?:submits?|consents?)\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\s+of[^.]{0,220}(?:courts?|County|State|Commonwealth|District|City)|\bcourts?\b[^.]{0,180}\b(?:shall|will)\s+have\s+exclusive\s+jurisdiction\b|\bcourts?\b[^.]{0,180}\bhaving\s+exclusive\s+jurisdiction\b/i;
 const DIRECT_MANDATORY_FORUM_RE =
@@ -1093,7 +1095,7 @@ export function hasMandatoryForumEvidence(text: string): boolean {
   });
 }
 const DEFERRED_OR_UNSELECTED_GOVERNING_LAW_RE =
-  /\bgoverning\s+law\b[^.]{0,140}\b(?:has|have|is|was)\s+not\s+(?:been\s+)?selected\b|\bgoverning\s+law\b[^.]{0,140}\b(?:shall|will|is\s+to)\s+be\s+(?:agreed|selected|determined)\s+(?:later|by\s+(?:(?:mutual\s+)?agreement(?:\s+of\s+(?:the\s+)?parties)?|(?:the\s+)?parties))\b/i;
+  /\bgoverning\s+law\b[^.]{0,140}\b(?:has|have|is|was)\s+not\s+(?:been\s+)?selected\b|\bgoverning\s+law\b[^.]{0,140}\b(?:shall|will|is\s+to)\s+be\s+(?:agreed|selected|determined)\s+(?:later|by\s+(?:(?:mutual\s+)?agreement(?:\s+of\s+(?:the\s+)?parties)?|(?:the\s+)?parties))\b|\bgoverning\s+law\b[^.]{0,140}\b(?:shall|will|is\s+to)\s+be\s+(?:subject\s+to|specified|identified|provided|negotiated|finalized|established|set\s+forth)\b/i;
 const GOVERNING_LAW_EVIDENCE_RE =
   /(?:\bgoverned\s+by\s+the\s+laws?\s+of|\bgoverning\s+law(?:\s+of[^.]{0,80})?\s*(?::|[-–—]|(?:shall|will|is)\s+be)\s*(?:the\s+laws?\s+of)?)(?:\s+(?:(?:the\s+)?(?:State|Commonwealth)\s+of\s+)?[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,2})/i;
 const MANDATORY_ARBITRATION_EVIDENCE_RE =
