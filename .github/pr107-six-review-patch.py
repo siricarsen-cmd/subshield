@@ -36,7 +36,16 @@ new = r'''  const affirmativeClaim = claim.replace(
     filedInForumClaim;'''
 if sanity.count(old) != 1:
     raise SystemExit(f"subtype classifier refinement: expected one match, found {sanity.count(old)}")
-sanity_path.write_text(sanity.replace(old, new, 1))
+sanity = sanity.replace(old, new, 1)
+
+old_filed = r'''  const filedInForumClaim =
+    /filed\s+in\s+(?:(?:a|the)\s+)?(?:courts?|forum)\b|filed\s+in\s+(?:(?:the\s+)?(?:State|Commonwealth)\s+of\s+)?[A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,4}\s+(?:County|State|Commonwealth|District|City)\b/i.test(claim);'''
+new_filed = r'''  const filedInForumClaim =
+    !/\bfiled\s+in\s+writing\b/i.test(claim) &&
+    /filed\s+in\s+(?:(?:a|the)\s+)?(?:courts?|forum)\b|filed\s+in\s+(?:(?:the\s+)?(?:State|Commonwealth)\s+of\s+)?[A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,4}\s+(?:County|State|Commonwealth|District|City)\b/i.test(claim);'''
+if sanity.count(old_filed) != 1:
+    raise SystemExit(f"filed-in-writing exclusion: expected one match, found {sanity.count(old_filed)}")
+sanity_path.write_text(sanity.replace(old_filed, new_filed, 1))
 
 # The temporary V2 workflow was created only to investigate GitHub's run
 # surfacing. Remove and stage it here so the original guarded workflow's exact
