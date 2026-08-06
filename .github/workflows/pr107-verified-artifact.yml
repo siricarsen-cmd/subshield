@@ -29,6 +29,41 @@ jobs:
       - name: Apply exact-head six-review patch
         run: python .github/pr107-six-review-patch.py
 
+      - name: Diagnose dispute subtype verification
+        shell: bash
+        run: |
+          node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs --input-type=module <<'NODE'
+          import {
+            hasMandatoryArbitrationEvidence,
+            hasMandatoryForumEvidence,
+            hasSelectedGoverningLawEvidence,
+            runDeterministicDetectors,
+          } from './lib/analyzer/deterministic.ts';
+          import { verifyFindings } from './lib/analyzer/sanity.ts';
+          import { normalizeWhitespace } from './lib/analyzer/text.ts';
+
+          for (const [label, raw] of [
+            ['law', 'This Agreement shall be governed by the laws of the Commonwealth of Virginia.'],
+            ['arbitration', 'All disputes shall be resolved exclusively through arbitration.'],
+            ['forum', 'Any action shall be brought in the state courts in Arlington County, Virginia.'],
+          ]) {
+            const text = normalizeWhitespace(raw);
+            const generated = runDeterministicDetectors(text);
+            const verification = verifyFindings(generated, text);
+            console.log(JSON.stringify({
+              label,
+              helpers: {
+                forum: hasMandatoryForumEvidence(text),
+                arbitration: hasMandatoryArbitrationEvidence(text),
+                law: hasSelectedGoverningLawEvidence(text),
+              },
+              generated: generated.map(({ regulation, riskAnalysis }) => ({ regulation, riskAnalysis })),
+              verified: verification.verified.map(({ regulation, riskAnalysis }) => ({ regulation, riskAnalysis })),
+              dropped: verification.dropped.map(({ finding, reason }) => ({ regulation: finding.regulation, riskAnalysis: finding.riskAnalysis, reason })),
+            }, null, 2));
+          }
+          NODE
+
       - run: npm run test:accuracy:orion
       - run: npm run test:accuracy
       - run: npx tsc --noEmit
