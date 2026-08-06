@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/pr107-verified-artifact.yml
       - .github/pr107-lagged-review-patch.py
+      - .github/pr107-lagged-followup.py
 
 permissions:
   contents: write
@@ -29,28 +30,8 @@ jobs:
       - name: Apply lagged exact-head review patch
         run: python .github/pr107-lagged-review-patch.py
 
-      - name: Diagnose mixed refused and affirmative license path
-        shell: bash
-        run: |
-          node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs --input-type=module <<'NODE'
-          import { hasUnpaidPrimeImprovementsUseEvidence, runDeterministicDetectors } from './lib/analyzer/deterministic.ts';
-          import { normalizeWhitespace } from './lib/analyzer/text.ts';
-          import { verifyFindings } from './lib/analyzer/sanity.ts';
-          import { dedupeFindings, rankFindings } from './lib/analyzer/report.ts';
-          const text = normalizeWhitespace(`
-          2.17 Improvements
-          Subcontractor refuses to grant Prime Contractor a royalty-free license to Adaptations, but Subcontractor grants Prime Contractor a royalty-free license to Improvements.
-          `);
-          const generated = runDeterministicDetectors(text);
-          const verification = verifyFindings(generated, text);
-          const ranked = rankFindings(dedupeFindings(verification.verified, text));
-          console.log(JSON.stringify({
-            hasEvidence: hasUnpaidPrimeImprovementsUseEvidence(text),
-            generated: generated.map(({ regulation, foundText }) => ({ regulation, foundText })),
-            dropped: verification.dropped.map(({ finding, reason }) => ({ regulation: finding.regulation, reason })),
-            final: [...ranked.primaryTraps, ...ranked.secondaryConcerns].map(({ regulation, foundText }) => ({ regulation, foundText })),
-          }, null, 2));
-          NODE
+      - name: Isolate mixed IP license branches
+        run: python .github/pr107-lagged-followup.py
 
       - run: npm run test:accuracy:orion
       - run: npm run test:accuracy
@@ -80,6 +61,7 @@ jobs:
         run: |
           rm .github/workflows/pr107-verified-artifact.yml
           rm .github/pr107-lagged-review-patch.py
+          rm .github/pr107-lagged-followup.py
           expected=$(printf '%s\n' \
             'lib/analyzer/__fixtures__/orion-parity-regression-fixture.mjs' \
             'lib/analyzer/__tests__/orion-parity-regression.test.mjs' \
@@ -96,7 +78,7 @@ jobs:
           git diff --check
           git config user.name 'siricarsen-cmd'
           git config user.email '287561052+siricarsen-cmd@users.noreply.github.com'
-          git add lib/analyzer/deterministic.ts lib/analyzer/__tests__/orion-parity-regression.test.mjs .github/workflows/pr107-verified-artifact.yml .github/pr107-lagged-review-patch.py
+          git add lib/analyzer/deterministic.ts lib/analyzer/__tests__/orion-parity-regression.test.mjs .github/workflows/pr107-verified-artifact.yml .github/pr107-lagged-review-patch.py .github/pr107-lagged-followup.py
           git diff --cached --check
           git commit -m 'Address PR107 lagged review cases'
           git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
