@@ -766,21 +766,35 @@ function sentencePreservesPayment(
   );
 }
 
+function affirmativeInvoiceWaiverBranches(sentence: string): string[] {
+  return sentence
+    .split(/\s*(?:;|,\s*but\b|\bbut\b)\s*/i)
+    .map((branch) => branch.trim())
+    .filter(Boolean)
+    .filter((branch) => !NEGATED_INVOICE_PAYMENT_WAIVER_RE.test(branch));
+}
+
 function invoiceWaiverSentenceIndexes(sentences: string[]): number[] {
   return sentences.flatMap((sentence, index) => {
-    if (NEGATED_INVOICE_PAYMENT_WAIVER_RE.test(sentence)) return [];
-    if (INVOICE_PAYMENT_WAIVER_RE.test(sentence)) return [index];
-    if (
-      INVOICE_PAYMENT_FORFEITURE_CONTEXT_RE.test(sentence) &&
-      INVOICE_SUBMISSION_DEADLINE_RE.test(sentence)
-    ) {
+    const affirmativeBranches = affirmativeInvoiceWaiverBranches(sentence);
+    if (affirmativeBranches.some((branch) => INVOICE_PAYMENT_WAIVER_RE.test(branch))) {
       return [index];
     }
-    const carriesPriorInvoiceDeadline =
-      INVOICE_PAYMENT_FORFEITURE_SENTENCE_RE.test(sentence) ||
-      INVOICE_PAYMENT_FORFEITURE_CONTEXT_RE.test(sentence);
+
+    const carriesInvoiceWaiver = affirmativeBranches.some(
+      (branch) =>
+        INVOICE_PAYMENT_FORFEITURE_SENTENCE_RE.test(branch) ||
+        INVOICE_PAYMENT_FORFEITURE_CONTEXT_RE.test(branch)
+    );
+    if (!carriesInvoiceWaiver) return [];
+
+    const sentenceCarriesInvoiceSubmissionDeadline =
+      INVOICE_SUBMISSION_DEADLINE_RE.test(sentence) ||
+      /failure\s+to\s+submit[^.]{0,180}\binvoice\b[^.]{0,160}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?/i.test(
+        sentence
+      );
+    if (sentenceCarriesInvoiceSubmissionDeadline) return [index];
     if (
-      carriesPriorInvoiceDeadline &&
       index > 0 &&
       INVOICE_SUBMISSION_DEADLINE_RE.test(sentences[index - 1])
     ) {
@@ -885,23 +899,38 @@ const DIRECT_PRIME_PASSIVE_IMPROVEMENT_USE_RE =
   /(?:any\s+)?(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)(?:\s*,\s*(?:including|such\s+as)\s+(?:any\s+)?(?:adaptations?|enhancements?|modifications?)(?:\s+(?:and|or)\s+(?:adaptations?|enhancements?|modifications?))*\s*,)?(?:\s+(?!(?:deliverables?|services?|work\s+products?|may|shall|will)\b)[A-Za-z][A-Za-z'-]*){0,20}\s+(?:may|shall|will)\s+be\s+used\s+by\s+(?:the\s+)?(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?![\s-]+(?:customers?|clients?|affiliates?|agenc(?:y|ies)|end[\s-]?users?|affiliated(?:[\s-]+entities?)?)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?![\s-]+(?:customers?|clients?|affiliates?|agenc(?:y|ies)|end[\s-]?users?|affiliated(?:[\s-]+entities?)?)\b))/i;
 const DIRECT_PRIME_ACTIVE_IMPROVEMENT_USE_RE =
   /(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?![\s-]+(?:customers?|clients?|affiliates?|agenc(?:y|ies)|end[\s-]?users?|affiliated(?:[\s-]+entities?)?)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?![\s-]+(?:customers?|clients?|affiliates?|agenc(?:y|ies)|end[\s-]?users?|affiliated(?:[\s-]+entities?)?)\b))\s+(?:(?:may|shall|will)\s+use|(?:has|shall\s+have|will\s+have)\s+the\s+right\s+to\s+use|(?:is|shall\s+be|will\s+be)\s+entitled\s+to\s+use)\s+(?:(?:any\s+and\s+all|all|any|the|such|stated|those|Subcontractor(?:['\u2019]s|[\s-](?:created|owned)))\s+){0,3}(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)\b/i;
-const NON_ROYALTY_FREE_IMPROVEMENT_LICENSE_RE =
-  /\bnon[\s-]+royalty[\s-]?free\b|\broyalty[\s-]+bearing\b|\bsubject\s+to\s+(?:a\s+)?royalt(?:y|ies)\b/i;
 const NEGATED_PRIME_IMPROVEMENT_LICENSE_RE =
   /\bSubcontractor\b[^.]{0,100}(?:(?:does|shall|will|may)\s+not|never)\s+grant\b[^.]{0,220}\b(?:the\s+)?Prime(?:\s+Contractor)?\b[^.]{0,220}\blicense\b[^.]{0,160}\b(?:improvements?|adaptations?)\b|\bno\s+(?:royalty[\s-]?free\s+)?license\b[^.]{0,180}\b(?:improvements?|adaptations?)\b[^.]{0,120}\b(?:is|shall|will)\s+be\s+granted\b[^.]{0,100}\b(?:to\s+)?(?:the\s+)?Prime(?:\s+Contractor)?\b/i;
 const DIRECT_PRIME_UNPAID_IMPROVEMENT_LICENSE_RE =
   /\bSubcontractor\b[^.]{0,100}\bgrants?\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,180})\b(?:the\s+)?Prime(?:\s+Contractor)?\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,180})\b(?:royalty[\s-]?free|free\s+of\s+charge|without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|at\s+no\s+(?:additional\s+)?(?:cost|charge|fee|expense))\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,120})\blicense\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,120})\b(?:improvements?|adaptations?)\b|\bSubcontractor\b[^.]{0,100}\bgrants?\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,120})\b(?:royalty[\s-]?free|free\s+of\s+charge|without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|at\s+no\s+(?:additional\s+)?(?:cost|charge|fee|expense))\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,80})\blicense\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,100})\b(?:to\s+)?(?:the\s+)?Prime(?:\s+Contractor)?\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,100})\b(?:improvements?|adaptations?)\b/i;
 const DIRECT_PRIME_POSTFIX_UNPAID_IMPROVEMENT_LICENSE_RE =
-  /\bSubcontractor\b[^.]{0,100}\bgrants?\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,180})\b(?:the\s+)?Prime(?:\s+Contractor)?\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,160})\blicense\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,140})\b(?:improvements?|adaptations?)\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,100})\b(?:on\s+(?:a\s+)?royalty[\s-]?free\s+basis|royalty[\s-]?free|free\s+of\s+charge|without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|at\s+no\s+(?:additional\s+)?(?:cost|charge|fee|expense))\b/i;
+  /\bSubcontractor\b[^.]{0,100}\bgrants?\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,180})\b(?:the\s+)?Prime(?:\s+Contractor)?\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,160})\blicense\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,140})\b(?:improvements?|adaptations?)\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?|licenses?)\b)[^.]){0,100})\b(?:on\s+(?:a\s+)?royalty[\s-]?free\s+basis|royalty[\s-]?free|free\s+of\s+charge|without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|at\s+no\s+(?:additional\s+)?(?:cost|charge|fee|expense))\b/i;
 const WITHOUT_ADDITIONAL_PAYMENT_RE =
-  /without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|royalty[\s-]?free|free\s+of\s+charge|at\s+no\s+(?:additional\s+)?(?:cost|charge|fee|expense)/i;
+  /without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|(?<!non-)(?<!non\s)royalty[\s-]?free|free\s+of\s+charge|at\s+no\s+(?:additional\s+)?(?:cost|charge|fee|expense)/i;
+
+const DIRECT_PRIME_LICENSE_ACTOR_RE =
+  /\bSubcontractor\b[^.]{0,100}\bgrants?\b[^.]{0,180}\b(?:the\s+)?Prime(?:\s+Contractor)?\b/i;
+const COORDINATED_LICENSE_CONTINUATION_RE =
+  /^(?:(?:a|an|the)\s+)?[^.]{0,80}\blicense\b/i;
 
 function coordinatedIpUseSegments(sentence: string): string[] {
+  const directLicenseActor = DIRECT_PRIME_LICENSE_ACTOR_RE.exec(sentence)?.[0] ?? null;
   return sentence
     .split(
-      /;\s*|,\s*(?:and|but|while|whereas)\s+|\s+and\s+(?=(?:deliverables?|services?|work\s+products?|improvements?|adaptations?)\b[^.]{0,80}\b(?:may|shall|will|is|are|has|have)\b)/i
+      /;\s*|,\s*(?:and|but|while|whereas)\s+|\s+and\s+(?=(?:deliverables?|services?|work\s+products?|improvements?|adaptations?)\b[^.]{0,80}\b(?:may|shall|will|is|are|has|have)\b)|\s+and\s+(?=(?:(?:a|an|the)\s+)?[^.;]{0,80}\blicense\b)/i
     )
-    .map((segment) => segment.trim())
+    .map((segment, index) => {
+      const trimmed = segment.trim();
+      if (
+        !trimmed ||
+        index === 0 ||
+        !directLicenseActor ||
+        !COORDINATED_LICENSE_CONTINUATION_RE.test(trimmed)
+      ) {
+        return trimmed;
+      }
+      return `${directLicenseActor} ${trimmed}`;
+    })
     .filter(Boolean);
 }
 
@@ -909,12 +938,7 @@ const COMPETING_IP_GRANT_BOUNDARY_RE =
   /\b(?:and|but|while|whereas)\s+(?=(?:deliverables?|services?|work\s+products?|improvements?|adaptations?|Subcontractor|Prime(?:\s+Contractor)?)\b[^.]{0,100}\b(?:may|shall|will|is|are|has|have)\b)/i;
 
 function primeImprovementsUseGrantWindow(segment: string): string | null {
-  if (
-    NEGATED_PRIME_IMPROVEMENT_LICENSE_RE.test(segment) ||
-    NON_ROYALTY_FREE_IMPROVEMENT_LICENSE_RE.test(segment)
-  ) {
-    return null;
-  }
+  if (NEGATED_PRIME_IMPROVEMENT_LICENSE_RE.test(segment)) return null;
   const candidates = [
     DIRECT_PRIME_PASSIVE_IMPROVEMENT_USE_RE.exec(segment),
     DIRECT_PRIME_ACTIVE_IMPROVEMENT_USE_RE.exec(segment),
@@ -1008,7 +1032,7 @@ function forumEvidenceSentences(text: string): string[] {
 function forumEvidenceClauses(sentence: string): string[] {
   return sentence
     .split(
-      /\s*;\s*|,\s*(?:but|however|while|whereas)\s+|\s+(?:and|but)\s+(?=(?:(?:(?:all|any)\s+)?(?:actions?|lawsuits?|claims?|disputes?|proceedings?)\b[^.]{0,120}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:brought|filed)\b|(?:exclusive\s+)?(?:venue|jurisdiction)\s+(?:(?:must|shall|will)\s+be|is|lies)\s+(?:in|located\s+in)\b))/i
+      /\s*;\s*|,\s*(?:but|however|while|whereas)\s+|\s+(?:and|but)\s+instead\s+(?=(?:irrevocably\s+)?(?:submits?|consents?)\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\b)|\s+(?:and|but)\s+(?=(?:(?:(?:all|any)\s+)?(?:actions?|lawsuits?|claims?|disputes?|proceedings?)\b[^.]{0,120}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:brought|filed)\b|(?:exclusive\s+)?(?:venue|jurisdiction)\s+(?:(?:must|shall|will)\s+be|is|lies)\s+(?:in|located\s+in)\b))/i
     )
     .map((clause) => clause.trim())
     .filter(Boolean);
