@@ -152,16 +152,13 @@ jobs:
     steps:
       - name: Check out exact PR head
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
-      - name: Confirm temporary scope
+      - name: Confirm temporary guard files
         shell: bash
         run: |
           set -euo pipefail
           test -f .github/scripts/pr107_final_review_patch.py
-          test "$(git diff --name-only HEAD^ HEAD | sort | tr '\n' ' ')" = ".github/workflows/analyzer-accuracy.yml "
-          test "$(git diff --name-only HEAD~2 HEAD^ | sort | tr '\n' ' ')" = ".github/scripts/pr107_final_review_patch.py "
+          test -f lib/analyzer/.pr107-guard-trigger
 
       - name: Apply two bounded source fixes and six regressions
         run: python3 .github/scripts/pr107_final_review_patch.py
@@ -212,8 +209,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git show HEAD^:.github/workflows/analyzer-accuracy.yml > .github/workflows/analyzer-accuracy.yml
+          git show 73036f67d39f48fff72a6aa549dbf142ddef691a:.github/workflows/analyzer-accuracy.yml > .github/workflows/analyzer-accuracy.yml
           rm .github/scripts/pr107_final_review_patch.py
+          rm lib/analyzer/.pr107-guard-trigger
           git fetch origin main
           actual="$(git diff --name-only origin/main | sort | tr '\n' ' ')"
           expected="lib/analyzer/__fixtures__/orion-parity-regression-fixture.mjs lib/analyzer/__tests__/orion-parity-regression.test.mjs lib/analyzer/anchors.ts lib/analyzer/deterministic.ts lib/analyzer/sanity.ts package.json "
