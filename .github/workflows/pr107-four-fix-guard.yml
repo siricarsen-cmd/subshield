@@ -1,0 +1,124 @@
+name: PR107 Four-Fix Guard
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - synchronize
+    paths:
+      - .github/workflows/pr107-four-fix-guard.yml
+      - .github/scripts/pr107_four_fix.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  apply-test-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/orion-parity-grounding-invoice-waiver
+          fetch-depth: 0
+
+      - name: Verify guarded starting state
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=58a2f13f3a9711a7baffca3fd37dd46ec3e3f69e
+          git merge-base --is-ancestor "$base" HEAD
+          git diff --name-only "$base"..HEAD | sort -u > /tmp/start-files
+          printf '%s\n' ".github/scripts/pr107_four_fix.py" ".github/workflows/pr107-four-fix-guard.yml" | sort -u > /tmp/expected-start-files
+          diff -u /tmp/expected-start-files /tmp/start-files
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -o pipefail
+          npm ci 2>&1 | tee /tmp/guard.log
+
+      - name: Apply source and regression changes
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 .github/scripts/pr107_four_fix.py 2>&1 | tee -a /tmp/guard.log
+
+      - name: Run focused Orion regressions
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:accuracy:orion 2>&1 | tee -a /tmp/guard.log
+
+      - name: Run complete analyzer suite
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:accuracy 2>&1 | tee -a /tmp/guard.log
+
+      - name: Run TypeScript
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsc --noEmit 2>&1 | tee -a /tmp/guard.log
+
+      - name: Run production build
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee -a /tmp/guard.log
+
+      - name: Remove temporary files and verify six-file scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/scripts/pr107_four_fix.py .github/workflows/pr107-four-fix-guard.yml
+          git diff --name-only origin/main | sort -u > /tmp/actual-files
+          printf '%s\n' \
+            "lib/analyzer/__tests__/orion-parity-regression.test.mjs" \
+            "lib/analyzer/__tests__/qa-core-accuracy-benchmark.test.mjs" \
+            "lib/analyzer/__tests__/ts-relative-import.loader.mjs" \
+            "lib/analyzer/deterministic.ts" \
+            "lib/analyzer/sanity.ts" \
+            "package.json" | sort -u > /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
+
+      - name: Commit and push verified candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/analyzer/deterministic.ts lib/analyzer/__tests__/orion-parity-regression.test.mjs .github/scripts/pr107_four_fix.py .github/workflows/pr107-four-fix-guard.yml
+          git commit -m "Handle final coordinated clause variants"
+          git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
+          gh pr comment 107 --body "Guarded four-fix workflow passed. New exact source head: \`$(git rev-parse HEAD)\`. Focused Orion, full analyzer suite, TypeScript, production build, and exact six-file scope all passed."
+
+      - name: Report guard failure
+        if: failure()
+        shell: bash
+        run: |
+          {
+            echo 'Guarded four-fix workflow stopped without pushing source changes.'
+            echo
+            echo '<details><summary>Diagnostic tail</summary>'
+            echo
+            echo '```text'
+            if test -f /tmp/guard.log; then tail -n 160 /tmp/guard.log; else echo 'Failure occurred before the diagnostic log was created.'; fi
+            echo '```'
+            echo '</details>'
+          } > /tmp/failure-comment.md
+          gh pr comment 107 --body-file /tmp/failure-comment.md
