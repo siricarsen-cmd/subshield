@@ -655,9 +655,9 @@ function buildGeneralWithholdingAnalysis(foundText: string): string {
 const NEGATED_INVOICE_PAYMENT_WAIVER_RE =
   /failure\s+to\s+(?:submit[^.]{0,180}\binvoice\b|do\s+so|submit\s+(?:it|them)|timely\s+submit(?:\s+(?:it|them))?|submit\s+on\s+time)[^.]{0,200}(?:(?:does|shall|will|may|can)\s+not|cannot|never)\s+(?:waive|forfeit)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const EXPLICIT_NON_SUBCONTRACTOR_INVOICE_DUTY_RE =
-  /\b(?:Prime(?:\s+Contractor)?|Government|Customer)(?:(?:'s|\u2019s)\s+failure\s+to\s+(?:submit|do\s+so)|\s+(?:(?:must|shall|should|will)\s+submit|is\s+required\s+to\s+submit|fails?\s+to\s+submit))\b|\binvoices?\b[^.]{0,120}(?:(?:must|shall|should|will)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)(?:\s+(?!(?:by|and|but|or)\b)[A-Za-z][A-Za-z-]*){0,4}\s+by\s+(?:Prime(?:\s+Contractor)?|Government|Customer)\b/i;
+  /\b(?:Prime(?:\s+Contractor)?|Government|Customer)(?:(?:'s|\u2019s)\s+failure\s+to\s+(?:submit|do\s+so)|\s+(?:(?:must|shall|should|will)\s+submit|is\s+required\s+to\s+submit|fails?\s+to\s+submit))\b|\binvoices?\b[^.]{0,120}(?:(?:must|shall|should|will)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)(?:\s+(?!(?:by|and|but|or)\b)[A-Za-z][A-Za-z-]*){0,12}\s+by\s+(?:Prime(?:\s+Contractor)?|Government|Customer)\b/i;
 const EXPLICIT_SUBCONTRACTOR_INVOICE_DUTY_RE =
-  /\bSubcontractor(?:(?:'s|\u2019s)\s+failure\s+to\s+(?:submit|do\s+so)|\s+(?:(?:must|shall|should|will)\s+submit|is\s+required\s+to\s+submit|fails?\s+to\s+submit))\b|\binvoices?\b[^.]{0,160}(?:(?:must|shall|should|will)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)(?:\s+(?!(?:by|and|but|or)\b)[A-Za-z][A-Za-z-]*){0,4}\s+by[^.]{0,120}\bSubcontractor\b/i;
+  /\bSubcontractor(?:(?:'s|\u2019s)\s+failure\s+to\s+(?:submit|do\s+so)|\s+(?:(?:must|shall|should|will)\s+submit|is\s+required\s+to\s+submit|fails?\s+to\s+submit))\b|\binvoices?\b[^.]{0,160}(?:(?:must|shall|should|will)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)(?:\s+(?!(?:by|and|but|or)\b)[A-Za-z][A-Za-z-]*){0,12}\s+by[^.]{0,120}\bSubcontractor\b/i;
 const INVOICE_PAYMENT_WAIVER_RE =
   /failure\s+to\s+submit[^.]{0,140}(?:complete\s+)?invoice[^.]{0,140}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?[^.]{0,120}(?:waives?|forfeits?)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const INVOICE_SUBMISSION_DEADLINE_RE =
@@ -1217,7 +1217,7 @@ const GOVERNING_LAW_EVIDENCE_RE = new RegExp(
 const NEGATED_GOVERNING_LAW_EVIDENCE_RE =
   /\b(?:this\s+)?(?:Agreement|Subcontract|Contract)\b[^.]{0,100}(?:(?:shall|will|must)\s+not\s+be|is\s+not)\s+governed\s+by\s+the\s+laws?\s+of\b|\bgoverning\s+law\b[^.]{0,100}(?:(?:shall|will|must)\s+not\s+be|is\s+not)\b/i;
 const MANDATORY_ARBITRATION_EVIDENCE_RE =
-  /\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,180}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:resolved|settled|decided|submitted)\s+(?:exclusively\s+)?(?:by|through|to)\s+(?:binding\s+)?arbitration\b|\b(?:all\s+)?(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,100}\b(?:is|are)\s+subject\s+to\s+mandatory\s+(?:binding\s+)?arbitration\b/i;
+  /\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,180}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:resolved|settled|decided|submitted)\s+(?:exclusively\s+)?(?:by|through|to)\s+(?:binding\s+)?arbitration\b|\b(?:all\s+)?(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,100}\b(?:is|are|shall|must|will)\s+(?:be\s+)?subject\s+to\s+mandatory\s+(?:binding\s+)?arbitration\b/i;
 const BINDING_ARBITRATION_REQUIREMENT_RE =
   /\b(?:the\s+)?(?:parties?|Subcontractor|Prime(?:\s+Contractor)?)\b\s+(?:(?:hereby|irrevocably|expressly|mutually)\s+)*(?:(?:agree|agrees|consent|consents)|(?:shall|must|will)\s+(?:agree|consent))\s+to\s+binding\s+arbitration\b|\bbinding\s+arbitration\b[^.]{0,120}(?:(?:is|shall|must|will)\s+(?:be\s+)?(?:required|mandatory)\b|(?:is|shall|must|will)\s+(?:be\s+)?(?:the\s+)?exclusive\s+(?:remedy|means|method|forum|procedure)\b)/i;
 const NEGATED_MANDATORY_ARBITRATION_EVIDENCE_RE =
@@ -1226,7 +1226,7 @@ const NEGATED_MANDATORY_ARBITRATION_EVIDENCE_RE =
 function arbitrationEvidenceClauses(text: string): string[] {
   return text
     .split(
-      /(?<=[.!?])\s+|\s*;\s*|,\s*(?:but|however|while|whereas)\s+|\s+(?:and|but)\s+(?=(?:the\s+)?part(?:y|ies)\b\s+(?:(?:hereby|irrevocably|expressly|mutually)\s+)*(?:(?:agree|agrees|consent|consents)|(?:shall|must|will)\s+(?:agree|consent))\s+to\s+binding\s+arbitration\b)|\s+(?:and|but)\s+(?=(?:(?:(?:all|any|the)\s+)?(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,120}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)|binding\s+arbitration\b[^.]{0,120}(?:is|shall|must|will)\s+(?:be\s+)?(?:(?:required|mandatory)\b|(?:the\s+)?exclusive\s+(?:remedy|means|method|forum|procedure)\b)|(?:(?:all|any|the)\s+)?(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,100}\b(?:is|are)\s+subject\s+to\s+mandatory\s+(?:binding\s+)?arbitration\b))/i
+      /(?<=[.!?])\s+|\s*;\s*|,\s*(?:but|however|while|whereas)\s+|\s+(?:and|but)\s+(?=(?:the\s+)?part(?:y|ies)\b\s+(?:(?:hereby|irrevocably|expressly|mutually)\s+)*(?:(?:agree|agrees|consent|consents)|(?:shall|must|will)\s+(?:agree|consent))\s+to\s+binding\s+arbitration\b)|\s+(?:and|but)\s+(?=(?:(?:(?:all|any|the)\s+)?(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,120}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)|binding\s+arbitration\b[^.]{0,120}(?:is|shall|must|will)\s+(?:be\s+)?(?:(?:required|mandatory)\b|(?:the\s+)?exclusive\s+(?:remedy|means|method|forum|procedure)\b)|(?:(?:all|any|the)\s+)?(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,100}\b(?:is|are|shall|must|will)\s+(?:be\s+)?subject\s+to\s+mandatory\s+(?:binding\s+)?arbitration\b))/i
     )
     .map((clause) => clause.trim())
     .filter(Boolean);
