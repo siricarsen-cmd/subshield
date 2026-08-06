@@ -30,8 +30,8 @@ replace_exact(
 )
 replace_exact(
     "lib/analyzer/sanity.ts",
-    r"(?:vests?|accrues?|belongs?|are\s+(?:granted|conveyed|assigned|transferred))",
-    r"(?:vests?|accrues?|belongs?|(?:is|are)\s+(?:granted|conveyed|assigned|transferred|held))",
+    r"(?:vests?|accrues?|belongs?|are\s+(?:granted|conveyed|assigned|transferred))\s+(?:in|to)",
+    r"(?:(?:vests?|accrues?|belongs?|are\s+(?:granted|conveyed|assigned|transferred))\s+(?:in|to)|(?:is|are)\s+held\s+by)",
     1,
 )
 
