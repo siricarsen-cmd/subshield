@@ -653,7 +653,7 @@ function buildGeneralWithholdingAnalysis(foundText: string): string {
 }
 
 const NEGATED_INVOICE_PAYMENT_WAIVER_RE =
-  /failure\s+to\s+(?:submit[^.]{0,180}\binvoice\b|do\s+so|submit\s+(?:it|them)|timely\s+submit(?:\s+(?:it|them))?|submit\s+on\s+time)[^.]{0,200}(?:(?:does|shall|will|may)\s+not|never)\s+(?:waive|forfeit)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
+  /failure\s+to\s+(?:submit[^.]{0,180}\binvoice\b|do\s+so|submit\s+(?:it|them)|timely\s+submit(?:\s+(?:it|them))?|submit\s+on\s+time)[^.]{0,200}(?:(?:does|shall|will|may|can)\s+not|cannot|never)\s+(?:waive|forfeit)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const EXPLICIT_NON_SUBCONTRACTOR_INVOICE_DUTY_RE =
   /\b(?:Prime(?:\s+Contractor)?|Government|Customer)(?:(?:'s|\u2019s)\s+failure\s+to\s+(?:submit|do\s+so)|\s+(?:(?:must|shall|should|will)\s+submit|is\s+required\s+to\s+submit|fails?\s+to\s+submit))\b|\binvoices?\b[^.]{0,120}(?:(?:must|shall|should|will)\s+be\s+submitted|are\s+required\s+to\s+be\s+submitted)\s+by\s+(?:Prime(?:\s+Contractor)?|Government|Customer)\b/i;
 const INVOICE_PAYMENT_WAIVER_RE =
@@ -813,66 +813,123 @@ function affirmativeInvoiceWaiverBranches(sentence: string): string[] {
     );
 }
 
-function invoiceWaiverSentenceIndexes(sentences: string[]): number[] {
-  return sentences.flatMap((sentence, index) => {
-    const affirmativeBranches = affirmativeInvoiceWaiverBranches(sentence);
-    if (affirmativeBranches.some((branch) => INVOICE_PAYMENT_WAIVER_RE.test(branch))) {
-      return [index];
-    }
+type InvoiceWaiverScope = {
+  sentenceIndex: number;
+  waiverScope: string;
+};
 
-    const carriesInvoiceWaiver = affirmativeBranches.some(
-      (branch) =>
-        INVOICE_PAYMENT_FORFEITURE_SENTENCE_RE.test(branch) ||
-        INVOICE_PAYMENT_FORFEITURE_CONTEXT_RE.test(branch)
-    );
-    if (!carriesInvoiceWaiver) return [];
+function branchCarriesInvoicePaymentWaiver(
+  branch: string,
+  sentence: string,
+  previousSentence: string
+): boolean {
+  if (INVOICE_PAYMENT_WAIVER_RE.test(branch)) return true;
+  if (
+    !INVOICE_PAYMENT_FORFEITURE_SENTENCE_RE.test(branch) &&
+    !INVOICE_PAYMENT_FORFEITURE_CONTEXT_RE.test(branch)
+  ) {
+    return false;
+  }
 
-    const sentenceCarriesInvoiceSubmissionDeadline =
-      hasInvoiceSubmissionDeadlineEvidence(sentence);
-    if (
-      sentenceCarriesInvoiceSubmissionDeadline &&
-      nearestInvoiceDeadlineTargetsSubcontractor(sentence)
-    ) {
-      return [index];
-    }
-    if (
-      index > 0 &&
-      hasInvoiceSubmissionDeadlineEvidence(sentences[index - 1]) &&
-      nearestInvoiceDeadlineTargetsSubcontractor(sentences[index - 1])
-    ) {
-      return [index];
-    }
-    return [];
-  });
+  if (
+    hasInvoiceSubmissionDeadlineEvidence(branch) &&
+    nearestInvoiceDeadlineTargetsSubcontractor(branch)
+  ) {
+    return true;
+  }
+
+  const branchIndex = sentence.lastIndexOf(branch);
+  const precedingSameSentence = branchIndex > 0 ? sentence.slice(0, branchIndex) : "";
+  if (
+    hasInvoiceSubmissionDeadlineEvidence(precedingSameSentence) &&
+    nearestInvoiceDeadlineTargetsSubcontractor(precedingSameSentence)
+  ) {
+    return true;
+  }
+
+  return (
+    hasInvoiceSubmissionDeadlineEvidence(previousSentence) &&
+    nearestInvoiceDeadlineTargetsSubcontractor(previousSentence)
+  );
 }
 
-function waivedInvoiceIdsForSentence(sentences: string[], waiverIndex: number, waiverScope: string): string[] {
-  const directIds = extractInvoiceIds(waiverScope);
+function invoiceWaiverScopes(sentences: string[]): InvoiceWaiverScope[] {
+  return sentences.flatMap((sentence, sentenceIndex) =>
+    affirmativeInvoiceWaiverBranches(sentence)
+      .filter((branch) =>
+        branchCarriesInvoicePaymentWaiver(
+          branch,
+          sentence,
+          sentences[sentenceIndex - 1] ?? ""
+        )
+      )
+      .map((waiverScope) => ({ sentenceIndex, waiverScope }))
+  );
+}
+
+function waivedInvoiceIdsForScope(
+  sentences: string[],
+  scope: InvoiceWaiverScope,
+  operativeWaiverScope: string
+): string[] {
+  const directIds = extractInvoiceIds(operativeWaiverScope);
   if (directIds.length > 0) return directIds;
 
-  const previousSentence = sentences[waiverIndex - 1] ?? "";
   const refersBackToPriorInvoice =
-    (INVOICE_PAYMENT_FORFEITURE_SENTENCE_RE.test(waiverScope) &&
-      /\b(?:the|this|such)\s+invoice\b/i.test(waiverScope)) ||
-    INVOICE_PAYMENT_FORFEITURE_CONTEXT_RE.test(waiverScope);
-  if (refersBackToPriorInvoice && INVOICE_SUBMISSION_DEADLINE_RE.test(previousSentence)) {
-    return extractInvoiceIds(previousSentence);
+    (INVOICE_PAYMENT_FORFEITURE_SENTENCE_RE.test(operativeWaiverScope) &&
+      /\b(?:the|this|such)\s+invoice\b/i.test(operativeWaiverScope)) ||
+    INVOICE_PAYMENT_FORFEITURE_CONTEXT_RE.test(operativeWaiverScope);
+  if (!refersBackToPriorInvoice) return [];
+
+  const sentence = sentences[scope.sentenceIndex];
+  const scopeIndex = sentence.lastIndexOf(scope.waiverScope);
+  const precedingSameSentence = scopeIndex > 0 ? sentence.slice(0, scopeIndex) : "";
+  if (hasInvoiceSubmissionDeadlineEvidence(precedingSameSentence)) {
+    const sameSentenceIds = extractInvoiceIds(precedingSameSentence);
+    if (sameSentenceIds.length > 0) return [sameSentenceIds.at(-1)!];
+  }
+
+  const previousSentence = sentences[scope.sentenceIndex - 1] ?? "";
+  if (INVOICE_SUBMISSION_DEADLINE_RE.test(previousSentence)) {
+    const previousIds = extractInvoiceIds(previousSentence);
+    if (previousIds.length > 0) return [previousIds.at(-1)!];
   }
   return [];
 }
 
-function invoiceWaiverIsPreserved(sentences: string[], waiverIndex: number): boolean {
-  const waiverSentence = sentences[waiverIndex];
-  const connector = PAYMENT_PRESERVATION_CONNECTOR_RE.exec(waiverSentence);
-  const waiverScope = connector ? waiverSentence.slice(0, connector.index) : waiverSentence;
-  const waivedInvoiceIds = waivedInvoiceIdsForSentence(sentences, waiverIndex, waiverScope);
+function invoiceWaiverScopeIsPreserved(
+  sentences: string[],
+  scope: InvoiceWaiverScope
+): boolean {
+  const connector = PAYMENT_PRESERVATION_CONNECTOR_RE.exec(scope.waiverScope);
+  const operativeWaiverScope = connector
+    ? scope.waiverScope.slice(0, connector.index)
+    : scope.waiverScope;
+  const waivedInvoiceIds = waivedInvoiceIdsForScope(
+    sentences,
+    scope,
+    operativeWaiverScope
+  );
 
   if (connector) {
-    const preservationScope = waiverSentence.slice(connector.index);
+    const preservationScope = scope.waiverScope.slice(connector.index);
     if (sentencePreservesPayment(preservationScope, waivedInvoiceIds, true)) return true;
   }
 
-  const nextSentence = sentences[waiverIndex + 1] ?? "";
+  const sentence = sentences[scope.sentenceIndex];
+  const scopeIndex = sentence.lastIndexOf(scope.waiverScope);
+  const laterSameSentence =
+    scopeIndex >= 0
+      ? sentence.slice(scopeIndex + scope.waiverScope.length)
+      : "";
+  if (
+    laterSameSentence &&
+    sentencePreservesPayment(laterSameSentence, waivedInvoiceIds, true)
+  ) {
+    return true;
+  }
+
+  const nextSentence = sentences[scope.sentenceIndex + 1] ?? "";
   return sentencePreservesPayment(nextSentence, waivedInvoiceIds);
 }
 
@@ -882,8 +939,8 @@ function hasUnpreservedInvoicePaymentWaiver(block: string): boolean {
     "Invoice No "
   );
   const sentences = invoiceSentenceSafeBlock.split(/(?<=[.!?])\s+/);
-  return invoiceWaiverSentenceIndexes(sentences).some(
-    (waiverIndex) => !invoiceWaiverIsPreserved(sentences, waiverIndex)
+  return invoiceWaiverScopes(sentences).some(
+    (scope) => !invoiceWaiverScopeIsPreserved(sentences, scope)
   );
 }
 
@@ -897,10 +954,10 @@ function invoicePaymentWaiverDeadline(foundText: string): string | undefined {
     "Invoice No "
   );
   const sentences = invoiceSentenceSafeText.split(/(?<=[.!?])\s+/);
-  const waiverIndex = invoiceWaiverSentenceIndexes(sentences).find(
-    (index) => !invoiceWaiverIsPreserved(sentences, index)
+  const unpreservedScope = invoiceWaiverScopes(sentences).find(
+    (scope) => !invoiceWaiverScopeIsPreserved(sentences, scope)
   );
-  if (waiverIndex === undefined) return undefined;
+  if (!unpreservedScope) return undefined;
 
   const invoiceSubmissionDeadline = (sentence: string): string | undefined => {
     const deadlines = [
@@ -924,9 +981,13 @@ function invoicePaymentWaiverDeadline(foundText: string): string | undefined {
     return deadlines.at(-1)?.[1];
   };
 
+  const sentence = sentences[unpreservedScope.sentenceIndex];
+  const scopeIndex = sentence.lastIndexOf(unpreservedScope.waiverScope);
+  const precedingSameSentence = scopeIndex > 0 ? sentence.slice(0, scopeIndex) : "";
   return (
-    invoiceSubmissionDeadline(sentences[waiverIndex]) ??
-    invoiceSubmissionDeadline(sentences[waiverIndex - 1] ?? "")
+    invoiceSubmissionDeadline(unpreservedScope.waiverScope) ??
+    invoiceSubmissionDeadline(precedingSameSentence) ??
+    invoiceSubmissionDeadline(sentences[unpreservedScope.sentenceIndex - 1] ?? "")
   );
 }
 
@@ -950,7 +1011,7 @@ const DIRECT_PRIME_UNPAID_IMPROVEMENT_LICENSE_RE =
 const DIRECT_PRIME_POSTFIX_UNPAID_IMPROVEMENT_LICENSE_RE =
   /\bSubcontractor\b[^.]{0,100}\bgrants?\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,180})\b(?:the\s+)?Prime(?:\s+Contractor)?\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,160})\blicense\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?)\b)[^.]){0,140})\b(?:improvements?|adaptations?)\b(?:(?:(?!\b(?:deliverables?|services?|work\s+products?|licenses?)\b)[^.]){0,100})\b(?:on\s+(?:a\s+)?royalty[\s-]?free\s+basis|royalty[\s-]?free|free\s+of\s+charge|without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|at\s+no\s+(?:additional\s+)?(?:cost|charge|fee|expense))\b/i;
 const WITHOUT_ADDITIONAL_PAYMENT_RE =
-  /without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|(?<!non-)(?<!non\s)royalty[\s-]?free|free\s+of\s+charge|at\s+no\s+(?:additional\s+)?(?:cost|charge|fee|expense)/i;
+  /without\s+(?:additional\s+)?(?:payment|compensation|charge|fee)|(?<!non-)(?<!non\s)(?<!not\s)(?<!never\s)royalty[\s-]?free|free\s+of\s+charge|at\s+no\s+(?:additional\s+)?(?:cost|charge|fee|expense)/i;
 
 const DIRECT_PRIME_LICENSE_ACTOR_RE =
   /\bSubcontractor\b[^.]{0,100}\bgrants?\b[^.]{0,180}\b(?:the\s+)?Prime(?:\s+Contractor)?\b/i;
@@ -1055,6 +1116,8 @@ const NEGATED_DIRECT_MANDATORY_FORUM_RE =
   /\b(?:no|neither)\s+(?:(?:all|any)\s+)?(?:actions?|lawsuits?|claims?|disputes?|proceedings?)\b[^.]{0,180}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:brought|filed)\b/i;
 const EXCLUSIVE_FORUM_RE =
   /(?:the\s+)?exclusive\s+forum(?:\s+for[^.]{0,100})?\s+(?:shall|must|will)\s+be[^.]{0,140}(?:courts?|County|State|Commonwealth)/i;
+const DEFERRED_OR_UNSELECTED_FORUM_RE =
+  /\b(?:exclusive\s+forum|venue|jurisdiction)\b[^.]{0,140}\b(?:has|have|is|was)\s+not\s+(?:been\s+)?selected\b|\b(?:exclusive\s+forum|venue|jurisdiction)\b[^.]{0,140}\b(?:shall|will|is\s+to)\s+be\s+(?:agreed|selected|determined|specified|identified|provided|negotiated|finalized|established|set\s+forth)\s+(?:later|by\s+(?:(?:mutual\s+)?agreement(?:\s+of\s+(?:the\s+)?parties)?|(?:the\s+)?parties)|in\s+(?:the\s+)?final\s+(?:agreement|subcontract|contract))?/i;
 const OPTIONAL_SUBCONTRACTOR_ALTERNATIVE_FORUM_RE =
   /(?:at\s+(?:the\s+)?Subcontractor(?:'s|\u2019s)\s+option|Subcontractor\s+(?:may|can)\s+(?:elect|choose))[^.]{0,240}(?:must|shall|will)\s+be\s+(?:brought|filed)[^.]{0,260}Subcontractor\s+(?:may|can)\s+(?:instead\s+|alternatively\s+)?(?:bring|file)[^.]{0,140}(?:any|another|other)\s+(?:court|forum)/i;
 const ELECTIVE_EITHER_FORUM_RE =
@@ -1106,6 +1169,7 @@ const BILATERAL_DEFENDANT_VENUE_RE =
 
 function clauseHasMandatoryForumEvidence(clause: string): boolean {
   if (clauseHasOptionalForumChoice(clause)) return false;
+  if (DEFERRED_OR_UNSELECTED_FORUM_RE.test(clause)) return false;
   if (BILATERAL_DEFENDANT_VENUE_RE.test(clause)) return false;
   if (NEGATED_EXCLUSIVE_JURISDICTION_RE.test(clause)) return false;
   if (NEGATED_DIRECT_MANDATORY_FORUM_RE.test(clause)) return false;
@@ -1136,7 +1200,7 @@ const NEGATED_GOVERNING_LAW_EVIDENCE_RE =
 const MANDATORY_ARBITRATION_EVIDENCE_RE =
   /\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,180}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:resolved|settled|decided|submitted)\s+(?:exclusively\s+)?(?:by|through|to)\s+(?:binding\s+)?arbitration\b/i;
 const BINDING_ARBITRATION_REQUIREMENT_RE =
-  /\b(?:parties?|Subcontractor|Prime(?:\s+Contractor)?)\b[^.]{0,140}\b(?:agree|consent)\s+to\s+binding\s+arbitration\b|\bbinding\s+arbitration\b[^.]{0,120}(?:(?:is|shall|must|will)\s+(?:be\s+)?(?:required|mandatory)\b|(?:is|shall|must|will)\s+(?:be\s+)?(?:the\s+)?exclusive\s+(?:remedy|means|method|forum|procedure)\b)/i;
+  /\b(?:the\s+)?(?:parties?|Subcontractor|Prime(?:\s+Contractor)?)\b\s+(?:(?:hereby|irrevocably|expressly|mutually)\s+)*(?:(?:agree|agrees|consent|consents)|(?:shall|must|will)\s+(?:agree|consent))\s+to\s+binding\s+arbitration\b|\bbinding\s+arbitration\b[^.]{0,120}(?:(?:is|shall|must|will)\s+(?:be\s+)?(?:required|mandatory)\b|(?:is|shall|must|will)\s+(?:be\s+)?(?:the\s+)?exclusive\s+(?:remedy|means|method|forum|procedure)\b)/i;
 const NEGATED_MANDATORY_ARBITRATION_EVIDENCE_RE =
   /\b(?:no|neither)\s+(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,220}(?:binding\s+)?arbitration\b|\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,180}(?:(?:must|shall|will)\s+not\s+be|(?:is|are)\s+not\s+required\s+to\s+be)\s+(?:resolved|settled|decided|submitted)\s+(?:exclusively\s+)?(?:by|through|to)\s+(?:binding\s+)?arbitration\b|\b(?:neither|no)\s+part(?:y|ies)\b[^.]{0,160}(?:agree|consent)\s+to\s+binding\s+arbitration\b|\b(?:the\s+)?part(?:y|ies)\b[^.]{0,120}(?:(?:do|does|shall|will)\s+not\s+(?:agree|consent)|(?:expressly\s+)?(?:refuse|refuses|decline|declines)\s+to\s+(?:agree|consent))\s+to\s+binding\s+arbitration\b|\b(?:no|neither)\s+binding\s+arbitration\b[^.]{0,160}(?:(?:is|shall|must|will)\s+(?:be\s+)?(?:required|mandatory)\b|(?:is|shall|must|will)\s+(?:be\s+)?(?:the\s+)?exclusive\s+(?:remedy|means|method|forum|procedure)\b)|\bbinding\s+arbitration\b[^.]{0,160}(?:is|shall|must|will)\s+not\s+(?:be\s+)?(?:(?:required|mandatory)\b|(?:the\s+)?exclusive\s+(?:remedy|means|method|forum|procedure)\b)/i;
 
