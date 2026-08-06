@@ -1,0 +1,158 @@
+from pathlib import Path
+
+
+def replace_exact(path: str, old: str, new: str, expected_count: int) -> None:
+    file = Path(path)
+    text = file.read_text()
+    actual = text.count(old)
+    if actual != expected_count:
+        raise SystemExit(f"{path}: expected {expected_count} matches, found {actual}: {old}")
+    file.write_text(text.replace(old, new))
+
+
+replace_exact(
+    "lib/analyzer/deterministic.ts",
+    r"(?:\s+(?!(?:by|and|but|or)\b)[A-Za-z][A-Za-z-]*){0,4}\s+by",
+    r"(?:\s+(?!(?:by|and|but|or)\b)[A-Za-z][A-Za-z-]*){0,12}\s+by",
+    2,
+)
+replace_exact(
+    "lib/analyzer/deterministic.ts",
+    r"(?:is|are)\s+subject\s+to\s+mandatory\s+(?:binding\s+)?arbitration\b",
+    r"(?:is|are|shall|must|will)\s+(?:be\s+)?subject\s+to\s+mandatory\s+(?:binding\s+)?arbitration\b",
+    2,
+)
+replace_exact(
+    "lib/analyzer/sanity.ts",
+    r"|\b(?:exclusive|mandatory)\s+(?:venue|forum|jurisdiction)\s+(?:is|shall\s+be|will\s+be|must\s+be)\b|",
+    r"|\b(?:exclusive|mandatory)\s+(?:venue|forum|jurisdiction)\s+(?:is|shall\s+be|will\s+be|must\s+be)\b|\b[A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,4}\s+(?:County|State|Commonwealth|District|City)\s+(?:is|shall\s+be|will\s+be|must\s+be)\s+(?:the\s+)?(?:exclusive|mandatory)\s+(?:venue|forum|jurisdiction)\b|",
+    1,
+)
+replace_exact(
+    "lib/analyzer/sanity.ts",
+    r"(?:vests?|accrues?|belongs?|are\s+(?:granted|conveyed|assigned|transferred))",
+    r"(?:vests?|accrues?|belongs?|(?:is|are)\s+(?:granted|conveyed|assigned|transferred|held))",
+    1,
+)
+
+tests = Path("lib/analyzer/__tests__/orion-parity-regression.test.mjs")
+text = tests.read_text()
+marker = "if (failures > 0) {"
+if text.count(marker) != 1:
+    raise SystemExit("Orion test completion marker was not unique")
+block = r'''
+
+const primePortalQualifiedPassiveInvoiceDuty = productionPath(`
+2.8 Invoice Requirements
+Invoices must be submitted electronically via the secure portal by Prime Contractor within 30 calendar days; failure to do so waives the right to payment.
+`);
+check(
+  "multiword-qualified Prime-only passive invoice duty remains excluded",
+  !primePortalQualifiedPassiveInvoiceDuty.findings.some(
+    (finding) => finding.regulation === "Invoice Submission Deadline / Payment Waiver"
+  )
+);
+const subcontractorPortalQualifiedPassiveInvoiceDuty = productionPath(`
+2.8 Invoice Requirements
+Invoices must be submitted electronically via the secure portal by Subcontractor within 30 calendar days; failure to do so waives Subcontractor's right to payment.
+`);
+check(
+  "multiword-qualified Subcontractor passive invoice duty still triggers",
+  subcontractorPortalQualifiedPassiveInvoiceDuty.findings.some(
+    (finding) => finding.regulation === "Invoice Submission Deadline / Payment Waiver"
+  )
+);
+const jointPortalQualifiedPassiveInvoiceDuty = productionPath(`
+2.8 Invoice Requirements
+Invoices must be submitted electronically via the secure portal by Prime Contractor and by Subcontractor within 30 calendar days; failure to do so waives Subcontractor's right to payment.
+`);
+check(
+  "multiword-qualified joint passive invoice duty preserves the Subcontractor finding",
+  jointPortalQualifiedPassiveInvoiceDuty.findings.some(
+    (finding) => finding.regulation === "Invoice Submission Deadline / Payment Waiver"
+  )
+);
+
+const shallBeSubjectToMandatoryArbitration = productionPath(`
+2.23 Dispute Resolution
+All disputes shall be subject to mandatory binding arbitration.
+`);
+check(
+  "shall-be-subject-to mandatory binding arbitration is detected",
+  shallBeSubjectToMandatoryArbitration.findings.some(
+    (finding) => finding.regulation === "Out-of-State Venue, Governing Law, or Arbitration Burden"
+  )
+);
+const mayBeSubjectToArbitration = productionPath(`
+2.23 Dispute Resolution
+All disputes may be subject to arbitration by mutual written agreement.
+`);
+check(
+  "may-be-subject-to optional arbitration remains clean",
+  !mayBeSubjectToArbitration.findings.some(
+    (finding) => finding.regulation === "Out-of-State Venue, Governing Law, or Arbitration Burden"
+  )
+);
+const negatedThenShallBeSubjectToArbitration = productionPath(`
+2.23 Dispute Resolution
+No invoice disputes shall be subject to mandatory binding arbitration, but all intellectual-property claims shall be subject to mandatory binding arbitration.
+`);
+check(
+  "negated modal arbitration branch does not hide a later affirmative modal branch",
+  negatedThenShallBeSubjectToArbitration.findings.some(
+    (finding) => finding.regulation === "Out-of-State Venue, Governing Law, or Arbitration Burden"
+  )
+);
+
+const forumFirstCopularAgainstLawOnly = forumSubtypeFinding(
+  governingLawQuoteOnly,
+  "Fairfax County is the exclusive venue."
+);
+check(
+  "governing-law evidence does not verify a location-first exclusive-venue claim",
+  verifyFindings([forumFirstCopularAgainstLawOnly], governingLawQuoteOnly).verified.length === 0
+);
+const forumFirstCopularGrounded = forumSubtypeFinding(
+  ArlingtonForumQuoteOnly,
+  "Arlington County is the exclusive venue."
+);
+check(
+  "location-first exclusive-venue analysis verifies against actual forum evidence",
+  verifyFindings([forumFirstCopularGrounded], ArlingtonForumQuoteOnly).verified.length === 1
+);
+const governingLawStillVerifiesAfterForumFirstClassifier = forumSubtypeFinding(
+  governingLawQuoteOnly,
+  "This clause selects Virginia governing law."
+);
+check(
+  "location-first venue classifier does not disturb grounded governing-law analysis",
+  verifyFindings([governingLawStillVerifiesAfterForumFirstClassifier], governingLawQuoteOnly).verified.length === 1
+);
+
+const inventedHeldRoyaltyFreeRights = unpaidIpFinding(
+  preExistingToolsQuoteOnly,
+  "Royalty-free rights in Improvements are held by Prime Contractor."
+);
+check(
+  "pre-existing-tools evidence does not verify invented held royalty-free Improvements rights",
+  verifyFindings([inventedHeldRoyaltyFreeRights], preExistingToolsQuoteOnly).verified.length === 0
+);
+const groundedHeldRoyaltyFreeRights = unpaidIpFinding(
+  royaltyFreeImprovementsGrantQuote,
+  "Royalty-free rights in Improvements are held by Prime Contractor under the license stated in the quote."
+);
+check(
+  "held royalty-free Improvements analysis verifies against an actual Prime license",
+  verifyFindings([groundedHeldRoyaltyFreeRights], royaltyFreeImprovementsGrantQuote).verified.length === 1
+);
+const ordinaryOwnershipStillVerifiesAfterHeldClassifier = unpaidIpFinding(
+  preExistingToolsQuoteOnly,
+  "Subcontractor retains ownership of its pre-existing tools."
+);
+check(
+  "passive-held classifier does not disturb ordinary pre-existing ownership analysis",
+  verifyFindings([ordinaryOwnershipStillVerifiesAfterHeldClassifier], preExistingToolsQuoteOnly).verified.length === 1
+);
+
+'''
+tests.write_text(text.replace(marker, block + marker))
