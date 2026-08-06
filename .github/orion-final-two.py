@@ -29,19 +29,22 @@ replace_exact(
     1,
 )
 
-positive_consequence = r"(?:waives?|forfeits?)"
-extended_consequence = r"(?:waives?|forfeits?|(?:shall\s+|will\s+|must\s+)?constitutes?\s+(?:a\s+)?waiver\s+of|(?:is|shall\s+be|will\s+be|must\s+be)\s+deemed\s+(?:a\s+)?waiver\s+of|results?\s+in\s+(?:the\s+)?forfeiture\s+of)"
+# Treat finite waiver/forfeiture verbs and nominal consequence forms as the same
+# branch-local payment-right relationship. The target accepts both
+# "the Subcontractor's right" and "the right" without weakening actor checks.
 replace_exact(
     "lib/analyzer/deterministic.ts",
-    positive_consequence,
-    extended_consequence,
+    r"(?:waives?|forfeits?)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment",
+    r"(?:(?:waives?|forfeits?)\s+|(?:(?:shall\s+|will\s+|must\s+)?constitutes?\s+(?:a\s+)?waiver\s+of|(?:is|shall\s+be|will\s+be|must\s+be)\s+deemed\s+(?:a\s+)?waiver\s+of|results?\s+in\s+(?:the\s+)?forfeiture\s+of)\s+)(?:(?:the\s+)?Subcontractor(?:'s|\u2019s)?\s+|the\s+)?(?:right|entitlement)\s+to\s+payment",
     3,
 )
 
+# Apply negation to the individual nominal or finite consequence before the
+# payment-right target, so protective wording remains clean.
 replace_exact(
     "lib/analyzer/deterministic.ts",
-    r"(?:(?:does|shall|will|may|can)\s+not|cannot|never)\s+(?:waive|forfeit)\s+",
-    r"(?:(?:(?:does|shall|will|may|can)\s+not|cannot|never)\s+(?:waive|forfeit|constitute\s+(?:a\s+)?waiver\s+of|result\s+in\s+(?:the\s+)?forfeiture\s+of)|(?:is|shall|will|may|can)\s+not\s+(?:be\s+)?deemed\s+(?:a\s+)?waiver\s+of)\s+",
+    r"(?:(?:does|shall|will|may|can)\s+not|cannot|never)\s+(?:waive|forfeit)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment",
+    r"(?:(?:(?:does|shall|will|may|can)\s+not|cannot|never)\s+(?:waive|forfeit|constitute\s+(?:a\s+)?waiver\s+of|result\s+in\s+(?:the\s+)?forfeiture\s+of)|(?:is|shall|will|may|can)\s+not\s+(?:be\s+)?deemed\s+(?:a\s+)?waiver\s+of)\s+(?:(?:the\s+)?Subcontractor(?:'s|\u2019s)?\s+|the\s+)?(?:right|entitlement)\s+to\s+payment",
     1,
 )
 
