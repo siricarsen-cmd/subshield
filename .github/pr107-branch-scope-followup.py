@@ -63,7 +63,13 @@ function invoiceWaiverSentenceIndexes(sentences: string[]): number[] {
         INVOICE_PAYMENT_FORFEITURE_CONTEXT_RE.test(branch)
     );
     if (!carriesInvoiceWaiver) return [];
-    if (INVOICE_SUBMISSION_DEADLINE_RE.test(sentence)) return [index];
+
+    const sentenceCarriesInvoiceSubmissionDeadline =
+      INVOICE_SUBMISSION_DEADLINE_RE.test(sentence) ||
+      /failure\s+to\s+submit[^.]{0,180}\binvoice\b[^.]{0,160}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?/i.test(
+        sentence
+      );
+    if (sentenceCarriesInvoiceSubmissionDeadline) return [index];
     if (
       index > 0 &&
       INVOICE_SUBMISSION_DEADLINE_RE.test(sentences[index - 1])
@@ -89,6 +95,46 @@ deterministic = replace_once(
     old_postfix,
     new_postfix,
     "keep postfix unpaid qualifier inside its own license grant",
+)
+
+old_segments = r'''function coordinatedIpUseSegments(sentence: string): string[] {
+  return sentence
+    .split(
+      /;\s*|,\s*(?:and|but|while|whereas)\s+|\s+and\s+(?=(?:deliverables?|services?|work\s+products?|improvements?|adaptations?)\b[^.]{0,80}\b(?:may|shall|will|is|are|has|have)\b)/i
+    )
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}'''
+new_segments = r'''const DIRECT_PRIME_LICENSE_ACTOR_RE =
+  /\bSubcontractor\b[^.]{0,100}\bgrants?\b[^.]{0,180}\b(?:the\s+)?Prime(?:\s+Contractor)?\b/i;
+const COORDINATED_LICENSE_CONTINUATION_RE =
+  /^(?:(?:a|an|the)\s+)?[^.]{0,80}\blicense\b/i;
+
+function coordinatedIpUseSegments(sentence: string): string[] {
+  const directLicenseActor = DIRECT_PRIME_LICENSE_ACTOR_RE.exec(sentence)?.[0] ?? null;
+  return sentence
+    .split(
+      /;\s*|,\s*(?:and|but|while|whereas)\s+|\s+and\s+(?=(?:deliverables?|services?|work\s+products?|improvements?|adaptations?)\b[^.]{0,80}\b(?:may|shall|will|is|are|has|have)\b)|\s+and\s+(?=(?:(?:a|an|the)\s+)?[^.;]{0,80}\blicense\b)/i
+    )
+    .map((segment, index) => {
+      const trimmed = segment.trim();
+      if (
+        !trimmed ||
+        index === 0 ||
+        !directLicenseActor ||
+        !COORDINATED_LICENSE_CONTINUATION_RE.test(trimmed)
+      ) {
+        return trimmed;
+      }
+      return `${directLicenseActor} ${trimmed}`;
+    })
+    .filter(Boolean);
+}'''
+deterministic = replace_once(
+    deterministic,
+    old_segments,
+    new_segments,
+    "split coordinated license grants while preserving the Prime actor",
 )
 
 deterministic_path.write_text(deterministic)
