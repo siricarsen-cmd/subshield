@@ -1,0 +1,109 @@
+name: PR107 Verified Six Review Fixes V2
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/pr107-verified-six-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-test-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/orion-parity-grounding-invoice-waiver
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply exact-head six-review patch
+        run: python .github/pr107-six-review-patch.py
+
+      - name: Tighten dispute subtype claim classifiers
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('lib/analyzer/sanity.ts')
+          text = path.read_text()
+          old = r'''  const arbitrationRequirementClaim =
+    /(?:requires?|must|shall|required\s+to)[^.]{0,120}\b(?:binding\s+)?arbitration\b|\bresolved\s+(?:exclusively\s+)?through\s+(?:binding\s+)?arbitration\b/i.test(claim);
+  const governingLawSelectionClaim =
+    /\bselects?\s+(?:the\s+)?governing\s+law\b|\bgoverned\s+by\s+the\s+laws?\s+of\b|\bgoverning\s+law\s+(?:is|shall|will)\b/i.test(claim);
+  const explicitForumSelectionClaim =
+    /forum\s+(?:far|stated|required)|(?:requires?|must|shall|required\s+to|permits?)[^.]{0,120}\b(?:litigat|courts?|venue|jurisdiction|forum)\b|must\s+be\s+brought/i.test(claim) ||
+    filedInForumClaim;'''
+          new = r'''  const affirmativeClaim = claim.replace(
+    /\b(?:does|do|did|is|are|was|were|shall|will|would|can|could|may|might)\s+not\b[^.]*\.?/gi,
+    " "
+  );
+  const arbitrationRequirementClaim =
+    /(?:requires?|must|shall|required\s+to)[^.]{0,80}\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,100}\b(?:resolved|settled|decided|submitted)\b[^.]{0,60}\b(?:binding\s+)?arbitration\b|\bresolved\s+(?:exclusively\s+)?through\s+(?:binding\s+)?arbitration\b|\bbinding\s+arbitration\b[^.]{0,100}\b(?:required|mandatory|exclusive\s+(?:remedy|means|method|procedure))\b/i.test(affirmativeClaim);
+  const governingLawSelectionClaim =
+    /\bselects?\s+(?:the\s+)?governing\s+law\b|\bgoverned\s+by\s+the\s+laws?\s+of\b|\bgoverning\s+law\s+(?:is|shall|will)\b/i.test(affirmativeClaim);
+  const explicitForumSelectionClaim =
+    /\bforum\s+(?:far|stated|required|selected)\b|(?:requires?|must|shall|required\s+to|permits?)[^.]{0,80}\b(?:disputes?|actions?|lawsuits?|claims?|proceedings?)\b[^.]{0,100}\b(?:litigat(?:e|ed|ion)|brought|filed)\b|\b(?:exclusive\s+)?(?:venue|jurisdiction)\b[^.]{0,100}\b(?:required|selected|shall|must|will)\b/i.test(affirmativeClaim) ||
+    filedInForumClaim;'''
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one subtype classifier block, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+      - run: npm run test:accuracy:orion
+      - run: npm run test:accuracy
+      - run: npx tsc --noEmit
+
+      - name: Build production application
+        env:
+          VERCEL_ENV: production
+          NEXT_PUBLIC_BASE_URL: https://www.subshield.net
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+          STRIPE_SECRET_KEY: sk_test_ci_placeholder
+          STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+          NEXT_PUBLIC_STRIPE_PRICE_SINGLE_REVIEW_CYCLE: price_ci_single
+          NEXT_PUBLIC_STRIPE_PRICE_ACTIVE_BIDDER_PLAN: price_ci_active
+          NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE_PLAN: price_ci_enterprise
+          OPENAI_API_KEY: sk-ci-placeholder
+          RESEND_API_KEY: re_ci_placeholder
+          CONTACT_FROM_EMAIL: ci@example.com
+          CONTACT_TO_EMAIL: ci@example.com
+        run: npm run build
+
+      - name: Restore exact six-file scope and push
+        shell: bash
+        run: |
+          rm .github/workflows/pr107-verified-artifact.yml
+          rm .github/workflows/pr107-verified-six-v2.yml
+          rm .github/pr107-six-review-patch.py
+          expected=$(printf '%s\n' \
+            'lib/analyzer/__fixtures__/orion-parity-regression-fixture.mjs' \
+            'lib/analyzer/__tests__/orion-parity-regression.test.mjs' \
+            'lib/analyzer/anchors.ts' \
+            'lib/analyzer/deterministic.ts' \
+            'lib/analyzer/sanity.ts' \
+            'package.json')
+          actual=$(git diff --name-only 13d4d8f43f24440ebbb0ec77e61736adfd1ad82f | sort)
+          test "$actual" = "$expected" || {
+            echo 'Unexpected final PR scope:'
+            printf '%s\n' "$actual"
+            exit 1
+          }
+          git diff --check
+          git config user.name 'siricarsen-cmd'
+          git config user.email '287561052+siricarsen-cmd@users.noreply.github.com'
+          git add lib/analyzer/deterministic.ts lib/analyzer/sanity.ts lib/analyzer/__tests__/orion-parity-regression.test.mjs .github/workflows/pr107-verified-artifact.yml .github/workflows/pr107-verified-six-v2.yml .github/pr107-six-review-patch.py
+          git diff --cached --check
+          git commit -m 'Address PR107 six exact-head review cases'
+          git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
