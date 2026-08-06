@@ -50,13 +50,14 @@ check(
   "governing-law evidence does not verify an invented subject-to-arbitration claim",
   verifyFindings([subjectToArbitrationAgainstLawOnly], governingLawQuoteOnly).verified.length === 0
 );
+const subjectToArbitrationGroundedQuote = "All disputes shall be subject to binding arbitration.";
 const subjectToArbitrationGrounded = forumSubtypeFinding(
-  "All disputes are subject to binding arbitration.",
+  subjectToArbitrationGroundedQuote,
   "All disputes are subject to binding arbitration."
 );
 check(
   "subject-to-arbitration analysis verifies against actual mandatory arbitration evidence",
-  verifyFindings([subjectToArbitrationGrounded], "All disputes are subject to binding arbitration.").verified.length === 1
+  verifyFindings([subjectToArbitrationGrounded], subjectToArbitrationGroundedQuote).verified.length === 1
 );
 const lawClaimStillVerifiesAfterSubjectToClassifier = forumSubtypeFinding(
   governingLawQuoteOnly,
