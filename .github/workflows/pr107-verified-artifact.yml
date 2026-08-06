@@ -1,3 +1,4 @@
+# Guarded retry after subtype diagnostic refinement.
 name: PR107 Verified Six Review Fixes
 
 on:
