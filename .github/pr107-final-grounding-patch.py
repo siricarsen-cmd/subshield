@@ -111,7 +111,7 @@ old_governing_law = r'''const GOVERNING_LAW_EVIDENCE_RE =
 new_governing_law = r'''const GOVERNING_LAW_JURISDICTION_RE =
   /(?:Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New\s+Hampshire|New\s+Jersey|New\s+Mexico|New\s+York|North\s+Carolina|North\s+Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode\s+Island|South\s+Carolina|South\s+Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West\s+Virginia|Wisconsin|Wyoming|District\s+of\s+Columbia|Puerto\s+Rico|United\s+States)/i;
 const GOVERNING_LAW_EVIDENCE_RE = new RegExp(
-  String.raw`(?:\bgoverned\s+by\s+the\s+laws?\s+of|\bgoverning\s+law(?:\s+of[^.]{0,80})?\s*(?::|[-–—]|(?:shall|will|is)\s+be)\s*(?:(?:the\s+)?laws?\s+of\s+)?)(?:\s+(?:(?:the\s+)?(?:State|Commonwealth)\s+of\s+)?)${GOVERNING_LAW_JURISDICTION_RE.source}\b`,
+  String.raw`(?:\bgoverned\s+by\s+the\s+laws?\s+of|\bgoverning\s+law(?:\s+of[^.]{0,80}?)?\s*(?::|[-–—]|(?:shall|will|is)\s+be)\s*(?:(?:the\s+)?laws?\s+of\s+)?)\s*(?:the\s+)?(?:(?:State|Commonwealth)\s+of\s+)?${GOVERNING_LAW_JURISDICTION_RE.source}\b`,
   "i"
 );'''
 deterministic = replace_once(
