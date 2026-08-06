@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/pr107-verified-artifact.yml
       - .github/pr107-branch-scope-patch.py
+      - .github/pr107-branch-scope-followup.py
 
 permissions:
   contents: write
@@ -28,6 +29,9 @@ jobs:
 
       - name: Apply exact branch-scoping patch
         run: python .github/pr107-branch-scope-patch.py
+
+      - name: Tighten mixed branch boundaries
+        run: python .github/pr107-branch-scope-followup.py
 
       - run: npm run test:accuracy:orion
       - run: npm run test:accuracy
@@ -57,6 +61,7 @@ jobs:
         run: |
           rm .github/workflows/pr107-verified-artifact.yml
           rm .github/pr107-branch-scope-patch.py
+          rm .github/pr107-branch-scope-followup.py
           expected=$(printf '%s\n' \
             'lib/analyzer/__fixtures__/orion-parity-regression-fixture.mjs' \
             'lib/analyzer/__tests__/orion-parity-regression.test.mjs' \
@@ -73,7 +78,7 @@ jobs:
           git diff --check
           git config user.name 'siricarsen-cmd'
           git config user.email '287561052+siricarsen-cmd@users.noreply.github.com'
-          git add lib/analyzer/deterministic.ts lib/analyzer/__tests__/orion-parity-regression.test.mjs .github/workflows/pr107-verified-artifact.yml .github/pr107-branch-scope-patch.py
+          git add lib/analyzer/deterministic.ts lib/analyzer/__tests__/orion-parity-regression.test.mjs .github/workflows/pr107-verified-artifact.yml .github/pr107-branch-scope-patch.py .github/pr107-branch-scope-followup.py
           git diff --cached --check
           git commit -m 'Address PR107 branch-scoping review cases'
           git push origin HEAD:fix/orion-parity-grounding-invoice-waiver
