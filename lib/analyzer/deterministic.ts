@@ -654,6 +654,8 @@ function buildGeneralWithholdingAnalysis(foundText: string): string {
 
 const NEGATED_INVOICE_PAYMENT_WAIVER_RE =
   /failure\s+to\s+(?:submit[^.]{0,180}\binvoice\b|do\s+so|submit\s+(?:it|them)|timely\s+submit(?:\s+(?:it|them))?|submit\s+on\s+time)[^.]{0,200}(?:(?:does|shall|will|may)\s+not|never)\s+(?:waive|forfeit)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
+const EXPLICIT_NON_SUBCONTRACTOR_INVOICE_DUTY_RE =
+  /\b(?:Prime(?:\s+Contractor)?|Government|Customer)(?:(?:'s|\u2019s)\s+failure\s+to\s+(?:submit|do\s+so)|\s+(?:(?:must|shall|should|will)\s+submit|is\s+required\s+to\s+submit|fails?\s+to\s+submit))\b/i;
 const INVOICE_PAYMENT_WAIVER_RE =
   /failure\s+to\s+submit[^.]{0,140}(?:complete\s+)?invoice[^.]{0,140}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?[^.]{0,120}(?:waives?|forfeits?)\s+(?:Subcontractor(?:'s|\u2019s)?\s+)?(?:the\s+)?(?:right|entitlement)\s+to\s+payment/i;
 const INVOICE_SUBMISSION_DEADLINE_RE =
@@ -766,12 +768,20 @@ function sentencePreservesPayment(
   );
 }
 
+function invoiceSubmissionDutyTargetsSubcontractor(text: string): boolean {
+  return !EXPLICIT_NON_SUBCONTRACTOR_INVOICE_DUTY_RE.test(text);
+}
+
 function affirmativeInvoiceWaiverBranches(sentence: string): string[] {
   return sentence
     .split(/\s*(?:;|,\s*but\b|\bbut\b)\s*/i)
     .map((branch) => branch.trim())
     .filter(Boolean)
-    .filter((branch) => !NEGATED_INVOICE_PAYMENT_WAIVER_RE.test(branch));
+    .filter(
+      (branch) =>
+        !NEGATED_INVOICE_PAYMENT_WAIVER_RE.test(branch) &&
+        invoiceSubmissionDutyTargetsSubcontractor(branch)
+    );
 }
 
 function invoiceWaiverSentenceIndexes(sentences: string[]): number[] {
@@ -793,10 +803,16 @@ function invoiceWaiverSentenceIndexes(sentences: string[]): number[] {
       /failure\s+to\s+submit[^.]{0,180}\binvoice\b[^.]{0,160}(?:within|no\s+later\s+than)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?/i.test(
         sentence
       );
-    if (sentenceCarriesInvoiceSubmissionDeadline) return [index];
+    if (
+      sentenceCarriesInvoiceSubmissionDeadline &&
+      invoiceSubmissionDutyTargetsSubcontractor(sentence)
+    ) {
+      return [index];
+    }
     if (
       index > 0 &&
-      INVOICE_SUBMISSION_DEADLINE_RE.test(sentences[index - 1])
+      INVOICE_SUBMISSION_DEADLINE_RE.test(sentences[index - 1]) &&
+      invoiceSubmissionDutyTargetsSubcontractor(sentences[index - 1])
     ) {
       return [index];
     }
@@ -1004,6 +1020,8 @@ const EXCLUSIVE_JURISDICTION_SUBMISSION_RE =
   /(?:\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,120})?(?:irrevocably\s+)?(?:submits?|consents?)\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\s+of[^.]{0,220}(?:courts?|County|State|Commonwealth|District|City)|\bcourts?\b[^.]{0,180}\b(?:shall|will)\s+have\s+exclusive\s+jurisdiction\b|\bcourts?\b[^.]{0,180}\bhaving\s+exclusive\s+jurisdiction\b/i;
 const DIRECT_MANDATORY_FORUM_RE =
   /(?:(?:(?:all|any)\s+)?(?:actions?|lawsuits?|claims?|disputes?|proceedings?)|arbitration|mediation|court\s+proceedings?)[^.]{0,180}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:brought|filed)\s+(?:exclusively\s+)?in\s+(?:(?:the\s+)?(?:(?:state|federal|county|municipal|district|circuit|superior|commonwealth)\s+)?(?:courts?|forum)\b|(?:[A-Za-z][A-Za-z.'-]*\s+){0,5}(?:County|State|Commonwealth|District|City)\b|(?:the\s+)?(?:Commonwealth|State)\s+of\s+[A-Za-z][A-Za-z.'-]*\b)/i;
+const NEGATED_DIRECT_MANDATORY_FORUM_RE =
+  /\b(?:no|neither)\s+(?:(?:all|any)\s+)?(?:actions?|lawsuits?|claims?|disputes?|proceedings?)\b[^.]{0,180}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:brought|filed)\b/i;
 const EXCLUSIVE_FORUM_RE =
   /(?:the\s+)?exclusive\s+forum(?:\s+for[^.]{0,100})?\s+(?:shall|must|will)\s+be[^.]{0,140}(?:courts?|County|State|Commonwealth)/i;
 const OPTIONAL_SUBCONTRACTOR_ALTERNATIVE_FORUM_RE =
@@ -1059,6 +1077,7 @@ function clauseHasMandatoryForumEvidence(clause: string): boolean {
   if (clauseHasOptionalForumChoice(clause)) return false;
   if (BILATERAL_DEFENDANT_VENUE_RE.test(clause)) return false;
   if (NEGATED_EXCLUSIVE_JURISDICTION_RE.test(clause)) return false;
+  if (NEGATED_DIRECT_MANDATORY_FORUM_RE.test(clause)) return false;
   return (
     BASE_FORUM_EVIDENCE_RE.test(clause) ||
     EXCLUSIVE_JURISDICTION_SUBMISSION_RE.test(clause) ||
@@ -1074,7 +1093,7 @@ export function hasMandatoryForumEvidence(text: string): boolean {
   });
 }
 const DEFERRED_OR_UNSELECTED_GOVERNING_LAW_RE =
-  /\bgoverning\s+law\b[^.]{0,140}\b(?:has|have|is|was)\s+not\s+(?:been\s+)?selected\b|\bgoverning\s+law\b[^.]{0,140}\bshall\s+be\s+(?:agreed|selected|determined)\s+later\b/i;
+  /\bgoverning\s+law\b[^.]{0,140}\b(?:has|have|is|was)\s+not\s+(?:been\s+)?selected\b|\bgoverning\s+law\b[^.]{0,140}\b(?:shall|will|is\s+to)\s+be\s+(?:agreed|selected|determined)\s+(?:later|by\s+(?:(?:mutual\s+)?agreement(?:\s+of\s+(?:the\s+)?parties)?|(?:the\s+)?parties))\b/i;
 const GOVERNING_LAW_EVIDENCE_RE =
   /(?:\bgoverned\s+by\s+the\s+laws?\s+of|\bgoverning\s+law(?:\s+of[^.]{0,80})?\s*(?::|[-–—]|(?:shall|will|is)\s+be)\s*(?:the\s+laws?\s+of)?)(?:\s+(?:(?:the\s+)?(?:State|Commonwealth)\s+of\s+)?[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,2})/i;
 const MANDATORY_ARBITRATION_EVIDENCE_RE =
