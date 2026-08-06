@@ -1218,6 +1218,10 @@ const NEGATED_GOVERNING_LAW_EVIDENCE_RE =
   /\b(?:this\s+)?(?:Agreement|Subcontract|Contract)\b[^.]{0,100}(?:(?:shall|will|must)\s+not\s+be|is\s+not)\s+governed\s+by\s+the\s+laws?\s+of\b|\bgoverning\s+law\b[^.]{0,100}(?:(?:shall|will|must)\s+not\s+be|is\s+not)\b/i;
 const MANDATORY_ARBITRATION_EVIDENCE_RE =
   /\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,180}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:resolved|settled|decided|submitted)\s+(?:exclusively\s+)?(?:by|through|to)\s+(?:binding\s+)?arbitration\b|\b(?:all\s+)?(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,100}\b(?:(?:is|are)\s+subject\s+to\s+mandatory\s+(?:binding\s+)?arbitration|(?:shall|must|will)\s+be\s+subject\s+to\s+(?:(?:mandatory\s+(?:binding\s+)?)|(?:binding\s+))arbitration)\b/i;
+const RULE_QUALIFIED_MANDATORY_ARBITRATION_RE =
+  /\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,180}(?:must|shall|will)\s+be\s+(?:finally\s+)?(?:resolved|settled|decided)\s+under\s+(?:(?!\b(?:may|might|option|elect|mutual\s+agreement)\b)[^.]){1,180}?\b(?:Arbitration\s+Rules|AAA|American\s+Arbitration\s+Association|JAMS)\b(?:(?!\b(?:may|might|option|elect|mutual\s+agreement)\b)[^.]){0,100}?\bby\s+(?:binding\s+)?arbitration\b/i;
+const NEGATED_RULE_QUALIFIED_MANDATORY_ARBITRATION_RE =
+  /\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,180}(?:must|shall|will)\s+not\s+be\s+(?:finally\s+)?(?:resolved|settled|decided)\s+under\s+[^.]{1,180}?\b(?:Arbitration\s+Rules|AAA|American\s+Arbitration\s+Association|JAMS)\b[^.]{0,100}?\bby\s+(?:binding\s+)?arbitration\b/i;
 const BINDING_ARBITRATION_REQUIREMENT_RE =
   /\b(?:the\s+)?(?:parties?|Subcontractor|Prime(?:\s+Contractor)?)\b\s+(?:(?:hereby|irrevocably|expressly|mutually)\s+)*(?:(?:agree|agrees|consent|consents)|(?:shall|must|will)\s+(?:agree|consent))\s+to\s+binding\s+arbitration\b|\bbinding\s+arbitration\b[^.]{0,120}(?:(?:is|shall|must|will)\s+(?:be\s+)?(?:required|mandatory)\b|(?:is|shall|must|will)\s+(?:be\s+)?(?:the\s+)?exclusive\s+(?:remedy|means|method|forum|procedure)\b)/i;
 const NEGATED_MANDATORY_ARBITRATION_EVIDENCE_RE =
@@ -1236,7 +1240,9 @@ export function hasMandatoryArbitrationEvidence(text: string): boolean {
   return arbitrationEvidenceClauses(text).some(
     (clause) =>
       !NEGATED_MANDATORY_ARBITRATION_EVIDENCE_RE.test(clause) &&
+      !NEGATED_RULE_QUALIFIED_MANDATORY_ARBITRATION_RE.test(clause) &&
       (MANDATORY_ARBITRATION_EVIDENCE_RE.test(clause) ||
+        RULE_QUALIFIED_MANDATORY_ARBITRATION_RE.test(clause) ||
         BINDING_ARBITRATION_REQUIREMENT_RE.test(clause))
   );
 }

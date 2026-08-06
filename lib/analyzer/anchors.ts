@@ -111,6 +111,20 @@ const CONTRACT_TYPE_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
   { label: "Teaming Agreement", pattern: /teaming\s+agreement/i },
 ];
 
+const INVALID_EXPLICIT_TYPE_LABEL_RE =
+  /\b(?:not|never|none|unknown|pending|tbd|will|shall|may|must|can|could|should|determined|negotiated|selected|specified|provided)\b|\bn\s*\/\s*a\b/i;
+const EXPLICIT_TYPE_LABEL_SHAPE_RE =
+  /^(?=.{2,100}$)[A-Za-z0-9][A-Za-z0-9&+/'(),.\-\s]*$/;
+
+function isValidExplicitTypeLabelCandidate(candidate: string): boolean {
+  const normalized = candidate.trim().replace(/\s+/g, " " );
+  return (
+    EXPLICIT_TYPE_LABEL_SHAPE_RE.test(normalized) &&
+    /[A-Za-z]/.test(normalized) &&
+    !INVALID_EXPLICIT_TYPE_LABEL_RE.test(normalized)
+  );
+}
+
 const DEADLINE_PATTERN = /\b(?:within|no\s+later\s+than|not\s+to\s+exceed)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?\b[^.\n]{0,90}/gi;
 const CLAUSE_PATTERN = /\b(?:FAR|DFARS)\s?\d{2}\.\d{3}(?:-\d{1,3})?\b/gi;
 const EXHIBIT_PATTERN = /\b(?:Exhibit|Attachment|Appendix)\s+[A-Z0-9]{1,3}\b[^.\n]{0,60}/gi;
@@ -125,9 +139,7 @@ export function extractAnchorCandidates(documentText: string, fileName?: string)
     firstMatch(text, EXPLICIT_TYPE_LABEL_WITH_SEPARATOR) ||
     firstMatch(text, EXPLICIT_TYPE_LABEL_DIRECT);
   const explicitTypeLabel =
-    explicitTypeLabelCandidate &&
-    (CONTRACT_TYPE_PATTERNS.some((pattern) => pattern.pattern.test(explicitTypeLabelCandidate)) ||
-      /^Hybrid(?:\s+(?:subcontract|contract|agreement))?$/i.test(explicitTypeLabelCandidate))
+    explicitTypeLabelCandidate && isValidExplicitTypeLabelCandidate(explicitTypeLabelCandidate)
       ? explicitTypeLabelCandidate.trim()
       : undefined;
   const contractTypeMatch = CONTRACT_TYPE_PATTERNS.find((p) => p.pattern.test(text));
