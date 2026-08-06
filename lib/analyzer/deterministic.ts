@@ -913,6 +913,8 @@ function buildInvoicePaymentWaiverAnalysis(foundText: string): string {
 
 const CONDITIONED_PREEXISTING_IP_RE =
   /pre[\s-]existing\s+(?:ip|intellectual\s+property|tools?|materials|methods|know[\s-]how)[^.]{0,200}only\s+if[^.]{0,150}(?:identif|disclos|approve[sd]?|written\s+approval)/i;
+const NEGATED_PASSIVE_PRIME_IMPROVEMENT_USE_RE =
+  /\b(?:no|neither)\s+(?:any\s+)?(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)\b[^.]{0,180}\b(?:may|shall|will)\s+be\s+used\s+by\s+(?:the\s+)?(?:Prime\s+Contractor|Prime)\b|\b(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)\b[^.]{0,180}\b(?:may|shall|will)\s+not\s+be\s+used\s+by\s+(?:the\s+)?(?:Prime\s+Contractor|Prime)\b/i;
 const DIRECT_PRIME_PASSIVE_IMPROVEMENT_USE_RE =
   /(?:any\s+)?(?:improvements?(?:\s+or\s+adaptations?)?|adaptations?)(?:\s*,\s*(?:including|such\s+as)\s+(?:any\s+)?(?:adaptations?|enhancements?|modifications?)(?:\s+(?:and|or)\s+(?:adaptations?|enhancements?|modifications?))*\s*,)?(?:\s+(?!(?:deliverables?|services?|work\s+products?|may|shall|will)\b)[A-Za-z][A-Za-z'-]*){0,20}\s+(?:may|shall|will)\s+be\s+used\s+by\s+(?:the\s+)?(?:Prime\s+Contractor\b(?!['\u2019]s\b)(?![\s-]+(?:customers?|clients?|affiliates?|agenc(?:y|ies)|end[\s-]?users?|affiliated(?:[\s-]+entities?)?)\b)|Prime\b(?!['\u2019]s\b)(?!\s+Contractor\b)(?![\s-]+(?:customers?|clients?|affiliates?|agenc(?:y|ies)|end[\s-]?users?|affiliated(?:[\s-]+entities?)?)\b))/i;
 const DIRECT_PRIME_ACTIVE_IMPROVEMENT_USE_RE =
@@ -935,7 +937,7 @@ function coordinatedIpUseSegments(sentence: string): string[] {
   const directLicenseActor = DIRECT_PRIME_LICENSE_ACTOR_RE.exec(sentence)?.[0] ?? null;
   return sentence
     .split(
-      /;\s*|,\s*(?:and|but|while|whereas)\s+|\s+and\s+(?=(?:deliverables?|services?|work\s+products?|improvements?|adaptations?)\b[^.]{0,80}\b(?:may|shall|will|is|are|has|have)\b)|\s+and\s+(?=(?:(?:a|an|the)\s+)?[^.;]{0,80}\blicense\b)/i
+      /;\s*|,\s*(?:and|but|while|whereas)\s+|\s+(?:and|but)\s+(?=(?:deliverables?|services?|work\s+products?|improvements?|adaptations?)\b[^.]{0,80}\b(?:may|shall|will|is|are|has|have)\b)|\s+and\s+(?=(?:(?:a|an|the)\s+)?[^.;]{0,80}\blicense\b)/i
     )
     .map((segment, index) => {
       const trimmed = segment.trim();
@@ -957,6 +959,7 @@ const COMPETING_IP_GRANT_BOUNDARY_RE =
 
 function primeImprovementsUseGrantWindow(segment: string): string | null {
   if (NEGATED_PRIME_IMPROVEMENT_LICENSE_RE.test(segment)) return null;
+  if (NEGATED_PASSIVE_PRIME_IMPROVEMENT_USE_RE.test(segment)) return null;
   const candidates = [
     DIRECT_PRIME_PASSIVE_IMPROVEMENT_USE_RE.exec(segment),
     DIRECT_PRIME_ACTIVE_IMPROVEMENT_USE_RE.exec(segment),
@@ -1015,7 +1018,7 @@ function buildConditionedPreExistingIpAnalysis(foundText: string): string {
 }
 
 const BASE_FORUM_EVIDENCE_RE =
-  /(?:exclusive\s+(?:venue|jurisdiction)\s+(?:(?:shall|must|will)\s+be\s+|is\s+|lies\s+)?(?:in|located\s+in)|(?:venue|jurisdiction)\s+(?:(?:shall|must|will)\s+be\s+|is\s+|lies\s+)(?:in|located\s+in))[^.]{0,120}(?:courts?|County|State|Commonwealth)|binding\s+arbitration|Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i;
+  /(?:exclusive\s+(?:venue|jurisdiction)\s+(?:(?:shall|must|will)\s+be\s+|is\s+|lies\s+)?(?:in|located\s+in)|(?:venue|jurisdiction)\s+(?:(?:shall|must|will)\s+be\s+|is\s+|lies\s+)(?:in|located\s+in))[^.]{0,120}(?:courts?|County|State|Commonwealth)|Prime(?:\s+Contractor)?\s+elects?\s+(?:another|a\s+different|an\s+alternate)\s+forum/i;
 const NEGATED_EXCLUSIVE_JURISDICTION_RE =
   /\b(?:neither\s+party|no\s+party)\b[^.]{0,120}(?:irrevocably\s+)?(?:submits?|consents?)\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\b|\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,120}(?:(?:does|do|shall|will|may)\s+not|never)\s+(?:submit|consent)\b[^.]{0,120}\bexclusive\s+jurisdiction\b|\b(?:does|do|shall|will|may)\s+not\s+(?:submit|consent)\b[^.]{0,120}\bexclusive\s+jurisdiction\b|\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,140}(?:expressly\s+)?(?:refuses?|declines?)\s+to\s+(?:submit|consent)\b[^.]{0,140}\bexclusive\s+jurisdiction\b|\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,140}(?:expressly\s+)?disclaims?\s+(?:any\s+)?(?:submission|consent)\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\b|\b(?:each|either|both|the)\s+part(?:y|ies)\b[^.]{0,140}(?:expressly\s+)?den(?:y|ies|ied)\s+(?:any\s+)?consent\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\b|\bden(?:y|ies|ied)\s+(?:any\s+)?consent\s+to\s+(?:the\s+)?exclusive\s+jurisdiction\b/i;
 const EXCLUSIVE_JURISDICTION_SUBMISSION_RE =
@@ -1100,9 +1103,31 @@ const GOVERNING_LAW_EVIDENCE_RE =
   /(?:\bgoverned\s+by\s+the\s+laws?\s+of|\bgoverning\s+law(?:\s+of[^.]{0,80})?\s*(?::|[-–—]|(?:shall|will|is)\s+be)\s*(?:the\s+laws?\s+of)?)(?:\s+(?:(?:the\s+)?(?:State|Commonwealth)\s+of\s+)?[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,2})/i;
 const MANDATORY_ARBITRATION_EVIDENCE_RE =
   /\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,180}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be)\s+(?:resolved|settled|decided|submitted)\s+(?:exclusively\s+)?(?:by|through|to)\s+(?:binding\s+)?arbitration\b/i;
+const BINDING_ARBITRATION_REQUIREMENT_RE =
+  /\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,180}\bbinding\s+arbitration\b|\b(?:parties?|Subcontractor|Prime(?:\s+Contractor)?)\b[^.]{0,140}\b(?:agree|consent)\s+to\s+binding\s+arbitration\b|\bbinding\s+arbitration\b[^.]{0,120}\b(?:is|shall|must|will)\s+(?:required|mandatory|exclusive)\b/i;
+const NEGATED_MANDATORY_ARBITRATION_EVIDENCE_RE =
+  /\b(?:no|neither)\s+(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,220}(?:binding\s+)?arbitration\b|\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,180}(?:(?:must|shall|will)\s+not\s+be|(?:is|are)\s+not\s+required\s+to\s+be)\s+(?:resolved|settled|decided|submitted)\s+(?:exclusively\s+)?(?:by|through|to)\s+(?:binding\s+)?arbitration\b|\b(?:neither|no)\s+part(?:y|ies)\b[^.]{0,160}(?:agree|consent)\s+to\s+binding\s+arbitration\b/i;
+
+function arbitrationEvidenceClauses(text: string): string[] {
+  return text
+    .split(
+      /(?<=[.!?])\s+|\s*;\s*|,\s*(?:but|however|while|whereas)\s+|\s+(?:and|but)\s+(?=(?:(?:all|any|the)\s+)?(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,120}(?:(?:must|shall|will)\s+be|(?:is|are)\s+required\s+to\s+be))/i
+    )
+    .map((clause) => clause.trim())
+    .filter(Boolean);
+}
+
+function hasMandatoryArbitrationEvidence(text: string): boolean {
+  return arbitrationEvidenceClauses(text).some(
+    (clause) =>
+      !NEGATED_MANDATORY_ARBITRATION_EVIDENCE_RE.test(clause) &&
+      (MANDATORY_ARBITRATION_EVIDENCE_RE.test(clause) ||
+        BINDING_ARBITRATION_REQUIREMENT_RE.test(clause))
+  );
+}
 
 function hasMandatoryVenueOrArbitrationEvidence(text: string): boolean {
-  return hasMandatoryForumEvidence(text) || MANDATORY_ARBITRATION_EVIDENCE_RE.test(text);
+  return hasMandatoryForumEvidence(text) || hasMandatoryArbitrationEvidence(text);
 }
 
 export function hasVenueGoverningLawOrArbitrationEvidence(text: string): boolean {
@@ -1118,7 +1143,7 @@ function findVenueOrGoverningLawCandidate(documentText: string): string | null {
 }
 
 function buildVenueOrGoverningLawAnalysis(foundText: string): string {
-  if (MANDATORY_ARBITRATION_EVIDENCE_RE.test(foundText)) {
+  if (hasMandatoryArbitrationEvidence(foundText)) {
     return "This clause requires disputes to be resolved through arbitration as stated in the quote, which can limit access to court and add arbitration-administration, forum, or travel costs.";
   }
   if (hasMandatoryForumEvidence(foundText)) {
