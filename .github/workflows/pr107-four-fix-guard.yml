@@ -104,9 +104,9 @@ jobs:
           rm .github/scripts/pr107_four_fix.py .github/workflows/pr107-four-fix-guard.yml
           git diff --name-only origin/main | sort -u > /tmp/actual-files
           printf '%s\n' \
+            "lib/analyzer/__fixtures__/orion-parity-regression-fixture.mjs" \
             "lib/analyzer/__tests__/orion-parity-regression.test.mjs" \
-            "lib/analyzer/__tests__/qa-core-accuracy-benchmark.test.mjs" \
-            "lib/analyzer/__tests__/ts-relative-import.loader.mjs" \
+            "lib/analyzer/anchors.ts" \
             "lib/analyzer/deterministic.ts" \
             "lib/analyzer/sanity.ts" \
             "package.json" | sort -u > /tmp/expected-files
