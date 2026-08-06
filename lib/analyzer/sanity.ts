@@ -146,7 +146,7 @@ function unsupportedFindingLocalClaim(finding: Finding): string | null {
     " "
   );
   const arbitrationRequirementClaim =
-    /(?:requires?|must|shall|required\s+to)[^.]{0,80}\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,100}\b(?:resolved|settled|decided|submitted)\b[^.]{0,60}\b(?:binding\s+)?arbitration\b|\bresolved\s+(?:exclusively\s+)?through\s+(?:binding\s+)?arbitration\b|\bbinding\s+arbitration\b[^.]{0,100}\b(?:required|mandatory|exclusive\s+(?:remedy|means|method|procedure))\b/i.test(affirmativeClaim);
+    /(?:requires?|must|shall|required\s+to)[^.]{0,80}\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,100}\b(?:resolved|settled|decided|submitted)\b[^.]{0,60}\b(?:binding\s+)?arbitration\b|\bresolved\s+(?:exclusively\s+)?through\s+(?:binding\s+)?arbitration\b|\bbinding\s+arbitration\b[^.]{0,100}\b(?:required|mandatory|exclusive\s+(?:remedy|means|method|procedure))\b|\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,80}\b(?:is|are|shall|must|will)\s+(?:be\s+)?subject\s+to\s+(?:mandatory\s+)?(?:binding\s+)?arbitration\b/i.test(affirmativeClaim);
   const governingLawSelectionClaim =
     /\bselects?\s+(?:the\s+)?governing\s+law\b|\bgoverned\s+by\s+the\s+laws?\s+of\b|\bgoverning\s+law\s+(?:is|shall|will)\b/i.test(affirmativeClaim);
   const explicitForumSelectionClaim =

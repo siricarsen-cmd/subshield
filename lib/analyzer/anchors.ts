@@ -136,12 +136,9 @@ export function extractAnchorCandidates(documentText: string, fileName?: string)
   // whole-document keyword matching (which can false-positive on a passing
   // mention) when the document doesn't state its own type directly.
   const explicitTypeLabelCandidate =
-    firstMatch(text, EXPLICIT_TYPE_LABEL_WITH_SEPARATOR) ||
-    firstMatch(text, EXPLICIT_TYPE_LABEL_DIRECT);
-  const explicitTypeLabel =
-    explicitTypeLabelCandidate && isValidExplicitTypeLabelCandidate(explicitTypeLabelCandidate)
-      ? explicitTypeLabelCandidate.trim()
-      : undefined;
+    firstValidMatch(text, EXPLICIT_TYPE_LABEL_WITH_SEPARATOR, isValidExplicitTypeLabelCandidate) ||
+    firstValidMatch(text, EXPLICIT_TYPE_LABEL_DIRECT, isValidExplicitTypeLabelCandidate);
+  const explicitTypeLabel = explicitTypeLabelCandidate?.trim();
   const contractTypeMatch = CONTRACT_TYPE_PATTERNS.find((p) => p.pattern.test(text));
 
   const anchors: DocumentAnchors = {
