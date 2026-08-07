@@ -9,6 +9,11 @@ import {
   hasComprehensiveTerminationRecoveryEvidence,
   hasProtectiveTerminationForConvenienceRestrictionEvidence,
   hasTerminationForConvenienceRiskEvidence,
+  hasMandatoryArbitrationEvidence,
+  hasMandatoryForumEvidence,
+  hasSelectedGoverningLawEvidence,
+  hasVenueGoverningLawOrArbitrationEvidence,
+  hasUnpaidPrimeImprovementsUseEvidence,
 } from "./deterministic";
 import type { Finding } from "./types";
 
@@ -129,6 +134,53 @@ function unsupportedFindingLocalClaim(finding: Finding): string | null {
     if (paymentClaim && !paymentEvidence) {
       return "Finding's analysis imports payment or withholding facts that are not stated in the finding's own verified quote.";
     }
+  }
+
+  const forumSelectionCategory =
+    /out-of-state\s+venue|governing\s+law|arbitration\s+burden/i.test(reg);
+  const filedInForumClaim =
+    !/\bfiled\s+in\s+writing\b/i.test(claim) &&
+    /filed\s+in\s+(?:(?:a|the)\s+)?(?:courts?|forum)\b|filed\s+in\s+(?:(?:the\s+)?(?:State|Commonwealth)\s+of\s+)?[A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,4}\s+(?:County|State|Commonwealth|District|City)\b/i.test(claim);
+  const affirmativeClaim = claim.replace(
+    /\b(?:does|do|did|is|are|was|were|shall|will|would|can|could|may|might)\s+not\b[^.;]*?(?=\s*,\s*(?:and|but|however|while|whereas)\b|\s+(?:and|but|however|while|whereas)\b|[.;]|$)/gi,
+    " "
+  );
+  const arbitrationRequirementClaim =
+    /(?:requires?|must|shall|required\s+to)[^.]{0,80}\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,100}\b(?:resolved|settled|decided|submitted)\b[^.]{0,60}\b(?:binding\s+)?arbitration\b|\bresolved\s+(?:exclusively\s+)?through\s+(?:binding\s+)?arbitration\b|\bbinding\s+arbitration\b[^.]{0,100}\b(?:required|mandatory|exclusive\s+(?:remedy|means|method|procedure))\b|\b(?:disputes?|claims?|controvers(?:y|ies))\b[^.]{0,80}\b(?:is|are|shall|must|will)\s+(?:be\s+)?subject\s+to\s+(?:mandatory\s+)?(?:binding\s+)?arbitration\b/i.test(affirmativeClaim);
+  const governingLawSelectionClaim =
+    /\bselects?\s+(?:the\s+)?governing\s+law\b|\bgoverned\s+by\s+the\s+laws?\s+of\b|\bgoverning\s+law\s+(?:is|shall|will)\b/i.test(affirmativeClaim);
+  const explicitForumSelectionClaim =
+    /\bforum\s+(?:far|stated|required|selected)\b|(?:requires?|must|shall|required\s+to|permits?)[^.]{0,80}\b(?:disputes?|actions?|lawsuits?|claims?|proceedings?)\b[^.]{0,100}\b(?:litigat(?:e|ed|ion)|brought)\b|\b(?:imposes?|establishes?|mandates?|requires?|selects?|sets?)\s+(?:(?:an?|the)\s+)?(?:(?:exclusive|mandatory)\s+)?(?:venue|forum|jurisdiction)\b|\b(?:exclusive|mandatory)\s+(?:venue|forum|jurisdiction)\s+(?:is|shall\s+be|will\s+be|must\s+be)\b|\b[A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,4}\s+(?:County|State|Commonwealth|District|City)\s+(?:is|shall\s+be|will\s+be|must\s+be)\s+(?:the\s+)?(?:exclusive|mandatory)\s+(?:venue|forum|jurisdiction)\b|\b(?:exclusive|mandatory)\s+(?:venue|forum|jurisdiction)\b[^.]{0,100}\b(?:in|at|within|required|selected|shall|must|will)\b|\b(?:exclusive\s+)?(?:venue|jurisdiction)\b[^.]{0,100}\b(?:required|selected|shall|must|will)\b/i.test(affirmativeClaim) ||
+    filedInForumClaim;
+
+  if (arbitrationRequirementClaim && !hasMandatoryArbitrationEvidence(quote)) {
+    return "Finding's analysis claims required arbitration that is not stated in the finding's own verified quote.";
+  }
+  if (explicitForumSelectionClaim && !hasMandatoryForumEvidence(quote)) {
+    return "Finding's analysis claims a litigation or forum requirement that is not stated in the finding's own verified quote.";
+  }
+  if (governingLawSelectionClaim && !hasSelectedGoverningLawEvidence(quote)) {
+    return "Finding's analysis claims a selected governing law that is not stated in the finding's own verified quote.";
+  }
+
+  const hasRecognizedForumSubtypeClaim =
+    arbitrationRequirementClaim || explicitForumSelectionClaim || governingLawSelectionClaim;
+  if (
+    forumSelectionCategory &&
+    !hasRecognizedForumSubtypeClaim &&
+    !hasVenueGoverningLawOrArbitrationEvidence(quote)
+  ) {
+    return "Finding's analysis claims a litigation, arbitration, governing-law, or forum burden that is not stated in the finding's own verified quote.";
+  }
+
+  const primeImprovementUseClaim =
+    /\bPrime(?:\s+Contractor)?\b[^.]{0,180}\b(?:use|uses|using|license|licensed|receives?|retains?|obtains?|acquires?|owns?|holds?|possesses?|is\s+assigned|is\s+vested\s+with|may\s+use|right\s+to\s+use)\b[^.]{0,140}\b(?:improvements?|adaptations?)\b|\b(?:improvements?|adaptations?)\b[^.]{0,140}\b(?:used|licensed)\b[^.]{0,80}\b(?:by|to)\s+(?:the\s+)?Prime(?:\s+Contractor)?\b|\b(?:royalty[\s-]?free|free\s+of\s+charge|unpaid)\s+rights?\s+in\s+(?:improvements?|adaptations?)\b[^.]{0,120}\b(?:(?:vests?|accrues?|belongs?|are\s+(?:granted|conveyed|assigned|transferred))\s+(?:in|to)|(?:is|are)\s+held\s+by)\s+(?:the\s+)?Prime(?:\s+Contractor)?\b/i.test(claim);
+  const unpaidImprovementClaim =
+    primeImprovementUseClaim &&
+    /(?:improvements?|adaptations?)[^.]{0,100}(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use|royalty[\s-]?free|free\s+of\s+charge)|(?:without\s+(?:additional\s+)?(?:payment|compensation)|unpaid|free\s+use|royalty[\s-]?free|free\s+of\s+charge)[^.]{0,100}(?:improvements?|adaptations?)/i.test(claim);
+  const unpaidImprovementEvidence = hasUnpaidPrimeImprovementsUseEvidence(quote);
+  if (unpaidImprovementClaim && !unpaidImprovementEvidence) {
+    return "Finding's analysis claims unpaid Prime use of improvements or adaptations that is not stated in the finding's own verified quote.";
   }
 
   return null;

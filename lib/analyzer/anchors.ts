@@ -92,8 +92,10 @@ const PARTIES = /this\s+subcontract(?:\s+agreement)?\s+is\s+(?:made\s+)?(?:enter
 // keyword-matching the whole document, which can false-positive on a passing
 // mention (e.g. "purchase order number" in an unrelated clause). Checked first;
 // the keyword patterns below are only a fallback when no explicit label exists.
-const EXPLICIT_TYPE_LABEL =
-  /(?:subcontract\s+type|type\s+of\s+(?:subcontract|agreement)|contract\s+type)\s*[:\-]\s*([^\n]{2,60})/i;
+const EXPLICIT_TYPE_LABEL_WITH_SEPARATOR =
+  /(?:subcontract\s+type|type\s+of\s+(?:subcontract|agreement)|contract\s+type)\s*(?::|[-\u2010-\u2015])\s*(?:\n\s*)?([^\n.]{1,100})/i;
+const EXPLICIT_TYPE_LABEL_DIRECT =
+  /(?:subcontract\s+type|type\s+of\s+(?:subcontract|agreement)|contract\s+type)\s*(?:\n\s*)?((?:Hybrid\s*(?:\(\s*)?)?(?:T\s*&\s*M|FFP\b|firm[\s-]*fixed[\s-]*price|time[\s-]*(?:and|&)[\s-]*materials|labor[\s-]hour|cost[\s-]*plus[\s-]*fixed[\s-]*fee|cost[\s-]reimburs(?:ement|able)|indefinite[\s-]delivery|IDIQ\b|purchase\s+order|teaming\s+agreement)[^\n.]{0,60})/i;
 
 // [\s-]* (not \s*) so hyphenated forms like "Time-and-Materials" still match.
 const CONTRACT_TYPE_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
@@ -109,6 +111,20 @@ const CONTRACT_TYPE_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
   { label: "Teaming Agreement", pattern: /teaming\s+agreement/i },
 ];
 
+const INVALID_EXPLICIT_TYPE_LABEL_RE =
+  /\b(?:not|never|none|unknown|pending|tbd|will|shall|may|must|can|could|should|determined|negotiated|selected|specified|provided)\b|\bn\s*\/\s*a\b/i;
+const EXPLICIT_TYPE_LABEL_SHAPE_RE =
+  /^(?=.{2,100}$)[A-Za-z0-9][A-Za-z0-9&+/'(),.\-\s]*$/;
+
+function isValidExplicitTypeLabelCandidate(candidate: string): boolean {
+  const normalized = candidate.trim().replace(/\s+/g, " " );
+  return (
+    EXPLICIT_TYPE_LABEL_SHAPE_RE.test(normalized) &&
+    /[A-Za-z]/.test(normalized) &&
+    !INVALID_EXPLICIT_TYPE_LABEL_RE.test(normalized)
+  );
+}
+
 const DEADLINE_PATTERN = /\b(?:within|no\s+later\s+than|not\s+to\s+exceed)\s+\d{1,3}\s*(?:calendar|business|working)?\s*days?\b[^.\n]{0,90}/gi;
 const CLAUSE_PATTERN = /\b(?:FAR|DFARS)\s?\d{2}\.\d{3}(?:-\d{1,3})?\b/gi;
 const EXHIBIT_PATTERN = /\b(?:Exhibit|Attachment|Appendix)\s+[A-Z0-9]{1,3}\b[^.\n]{0,60}/gi;
@@ -119,7 +135,10 @@ export function extractAnchorCandidates(documentText: string, fileName?: string)
   // Prefer the document's own explicit label verbatim; only fall back to
   // whole-document keyword matching (which can false-positive on a passing
   // mention) when the document doesn't state its own type directly.
-  const explicitTypeLabel = firstMatch(text, EXPLICIT_TYPE_LABEL);
+  const explicitTypeLabelCandidate =
+    firstValidMatch(text, EXPLICIT_TYPE_LABEL_WITH_SEPARATOR, isValidExplicitTypeLabelCandidate) ||
+    firstValidMatch(text, EXPLICIT_TYPE_LABEL_DIRECT, isValidExplicitTypeLabelCandidate);
+  const explicitTypeLabel = explicitTypeLabelCandidate?.trim();
   const contractTypeMatch = CONTRACT_TYPE_PATTERNS.find((p) => p.pattern.test(text));
 
   const anchors: DocumentAnchors = {
