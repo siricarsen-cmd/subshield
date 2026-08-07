@@ -137,13 +137,14 @@ function hasBindingFutureFlowdownEvidence(foundText: string): boolean {
 // Missing-document normalization is independently evidence-gated: a named
 // material document must be paired in the finding's own verified quote with
 // an explicit current-absence statement or a post-execution/award/signing
-// delivery deferral. A named exhibit merely omitted from an order-of-
-// precedence list is not missing, so that specific structure phrasing is
-// excluded. Generic incorporation, conflict, precedence, and silence cannot
-// match these patterns.
+// delivery deferral. The final pattern covers Orion's verified summary sentence
+// that expressly defers a package of prime-contract/compliance materials until
+// after subcontract award. Generic incorporation, conflict, precedence, and
+// silence still cannot match.
 const MISSING_OR_DEFERRED_DOCUMENT_EVIDENCE_PATTERNS: RegExp[] = [
   /(?:statements?\s+of\s+work|\bSOWs?\b|flow[\s-]?down\s+(?:lists?|matrix|matrices)|Prime\s+Contract\s+excerpts?|(?:identified|required|specified|applicable)\s+(?:attachments?|exhibits?|schedules?|appendices)|(?:Attachment|Exhibit|Schedule|Appendix)\s+[A-Z0-9][A-Z0-9._-]{0,20}\b|\bSystem\s+Security\s+Plans?\b|\bSSP\b|CUI\s+marking\s+guide|network\s+(?:boundary\s+)?diagram|data[\s-]flow\s+map|(?:Prime\s+)?(?:cyber(?:\/security)?|cybersecurity|security)\s+procedures?)[^.]{0,300}(?:(?:(?:is|are|remain|has|have)\s+)?not\s+(?:currently\s+|yet\s+)?(?:been\s+)?(?:attached|included(?!\s+in\s+(?:the\s+)?order[\s-]of[\s-]precedence)|provided|available)|(?:(?:will|shall|may)\s+be|to\s+be)\s+(?:provided|furnished|attached|included)\s+(?:after\s+(?:execution|award|signing)|later))/i,
   /(?:(?:(?:is|are|remain|has|have)\s+)?not\s+(?:currently\s+|yet\s+)?(?:been\s+)?(?:attached|included(?!\s+in\s+(?:the\s+)?order[\s-]of[\s-]precedence)|provided|available))[^.;:\n]{0,180}(?:statements?\s+of\s+work|\bSOWs?\b|flow[\s-]?down\s+(?:lists?|matrix|matrices)|Prime\s+Contract\s+excerpts?|(?:identified|required|specified|applicable)\s+(?:attachments?|exhibits?|schedules?|appendices)|(?:Attachment|Exhibit|Schedule|Appendix)\s+[A-Z0-9][A-Z0-9._-]{0,20}\b|\bSystem\s+Security\s+Plans?\b|\bSSP\b|CUI\s+marking\s+guide|network\s+(?:boundary\s+)?diagram|data[\s-]flow\s+map|(?:Prime\s+)?(?:cyber(?:\/security)?|cybersecurity|security)\s+procedures?)/i,
+  /(?:additional\s+)?prime\s+contract\s+clauses[^.]{0,360}\b(?:may|will|shall)\s+be\s+provided\s+after\s+(?:subcontract\s+)?award\b/i,
 ];
 
 function canonicalizeKnownRiskLabel(finding: Finding): Finding {
@@ -236,6 +237,33 @@ function cleanerOuterAdornmentFinding(a: Finding, b: Finding): Finding | null {
   return null;
 }
 
+// When two already-canonical missing-document findings collide, preserve the
+// quote that contains the concrete attachment/status table instead of a shorter
+// summary sentence. This keeps the source-grounded A-G evidence visible while
+// still retaining the higher of the two severities.
+function missingDocumentAttachmentEvidenceScore(finding: Finding): number {
+  if (
+    finding.familyKey !== "structure" ||
+    finding.regulation !== CANONICAL_MISSING_DOCUMENTS_LABEL
+  ) {
+    return 0;
+  }
+  const attachmentRows = finding.foundText.match(/\bAttachment\s+[A-Z0-9][A-Z0-9._-]{0,20}\b/gi) ?? [];
+  const statusSignals =
+    finding.foundText.match(/\b(?:to\s+be\s+provided\s+after|not\s+included(?:\s+in\s+current\s+package)?|included)\b/gi) ?? [];
+  return attachmentRows.length >= 2 && statusSignals.length >= 2
+    ? attachmentRows.length + statusSignals.length
+    : 0;
+}
+
+function concreteMissingDocumentFinding(a: Finding, b: Finding): Finding | null {
+  const aScore = missingDocumentAttachmentEvidenceScore(a);
+  const bScore = missingDocumentAttachmentEvidenceScore(b);
+  if (aScore === 0 && bScore === 0) return null;
+  if (aScore === bScore) return a.foundText.length >= b.foundText.length ? a : b;
+  return aScore > bScore ? a : b;
+}
+
 // Collapses restatements of the same risk into a single finding (keeping the
 // higher-severity / more complete one) so one repeated risk - e.g. a
 // pay-if-paid clause quoted three different ways - can't crowd out distinct
@@ -261,20 +289,25 @@ export function dedupeFindings(findings: Finding[], documentText?: string): Find
         : existing;
 
     let selectedFinding = metadataWinner;
-    const cleanerFinding = cleanerOuterAdornmentFinding(existing, finding);
-    if (documentText && cleanerFinding) {
-      const independentlyVerifiedCleaner = verifyFindings(
-        [cleanerFinding],
-        documentText
-      ).verified[0];
-      if (independentlyVerifiedCleaner) {
-        const mergedFinding = {
-          ...metadataWinner,
-          foundText: independentlyVerifiedCleaner.foundText,
-        };
-        selectedFinding =
-          verifyFindings([mergedFinding], documentText).verified[0] ??
-          metadataWinner;
+    const concreteMissing = concreteMissingDocumentFinding(existing, finding);
+    if (concreteMissing) {
+      selectedFinding = { ...concreteMissing, severity: metadataWinner.severity };
+    } else {
+      const cleanerFinding = cleanerOuterAdornmentFinding(existing, finding);
+      if (documentText && cleanerFinding) {
+        const independentlyVerifiedCleaner = verifyFindings(
+          [cleanerFinding],
+          documentText
+        ).verified[0];
+        if (independentlyVerifiedCleaner) {
+          const mergedFinding = {
+            ...metadataWinner,
+            foundText: independentlyVerifiedCleaner.foundText,
+          };
+          selectedFinding =
+            verifyFindings([mergedFinding], documentText).verified[0] ??
+            metadataWinner;
+        }
       }
     }
     kept[dupIndex] = selectedFinding;
