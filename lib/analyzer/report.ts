@@ -120,16 +120,19 @@ const OUTER_ADORNMENT_CROSS_FAMILY_LABELS = new Set([
   normalizeForDedupe("Broad Cybersecurity System Access / Evidence Production"),
 ]);
 
-// A model can quote the exact future-flowdown trap but label it with the
-// broader structure-family title. Canonicalize only when the finding's own
-// verified evidence unmistakably states that additional/revised/new/modified
-// flowdown requirements become binding on notice. This runs at the dedupe
-// boundary used by runAnalyzer, before model/deterministic collision
-// resolution, so the earlier model finding can keep its higher severity and
-// fuller analysis while receiving the correct risk identity. No other field
-// changes, and generic missing/deferred-document evidence cannot match.
-const BINDING_FUTURE_FLOWDOWN_EVIDENCE_RE =
-  /(?:additional|revised|new|modified)(?:\s+or\s+(?:additional|revised|new|modified))?\s+flow[\s-]?down\s+requirements?[\s\S]{0,420}(?:such|those|the)\s+requirements?\s+(?:become|are|shall\s+be)\s+binding\s+(?:upon|on|after)\s+(?:written\s+)?notice/i;
+// A model can quote the exact future-flowdown trap but label it with a broader
+// flowdown/structure title. Canonicalize only when the finding's own verified
+// evidence says future flowdowns become binding or are incorporated after award
+// on notice. Both patterns are intentionally two-part so ordinary fixed FAR /
+// DFARS flowdowns cannot match merely because the document mentions notice.
+const BINDING_FUTURE_FLOWDOWN_EVIDENCE_PATTERNS: RegExp[] = [
+  /(?:additional|revised|new|modified)(?:\s+or\s+(?:additional|revised|new|modified))?\s+flow[\s-]?down\s+requirements?[\s\S]{0,420}(?:such|those|the)\s+requirements?\s+(?:become|are|shall\s+be)\s+binding\s+(?:upon|on|after)\s+(?:written\s+)?notice/i,
+  /additional\s+flow[\s-]?down\s+clauses?[\s\S]{0,260}after\s+award[\s\S]{0,260}(?:those|the)\s+clauses?(?:\s+and\s+instructions?)?\s+(?:will|shall)\s+be\s+incorporated\s+into\s+(?:this\s+)?subcontract\s+(?:upon|on)\s+(?:written\s+)?notice/i,
+];
+
+function hasBindingFutureFlowdownEvidence(foundText: string): boolean {
+  return BINDING_FUTURE_FLOWDOWN_EVIDENCE_PATTERNS.some((pattern) => pattern.test(foundText));
+}
 
 // Missing-document normalization is independently evidence-gated: a named
 // material document must be paired in the finding's own verified quote with
@@ -160,7 +163,7 @@ function canonicalizeKnownRiskLabel(finding: Finding): Finding {
   }
   if (
     (finding.familyKey === "structure" || finding.familyKey === "flowdowns") &&
-    BINDING_FUTURE_FLOWDOWN_EVIDENCE_RE.test(finding.foundText) &&
+    hasBindingFutureFlowdownEvidence(finding.foundText) &&
     (finding.familyKey !== "structure" || finding.regulation !== CANONICAL_FUTURE_FLOWDOWN_LABEL)
   ) {
     return { ...finding, familyKey: "structure", regulation: CANONICAL_FUTURE_FLOWDOWN_LABEL };
