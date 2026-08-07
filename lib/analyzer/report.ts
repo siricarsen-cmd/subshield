@@ -64,10 +64,14 @@ const PAYMENT_DEPENDENCY_FOUNDTEXT_PATTERNS: RegExp[] = [
   /government[^.]{0,40}(?:delays?|disputes?|reduces?|rejects?|withholds?)[^.]{0,150}(?:may\s+)?(?:delay|reduce|withhold)[^.]{0,60}payment/i,
 ];
 
+function hasPaymentDependencyEvidence(foundText: string): boolean {
+  return PAYMENT_DEPENDENCY_FOUNDTEXT_PATTERNS.some((pattern) => pattern.test(foundText));
+}
+
 function isPaymentContingencyFinding(f: Finding): boolean {
   if (f.familyKey !== "payment") return false;
   if (PAYMENT_CONTINGENCY_TITLE_RE.test(f.regulation)) return true;
-  return PAYMENT_DEPENDENCY_FOUNDTEXT_PATTERNS.some((p) => p.test(f.foundText));
+  return hasPaymentDependencyEvidence(f.foundText);
 }
 
 // Severity is the sole controlling sort key; payment-contingency priority is
@@ -105,6 +109,7 @@ function normalizeForDedupe(s: string): string {
 // reportable per-clause.
 const INDEMNITY_LABEL_RE = /indemnif|duty\s+to\s+defend|hold\s+harmless/i;
 
+const CANONICAL_PAYMENT_CONTINGENCY_LABEL = "Pay-if-Paid / Contingent Government-Payment Clause";
 const CANONICAL_FUTURE_FLOWDOWN_LABEL = "Broad Future Flowdowns / Prime Contract Control";
 const CANONICAL_FUTURE_CYBER_LABEL = "Unilateral Future Cybersecurity Requirements";
 const CANONICAL_MISSING_DOCUMENTS_LABEL = "Missing / Deferred Contract Documents";
@@ -134,7 +139,7 @@ const BINDING_FUTURE_FLOWDOWN_EVIDENCE_RE =
 // excluded. Generic incorporation, conflict, precedence, and silence cannot
 // match these patterns.
 const MISSING_OR_DEFERRED_DOCUMENT_EVIDENCE_PATTERNS: RegExp[] = [
-  /(?:statements?\s+of\s+work|\bSOWs?\b|flow[\s-]?down\s+(?:lists?|matrix|matrices)|Prime\s+Contract\s+excerpts?|(?:identified|required|specified|applicable)\s+(?:attachments?|exhibits?|schedules?|appendices)|(?:Attachment|Exhibit|Schedule|Appendix)\s+[A-Z0-9][A-Z0-9._-]{0,20}\b|\bSystem\s+Security\s+Plans?\b|\bSSP\b|CUI\s+marking\s+guide|network\s+(?:boundary\s+)?diagram|data[\s-]flow\s+map|(?:Prime\s+)?(?:cyber(?:\/security)?|cybersecurity|security)\s+procedures?)[^.]{0,300}(?:(?:(?:is|are|remain|has|have)\s+)?not\s+(?:currently\s+|yet\s+)?(?:been\s+)?(?:attached|included(?!\s+in\s+(?:the\s+)?order[\s-]of[\s-]precedence)|provided|available)|(?:will|shall|may)\s+be\s+(?:provided|furnished|attached|included)\s+(?:after\s+(?:execution|award|signing)|later))/i,
+  /(?:statements?\s+of\s+work|\bSOWs?\b|flow[\s-]?down\s+(?:lists?|matrix|matrices)|Prime\s+Contract\s+excerpts?|(?:identified|required|specified|applicable)\s+(?:attachments?|exhibits?|schedules?|appendices)|(?:Attachment|Exhibit|Schedule|Appendix)\s+[A-Z0-9][A-Z0-9._-]{0,20}\b|\bSystem\s+Security\s+Plans?\b|\bSSP\b|CUI\s+marking\s+guide|network\s+(?:boundary\s+)?diagram|data[\s-]flow\s+map|(?:Prime\s+)?(?:cyber(?:\/security)?|cybersecurity|security)\s+procedures?)[^.]{0,300}(?:(?:(?:is|are|remain|has|have)\s+)?not\s+(?:currently\s+|yet\s+)?(?:been\s+)?(?:attached|included(?!\s+in\s+(?:the\s+)?order[\s-]of[\s-]precedence)|provided|available)|(?:(?:will|shall|may)\s+be|to\s+be)\s+(?:provided|furnished|attached|included)\s+(?:after\s+(?:execution|award|signing)|later))/i,
   /(?:(?:(?:is|are|remain|has|have)\s+)?not\s+(?:currently\s+|yet\s+)?(?:been\s+)?(?:attached|included(?!\s+in\s+(?:the\s+)?order[\s-]of[\s-]precedence)|provided|available))[^.;:\n]{0,180}(?:statements?\s+of\s+work|\bSOWs?\b|flow[\s-]?down\s+(?:lists?|matrix|matrices)|Prime\s+Contract\s+excerpts?|(?:identified|required|specified|applicable)\s+(?:attachments?|exhibits?|schedules?|appendices)|(?:Attachment|Exhibit|Schedule|Appendix)\s+[A-Z0-9][A-Z0-9._-]{0,20}\b|\bSystem\s+Security\s+Plans?\b|\bSSP\b|CUI\s+marking\s+guide|network\s+(?:boundary\s+)?diagram|data[\s-]flow\s+map|(?:Prime\s+)?(?:cyber(?:\/security)?|cybersecurity|security)\s+procedures?)/i,
 ];
 
@@ -147,11 +152,18 @@ function canonicalizeKnownRiskLabel(finding: Finding): Finding {
     return { ...finding, familyKey: "cyber", regulation: CANONICAL_FUTURE_CYBER_LABEL };
   }
   if (
-    finding.familyKey === "structure" &&
-    BINDING_FUTURE_FLOWDOWN_EVIDENCE_RE.test(finding.foundText) &&
-    finding.regulation !== CANONICAL_FUTURE_FLOWDOWN_LABEL
+    finding.familyKey === "payment" &&
+    hasPaymentDependencyEvidence(finding.foundText) &&
+    finding.regulation !== CANONICAL_PAYMENT_CONTINGENCY_LABEL
   ) {
-    return { ...finding, regulation: CANONICAL_FUTURE_FLOWDOWN_LABEL };
+    return { ...finding, regulation: CANONICAL_PAYMENT_CONTINGENCY_LABEL };
+  }
+  if (
+    (finding.familyKey === "structure" || finding.familyKey === "flowdowns") &&
+    BINDING_FUTURE_FLOWDOWN_EVIDENCE_RE.test(finding.foundText) &&
+    (finding.familyKey !== "structure" || finding.regulation !== CANONICAL_FUTURE_FLOWDOWN_LABEL)
+  ) {
+    return { ...finding, familyKey: "structure", regulation: CANONICAL_FUTURE_FLOWDOWN_LABEL };
   }
   if (
     finding.familyKey === "structure" &&
