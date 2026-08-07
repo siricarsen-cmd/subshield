@@ -158,3 +158,168 @@ jobs:
 
           git push origin --delete "$BRANCH_NAME"
           echo "Deleted merged branch: $BRANCH_NAME"
+
+  publish-pr107-dependency-security:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == false &&
+      github.event.pull_request.base.ref == 'fix/orion-parity-grounding-invoice-waiver' &&
+      github.event.pull_request.head.ref == 'automation/pr107-dependency-security-trigger' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    name: Publish validated PR 107 dependency patch
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      TARGET_BRANCH: fix/orion-parity-grounding-invoice-waiver
+      TRIGGER_BRANCH: automation/pr107-dependency-security-trigger
+
+    steps:
+      - name: Check out exact PR 107 branch with push credentials
+        uses: actions/checkout@v4
+        with:
+          ref: fix/orion-parity-grounding-invoice-waiver
+          fetch-depth: 0
+
+      - name: Confirm immutable temporary head and trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ github.event.pull_request.merged }}" = "false"
+          test "${{ github.event.pull_request.base.ref }}" = "$TARGET_BRANCH"
+          test "${{ github.event.pull_request.head.ref }}" = "$TRIGGER_BRANCH"
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.base.sha }}"
+          grep -Fq "publish-pr107-dependency-security" .github/workflows/branch-hygiene.yml
+
+      - name: Apply bounded dependency versions and regenerate lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          pkg.dependencies['pdfjs-dist'] = '^6.2.108';
+          pkg.overrides.next.postcss = '8.5.23';
+          fs.writeFileSync('package.json', `${JSON.stringify(pkg, null, 2)}\n`);
+          NODE
+          npm install --package-lock-only --ignore-scripts
+
+      - name: Verify dependency edit scope and declared versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          const fs = require('node:fs');
+          const before = JSON.parse(execFileSync('git', ['show', 'HEAD:package.json'], { encoding: 'utf8' }));
+          const after = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const expected = JSON.parse(JSON.stringify(before));
+          expected.dependencies['pdfjs-dist'] = '^6.2.108';
+          expected.overrides.next.postcss = '8.5.23';
+          if (JSON.stringify(after) !== JSON.stringify(expected)) {
+            throw new Error('package.json contains changes beyond the two approved version updates');
+          }
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          if (lock.packages?.['']?.dependencies?.['pdfjs-dist'] !== '^6.2.108') {
+            throw new Error('package-lock root pdfjs-dist declaration is not ^6.2.108');
+          }
+          NODE
+          mapfile -t changed < <(git diff --name-only | sort)
+          expected=(package-lock.json package.json)
+          test "${changed[*]}" = "${expected[*]}"
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Enforce production dependency audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm audit --omit=dev --audit-level=high
+          npm audit --omit=dev --json > /tmp/pr107-audit.json || true
+          node <<'NODE'
+          const fs = require('node:fs');
+          const audit = JSON.parse(fs.readFileSync('/tmp/pr107-audit.json', 'utf8'));
+          const counts = audit.metadata?.vulnerabilities || {};
+          console.log('Remaining production audit counts:', counts);
+          if ((counts.high || 0) !== 0 || (counts.critical || 0) !== 0) {
+            throw new Error('High or critical production vulnerabilities remain');
+          }
+          NODE
+
+      - name: Verify native and document-processing imports
+        run: >-
+          node --input-type=module -e "
+          await import('sharp');
+          await import('@napi-rs/canvas');
+          await import('pdf-parse');
+          await import('pdfjs-dist/legacy/build/pdf.mjs');
+          await import('tesseract.js');
+          console.log('Native and document-processing imports passed.');
+          "
+
+      - name: Preserve analyzer accuracy
+        run: npm run test:accuracy
+
+      - name: Preserve regulatory grounding
+        run: npm run test:regulatory
+
+      - name: Validate TypeScript
+        run: npx tsc --noEmit
+
+      - name: Build production application
+        env:
+          VERCEL_ENV: production
+          NEXT_PUBLIC_BASE_URL: https://www.subshield.net
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+          STRIPE_SECRET_KEY: sk_test_ci_placeholder
+          STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+          NEXT_PUBLIC_STRIPE_PRICE_SINGLE_REVIEW_CYCLE: price_ci_single
+          NEXT_PUBLIC_STRIPE_PRICE_ACTIVE_BIDDER_PLAN: price_ci_active
+          NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE_PLAN: price_ci_enterprise
+          OPENAI_API_KEY: sk-ci-placeholder
+          RESEND_API_KEY: re_ci_placeholder
+          CONTACT_FROM_EMAIL: ci@example.com
+          CONTACT_TO_EMAIL: ci@example.com
+        run: npm run build
+
+      - name: Restore workflow and verify exact final PR scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --depth=1
+          git checkout origin/main -- .github/workflows/branch-hygiene.yml
+          rm -f /tmp/pr107-audit.json
+          mapfile -t final_changed < <(git diff --name-only origin/main | sort)
+          expected=(
+            lib/analyzer/__fixtures__/orion-parity-regression-fixture.mjs
+            lib/analyzer/__tests__/orion-parity-regression.test.mjs
+            lib/analyzer/anchors.ts
+            lib/analyzer/deterministic.ts
+            lib/analyzer/sanity.ts
+            package-lock.json
+            package.json
+          )
+          test "${final_changed[*]}" = "${expected[*]}"
+          test "$(git hash-object .github/workflows/branch-hygiene.yml)" = "$(git rev-parse origin/main:.github/workflows/branch-hygiene.yml)"
+          test -z "$(git status --porcelain --untracked-files=no | grep -vE '^( M|M |MM) (package.json|package-lock.json|.github/workflows/branch-hygiene.yml)$' || true)"
+
+      - name: Commit and push verified dependency candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json .github/workflows/branch-hygiene.yml
+          git commit -m "chore: patch PDF processing dependencies"
+          git push origin "HEAD:${TARGET_BRANCH}"
+          git push origin --delete "$TRIGGER_BRANCH" || true
