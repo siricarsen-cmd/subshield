@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - fix/nanoid-ghsa-2v37-7h3g-55p8
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
