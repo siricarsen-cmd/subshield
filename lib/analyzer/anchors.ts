@@ -69,7 +69,7 @@ function isValidSubcontractNumberCandidate(candidate: string): boolean {
   return !REJECTED_SUBCONTRACT_NUMBER_LABELS.has(normalized);
 }
 
-const PRIME_CONTRACT_NUMBER = /prime\s*contract\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-\/\.]{3,30})/i;
+const PRIME_CONTRACT_NUMBER = /prime\s*contract\s*(?:no\.?|number|#)\s*(?::|[-\u2010-\u2015]|\|)?\s*([A-Za-z0-9][A-Za-z0-9\-\/\.]{3,30})/i;
 const GOVT_CONTRACT_NUMBER = /\b(?:government|govt\.?|GS-|contract)\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-\/\.]{5,30})/i;
 const DELIVERY_ORDER = /(?:delivery|task)\s*order\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-\/\.]{2,30})/i;
 // Capture only the literal money substring. Ceiling/aggregate-value labels
@@ -93,7 +93,7 @@ const PARTIES = /this\s+subcontract(?:\s+agreement)?\s+is\s+(?:made\s+)?(?:enter
 // mention (e.g. "purchase order number" in an unrelated clause). Checked first;
 // the keyword patterns below are only a fallback when no explicit label exists.
 const EXPLICIT_TYPE_LABEL_WITH_SEPARATOR =
-  /(?:subcontract\s+type|type\s+of\s+(?:subcontract|agreement)|contract\s+type)\s*(?::|[-\u2010-\u2015])\s*(?:\n\s*)?([^\n.]{1,100})/i;
+  /(?:subcontract\s+type|type\s+of\s+(?:subcontract|agreement)|contract\s+type)\s*(?::|[-\u2010-\u2015]|\|)\s*(?:\n\s*)?([^\n.]{1,100})/i;
 const EXPLICIT_TYPE_LABEL_DIRECT =
   /(?:subcontract\s+type|type\s+of\s+(?:subcontract|agreement)|contract\s+type)\s*(?:\n\s*)?((?:Hybrid\s*(?:\(\s*)?)?(?:T\s*&\s*M|FFP\b|firm[\s-]*fixed[\s-]*price|time[\s-]*(?:and|&)[\s-]*materials|labor[\s-]hour|cost[\s-]*plus[\s-]*fixed[\s-]*fee|cost[\s-]reimburs(?:ement|able)|indefinite[\s-]delivery|IDIQ\b|purchase\s+order|teaming\s+agreement)[^\n.]{0,60})/i;
 
