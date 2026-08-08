@@ -125,7 +125,8 @@ const RULES: CoverageRule[] = [
     predicate: (text) =>
       hasAffirmativeAuditSignal(text) &&
       /records?|retention|retain/i.test(text) &&
-      /Prime|Government|audit|examine|authorized\s+audit\s+representatives?/i.test(text),
+      /Prime|Government|audit|examine|authorized\s+audit\s+representatives?/i.test(text) &&
+      /material\s+overcharge|defective\s+pricing|unsupported\s+cost|false\s+certification|incremental\s+audit\s+cost|reimburse[^.]{0,120}audit\s+cost|audit\s+cost[^.]{0,120}reimburse/i.test(text),
     riskAnalysis: () =>
       "This clause imposes extended records-retention and Prime/Government audit-access duties, with potential incremental exposure for unsupported cost, overcharge, defective pricing, or false certification.",
     redlineFix:
