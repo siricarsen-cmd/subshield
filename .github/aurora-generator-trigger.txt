@@ -1,0 +1,1 @@
+Temporary trigger for the corrected PR-scoped Aurora fix generator. Remove before final review.
