@@ -19,6 +19,8 @@ const MANDATORY_SUBCONTRACTOR_NOTICE_RE = new RegExp(
 );
 const SHORT_NOTICE_ENTITLEMENT_TOPIC_RE =
   /\b(?:change|claim|equitable\s+adjustment|additional\s+compensation|compensation|schedule|delay|differing[\s-](?:site\s+)?condition|cost|time|scope|price|direction)\b/i;
+const SHORT_NOTICE_CONTINUATION_RE =
+  /\b(?:notice|deadline|substantiat(?:e|ed|ion)|pricing|schedule|supporting\s+records?|change|claim|equitable\s+adjustment|compensation|cost|time|delay|scope|price)\b/i;
 const PROTECTIVE_SHORT_NOTICE_RE =
   /\b(?:does|shall|will|may|can)\s+not\s+(?:waive|forfeit|bar|relinquish)|\b(?:is|are|shall|will)\s+not\s+(?:be\s+)?(?:waived|forfeited|barred|relinquished)|\b(?:late|later|untimely|delayed)\s+(?:notice|invoice)[^.]{0,140}\b(?:does|shall|will)\s+not\s+(?:waive|forfeit|bar|relinquish)|\bunless\b[^.]{0,220}\bmaterial\s+prejudice\b|\bunless\b[^.]{0,220}\b(?:Prime(?:\s+Contractor)?|Prime)\b[^.]{0,120}\b(?:demonstrates?|shows?|establishes?)\b[^.]{0,100}\bprejudice\b/i;
 const AFFIRMATIVE_SHORT_NOTICE_CONSEQUENCE_RE =
@@ -34,6 +36,13 @@ function splitFindingSentences(foundText: string): string[] {
     .filter(Boolean);
 }
 
+function hasAffirmativeShortNoticeConsequence(text: string): boolean {
+  return (
+    AFFIRMATIVE_SHORT_NOTICE_CONSEQUENCE_RE.test(text) ||
+    REVERSED_SHORT_NOTICE_CONSEQUENCE_RE.test(text)
+  );
+}
+
 export function hasShortNoticeWaiverRiskEvidence(foundText: string): boolean {
   const sentences = splitFindingSentences(foundText);
   const dutyIndex = sentences.findIndex(
@@ -43,16 +52,30 @@ export function hasShortNoticeWaiverRiskEvidence(foundText: string): boolean {
   );
   if (dutyIndex < 0) return false;
 
-  // A true trap normally states the deadline and its consequence in the same
-  // sentence or in the immediately following sentence. Keeping this window
-  // clause-local prevents an unrelated waiver elsewhere in a longer quote from
-  // being paired with a nearby numeric deadline.
-  const localWindow = sentences.slice(dutyIndex, dutyIndex + 2).join(" ");
-  if (PROTECTIVE_SHORT_NOTICE_RE.test(localWindow)) return false;
-  return (
-    AFFIRMATIVE_SHORT_NOTICE_CONSEQUENCE_RE.test(localWindow) ||
-    REVERSED_SHORT_NOTICE_CONSEQUENCE_RE.test(localWindow)
-  );
+  // A true notice-waiver clause can put a substantiation deadline between the
+  // initial notice duty and the waiver consequence (QA-D does exactly this).
+  // Search no farther than two follow-up sentences, and only cross an
+  // intervening sentence when that sentence remains part of the same
+  // notice/change/claim substantiation context. This keeps the rule local
+  // while preserving genuine multi-step notice traps.
+  for (let followUpCount = 0; followUpCount <= 2; followUpCount++) {
+    const endIndex = dutyIndex + followUpCount;
+    if (endIndex >= sentences.length) break;
+
+    const intervening = sentences.slice(dutyIndex + 1, endIndex);
+    if (
+      intervening.length > 0 &&
+      !intervening.every((sentence) => SHORT_NOTICE_CONTINUATION_RE.test(sentence))
+    ) {
+      continue;
+    }
+
+    const localWindow = sentences.slice(dutyIndex, endIndex + 1).join(" ");
+    if (PROTECTIVE_SHORT_NOTICE_RE.test(localWindow)) return false;
+    if (hasAffirmativeShortNoticeConsequence(localWindow)) return true;
+  }
+
+  return false;
 }
 
 function isShortNoticeWaiverFinding(finding: Finding): boolean {
