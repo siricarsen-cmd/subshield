@@ -1,8 +1,8 @@
 name: Aurora Short Notice Fix Generator
 
 on:
-  push:
-    branches: [fix/aurora-short-notice-false-positive]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
