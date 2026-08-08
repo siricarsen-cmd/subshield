@@ -1,9 +1,8 @@
 name: Aurora Short Notice Fix Generator
 
 on:
-  push:
-    branches:
-      - fix/aurora-short-notice-false-positive
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
@@ -13,46 +12,33 @@ jobs:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-24.04
     steps:
-      - name: Check out working branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: fix/aurora-short-notice-false-positive
-      - name: Use Node.js 24
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-      - name: Apply bounded short-notice correctness fix
-        shell: bash
+      - name: Apply bounded fix
         run: |
           python - <<'PY'
           from pathlib import Path
           import re
 
-          deterministic = Path('lib/analyzer/deterministic.ts')
-          text = deterministic.read_text()
-
-          categories_marker = 'const CATEGORIES: DeterministicCategory[] = ['
-          assert categories_marker in text
-          helper = r'''const SHORT_NOTICE_DAY_COUNT_SOURCE = String.raw`(?:\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty)`;
+          p=Path('lib/analyzer/deterministic.ts'); s=p.read_text()
+          marker='const CATEGORIES: DeterministicCategory[] = ['
+          helper=r'''const SHORT_NOTICE_DAY_COUNT_SOURCE = String.raw`(?:\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty)`;
           const SUBCONTRACTOR_NOTICE_DUTY_RE = new RegExp(
-            String.raw`\bSubcontractor\b[^.]{0,120}\b(?:must|shall|is\s+required\s+to)\b[^.]{0,100}\b(?:notify|provide|give|submit)\b[^.]{0,140}\b(?:within|no\s+later\s+than)\s+${SHORT_NOTICE_DAY_COUNT_SOURCE}\s*(?:calendar|business|working)?\s*days?\b`,
-            "i"
+            String.raw`\bSubcontractor\b[^.]{0,120}\b(?:must|shall|is\s+required\s+to)\b[^.]{0,100}\b(?:notify|provide|give|submit)\b[^.]{0,140}\b(?:within|no\s+later\s+than)\s+${SHORT_NOTICE_DAY_COUNT_SOURCE}\s*(?:calendar|business|working)?\s*days?\b`, "i"
           );
-          const PROTECTIVE_SHORT_NOTICE_RE =
-            /\b(?:does|shall|will|may|can)\s+not\s+(?:waive|forfeit|bar|relinquish)|\b(?:is|are|shall|will)\s+not\s+(?:be\s+)?(?:waived|forfeited|barred)|\b(?:late|later|untimely|delayed)\s+(?:notice|invoice)[^.]{0,120}\b(?:does|shall|will)\s+not\s+(?:waive|forfeit|bar)|\bunless\b[^.]{0,180}\bmaterial\s+prejudice\b|\bunless\b[^.]{0,180}\b(?:Prime(?:\s+Contractor)?|Prime)\b[^.]{0,100}\b(?:demonstrates?|shows?|establishes?)\b[^.]{0,80}\bprejudice\b/i;
-          const AFFIRMATIVE_SHORT_NOTICE_CONSEQUENCE_RE =
-            /(?<!not\s)(?:waiv(?:e|es|ed)|forfeit(?:s|ed)?|bar(?:s|red)?|relinquish(?:es|ed)?|constitutes?\s+(?:a\s+)?(?:complete\s+)?waiver|results?\s+in\s+(?:a\s+)?(?:complete\s+)?waiver|deemed\s+waived)[^.]{0,240}(?:request\s+for\s+equitable\s+adjustment|\bclaim\b|additional\s+compensation|\bcompensation\b|delay\s+relief|schedule\s+(?:relief|extension)|time\s+extension|adjustment\s+rights?)/i;
-          const REVERSED_SHORT_NOTICE_CONSEQUENCE_RE =
-            /(?:request\s+for\s+equitable\s+adjustment|\bclaim\b|additional\s+compensation|\bcompensation\b|delay\s+relief|schedule\s+(?:relief|extension)|time\s+extension|adjustment\s+rights?)[^.]{0,180}(?<!not\s)(?:is|are|shall\s+be|will\s+be|must\s+be)?\s*(?:deemed\s+)?(?:waived|forfeited|barred|relinquished)/i;
+          const PROTECTIVE_SHORT_NOTICE_RE = /\b(?:does|shall|will|may|can)\s+not\s+(?:waive|forfeit|bar|relinquish)|\b(?:is|are|shall|will)\s+not\s+(?:be\s+)?(?:waived|forfeited|barred)|\bunless\b[^.]{0,180}\bmaterial\s+prejudice\b|\bunless\b[^.]{0,180}\b(?:Prime(?:\s+Contractor)?|Prime)\b[^.]{0,100}\b(?:demonstrates?|shows?|establishes?)\b[^.]{0,80}\bprejudice\b/i;
+          const AFFIRMATIVE_SHORT_NOTICE_CONSEQUENCE_RE = /(?<!not\s)(?:waiv(?:e|es|ed)|forfeit(?:s|ed)?|bar(?:s|red)?|relinquish(?:es|ed)?|constitutes?\s+(?:a\s+)?(?:complete\s+)?waiver|results?\s+in\s+(?:a\s+)?(?:complete\s+)?waiver|deemed\s+waived)[^.]{0,240}(?:request\s+for\s+equitable\s+adjustment|\bclaim\b|additional\s+compensation|\bcompensation\b|delay\s+relief|schedule\s+(?:relief|extension)|time\s+extension|adjustment\s+rights?)/i;
+          const REVERSED_SHORT_NOTICE_CONSEQUENCE_RE = /(?:request\s+for\s+equitable\s+adjustment|\bclaim\b|additional\s+compensation|\bcompensation\b|delay\s+relief|schedule\s+(?:relief|extension)|time\s+extension|adjustment\s+rights?)[^.]{0,180}(?<!not\s)(?:is|are|shall\s+be|will\s+be|must\s+be)?\s*(?:deemed\s+)?(?:waived|forfeited|barred|relinquished)/i;
 
           export function hasShortNoticeWaiverRiskEvidence(text: string): boolean {
             if (!SUBCONTRACTOR_NOTICE_DUTY_RE.test(text)) return false;
             if (PROTECTIVE_SHORT_NOTICE_RE.test(text)) return false;
-            return (
-              AFFIRMATIVE_SHORT_NOTICE_CONSEQUENCE_RE.test(text) ||
-              REVERSED_SHORT_NOTICE_CONSEQUENCE_RE.test(text)
-            );
+            return AFFIRMATIVE_SHORT_NOTICE_CONSEQUENCE_RE.test(text) || REVERSED_SHORT_NOTICE_CONSEQUENCE_RE.test(text);
           }
 
           function findShortNoticeWaiverCandidate(documentText: string): string | null {
@@ -60,43 +46,17 @@ jobs:
           }
 
           '''
-          text = text.replace(categories_marker, helper + categories_marker, 1)
+          assert marker in s; s=s.replace(marker,helper+marker,1)
+          pat=re.compile(r'  \{\n    familyKey: "payment",\n    regulation: "Short Notice-of-Claim / Change Notice Waiver",\n    severity: "Medium-High",\n    patterns: \[.*?\n    redlineFix:\n      "Extend the notice period to a commercially reasonable window, add a materiality/prejudice qualifier so late notice does not forfeit the claim unless it actually prejudiced the Prime, and add a reasonable-excuse exception\."\n  \},',re.S)
+          repl='''  {\n    familyKey: "payment",\n    regulation: "Short Notice-of-Claim / Change Notice Waiver",\n    severity: "Medium-High",\n    patterns: [],\n    findCandidate: findShortNoticeWaiverCandidate,\n    riskAnalysis:\n      "This clause conditions the Subcontractor's right to compensation or a schedule extension on giving notice within a narrow window, meaning a missed or late notice - even for a legitimate change or delay caused by the Prime or Government - can permanently forfeit the Subcontractor's claim.",\n    redlineFix:\n      "Extend the notice period to a commercially reasonable window, add a materiality/prejudice qualifier so late notice does not forfeit the claim unless it actually prejudiced the Prime, and add a reasonable-excuse exception.",\n  },'''
+          s,n=pat.subn(repl,s,1); assert n==1; p.write_text(s)
 
-          category_re = re.compile(
-            r'  \{\n    familyKey: "payment",\n    regulation: "Short Notice-of-Claim / Change Notice Waiver",\n    severity: "Medium-High",\n    patterns: \[.*?\n    redlineFix:\n      "Extend the notice period to a commercially reasonable window, add a materiality/prejudice qualifier so late notice does not forfeit the claim unless it actually prejudiced the Prime, and add a reasonable-excuse exception\."\n  \},',
-            re.S,
-          )
-          replacement = '''  {
-            familyKey: "payment",
-            regulation: "Short Notice-of-Claim / Change Notice Waiver",
-            severity: "Medium-High",
-            patterns: [],
-            findCandidate: findShortNoticeWaiverCandidate,
-            riskAnalysis:
-              "This clause conditions the Subcontractor's right to compensation or a schedule extension on giving notice within a narrow window, meaning a missed or late notice - even for a legitimate change or delay caused by the Prime or Government - can permanently forfeit the Subcontractor's claim.",
-            redlineFix:
-              "Extend the notice period to a commercially reasonable window, add a materiality/prejudice qualifier so late notice does not forfeit the claim unless it actually prejudiced the Prime, and add a reasonable-excuse exception.",
-          },'''
-          text, count = category_re.subn(replacement, text, count=1)
-          assert count == 1, f'short-notice category replacements: {count}'
-          deterministic.write_text(text)
-
-          sanity = Path('lib/analyzer/sanity.ts')
-          text = sanity.read_text()
-          import_marker = '  hasTerminationForConvenienceRiskEvidence,\n'
-          assert import_marker in text
-          text = text.replace(
-            import_marker,
-            import_marker + '  hasShortNoticeWaiverRiskEvidence,\n',
-            1,
-          )
-          guard_marker = '  // (B) Bare prime-contract identifier:'
-          assert guard_marker in text
-          guard = r'''  // Short-notice findings must be proven by the finding's own quote: the
-          // Subcontractor must own a mandatory notice deadline and the same local
-          // evidence must contain an affirmative waiver/forfeiture consequence.
-          // Protective anti-waiver/material-prejudice language therefore cannot
-          // survive merely because a short day count appears near the word "waive".
+          p=Path('lib/analyzer/sanity.ts'); s=p.read_text()
+          im='  hasTerminationForConvenienceRiskEvidence,\n'; assert im in s; s=s.replace(im,im+'  hasShortNoticeWaiverRiskEvidence,\n',1)
+          gm='  // (B) Bare prime-contract identifier:'; assert gm in s
+          guard=r'''  // Require finding-local proof that the Subcontractor owns the deadline and
+          // that missing it affirmatively waives/forfeits a claim or adjustment.
+          // Express anti-waiver/material-prejudice language is protective, not risky.
           if (
             finding.familyKey === "payment" &&
             NOTICE_WAIVER_REGULATION_RE.test(finding.regulation) &&
@@ -106,101 +66,45 @@ jobs:
           }
 
           '''
-          text = text.replace(guard_marker, guard + guard_marker, 1)
-          sanity.write_text(text)
+          p.write_text(s.replace(gm,guard+gm,1))
 
-          test_path = Path('lib/analyzer/__tests__/short-notice-protective-regression.test.mjs')
-          test_path.write_text(r'''import { runDeterministicDetectors, hasShortNoticeWaiverRiskEvidence } from "../deterministic.ts";
+          Path('lib/analyzer/__tests__/short-notice-protective-regression.test.mjs').write_text(r'''import { runDeterministicDetectors, hasShortNoticeWaiverRiskEvidence } from "../deterministic.ts";
           import { verifyFindings } from "../sanity.ts";
-
-          const NOTICE_WAIVER = "Short Notice-of-Claim / Change Notice Waiver";
-
-          const AURORA_INVOICE =
-            "Prime Contractor will notify Subcontractor of any invoice defect within 7 business days after receipt and will provide a reasonable opportunity to correct it. A late or corrected invoice does not waive Subcontractor's right to payment.";
-          const AURORA_CHANGE =
-            "Subcontractor should notify Prime Contractor within 15 business days after recognizing a potential change. A later notice does not waive adjustment rights unless Prime Contractor demonstrates material prejudice caused by the delay.";
-          const ORION_CHANGE =
-            "If Subcontractor believes any Prime Contractor direction changes scope, price, staffing, deliverables, security requirements, or schedule, Subcontractor must notify Prime Contractor in writing within 2 business days after receiving the direction. Failure to provide timely notice waives Subcontractor's right to request additional compensation, equitable adjustment, or schedule relief related to the direction.";
-
-          const VARIANTS = {
-            primeAdministrativeProtective:
-              "Prime Contractor shall notify Subcontractor of a billing defect within 5 calendar days. A delayed invoice shall not forfeit Subcontractor's entitlement to payment.",
-            subcontractorProtective:
-              "Subcontractor must give written notice to Prime Contractor within 4 calendar days after recognizing a potential change. Failure to provide timely notice does not waive Subcontractor's right to an equitable adjustment unless Prime demonstrates material prejudice.",
-            subcontractorProtectiveBar:
-              "Subcontractor shall submit written notice no later than 3 business days after recognizing a change. Late notice shall not bar the claim unless Prime Contractor demonstrates material prejudice caused by the delay.",
-            subcontractorTruePositive:
-              "Subcontractor shall give written notice to Prime Contractor within 5 business days after recognizing a scope change. Failure to provide timely notice forfeits Subcontractor's entitlement to equitable adjustment and additional compensation.",
-            subcontractorTruePositiveBar:
-              "Subcontractor is required to submit written notice no later than 3 calendar days after recognizing a delay. Missing the deadline bars the Subcontractor's claim for schedule relief.",
-          };
-
-          let failures = 0;
-          function check(label, condition) {
-            if (condition) console.log(`PASS: ${label}`);
-            else {
-              console.error(`FAIL: ${label}`);
-              failures++;
-            }
-          }
-          function deterministicFinding(text) {
-            return runDeterministicDetectors(text).find((finding) => finding.regulation === NOTICE_WAIVER);
-          }
-          function simulatedModelFinding(foundText) {
-            return {
-              triggerType: "Contract Risk Trigger",
-              regulation: NOTICE_WAIVER,
-              severity: "Medium-High",
-              foundText,
-              riskAnalysis:
-                "This provision conditions the Subcontractor's compensation or schedule rights on giving notice within a narrow period and permanently waives the claim if notice is late.",
-              redlineFix: "Extend the notice period and remove automatic waiver.",
-              familyKey: "payment",
-            };
-          }
-
-          check("A1. Aurora 7-day Prime invoice review is not risk evidence", !hasShortNoticeWaiverRiskEvidence(AURORA_INVOICE));
-          check("A2. Aurora 7-day Prime invoice review produces no deterministic notice-waiver finding", !deterministicFinding(AURORA_INVOICE));
-          check("A3. simulated model Aurora invoice false positive is rejected by sanity", verifyFindings([simulatedModelFinding(AURORA_INVOICE)], AURORA_INVOICE).verified.length === 0);
-
-          check("B1. Aurora 15-day protected change notice is not risk evidence", !hasShortNoticeWaiverRiskEvidence(AURORA_CHANGE));
-          check("B2. Aurora 15-day protected change notice produces no deterministic notice-waiver finding", !deterministicFinding(AURORA_CHANGE));
-          check("B3. simulated model Aurora protected-change false positive is rejected by sanity", verifyFindings([simulatedModelFinding(AURORA_CHANGE)], AURORA_CHANGE).verified.length === 0);
-
-          const orion = deterministicFinding(ORION_CHANGE);
-          check("C1. Orion 2-day actual waiver remains risk evidence", hasShortNoticeWaiverRiskEvidence(ORION_CHANGE));
-          check("C2. Orion 2-day actual waiver remains deterministically detected", Boolean(orion));
-          check("C3. Orion finding keeps grounded waiver evidence", Boolean(orion && ORION_CHANGE.includes(orion.foundText) && orion.foundText.includes("2 business days") && orion.foundText.includes("waives Subcontractor's right")));
-          check("C4. simulated model Orion true positive survives sanity", verifyFindings([simulatedModelFinding(ORION_CHANGE)], ORION_CHANGE).verified.length === 1);
-
-          check("D1. Prime-facing 5-day administrative deadline with anti-forfeiture protection stays negative", !deterministicFinding(VARIANTS.primeAdministrativeProtective));
-          check("D2. mandatory Subcontractor deadline with 'does not waive' and material-prejudice protection stays negative", !deterministicFinding(VARIANTS.subcontractorProtective));
-          check("D3. 'late notice shall not bar' material-prejudice variant stays negative", !deterministicFinding(VARIANTS.subcontractorProtectiveBar));
-          check("D4. genuine 5-day Subcontractor forfeiture variant remains detected", Boolean(deterministicFinding(VARIANTS.subcontractorTruePositive)));
-          check("D5. genuine no-later-than 3-day barred-claim variant remains detected", Boolean(deterministicFinding(VARIANTS.subcontractorTruePositiveBar)));
-
-          if (failures > 0) {
-            console.error(`\n${failures} short-notice regression check(s) failed.`);
-            process.exit(1);
-          }
+          const R="Short Notice-of-Claim / Change Notice Waiver";
+          const invoice="Prime Contractor will notify Subcontractor of any invoice defect within 7 business days after receipt and will provide a reasonable opportunity to correct it. A late or corrected invoice does not waive Subcontractor's right to payment.";
+          const aurora="Subcontractor should notify Prime Contractor within 15 business days after recognizing a potential change. A later notice does not waive adjustment rights unless Prime Contractor demonstrates material prejudice caused by the delay.";
+          const orion="If Subcontractor believes any Prime Contractor direction changes scope, price, staffing, deliverables, security requirements, or schedule, Subcontractor must notify Prime Contractor in writing within 2 business days after receiving the direction. Failure to provide timely notice waives Subcontractor's right to request additional compensation, equitable adjustment, or schedule relief related to the direction.";
+          const variants=[
+            [false,"Prime Contractor shall notify Subcontractor of a billing defect within 5 calendar days. A delayed invoice shall not forfeit Subcontractor's entitlement to payment."],
+            [false,"Subcontractor must give written notice to Prime Contractor within 4 calendar days after recognizing a potential change. Failure to provide timely notice does not waive Subcontractor's right to an equitable adjustment unless Prime demonstrates material prejudice."],
+            [false,"Subcontractor shall submit written notice no later than 3 business days after recognizing a change. Late notice shall not bar the claim unless Prime Contractor demonstrates material prejudice caused by the delay."],
+            [true,"Subcontractor shall give written notice to Prime Contractor within 5 business days after recognizing a scope change. Failure to provide timely notice forfeits Subcontractor's entitlement to equitable adjustment and additional compensation."],
+            [true,"Subcontractor is required to submit written notice no later than 3 calendar days after recognizing a delay. Missing the deadline bars the Subcontractor's claim for schedule relief."],
+          ];
+          let failures=0; const check=(l,c)=>c?console.log(`PASS: ${l}`):(console.error(`FAIL: ${l}`),failures++);
+          const find=t=>runDeterministicDetectors(t).find(f=>f.regulation===R);
+          const model=t=>({triggerType:"Contract Risk Trigger",regulation:R,severity:"Medium-High",foundText:t,riskAnalysis:"Late notice permanently waives compensation or schedule rights.",redlineFix:"Remove automatic waiver.",familyKey:"payment"});
+          check("A1 Aurora 7-day Prime invoice notice negative",!hasShortNoticeWaiverRiskEvidence(invoice)&&!find(invoice));
+          check("A2 Aurora invoice model false positive rejected",verifyFindings([model(invoice)],invoice).verified.length===0);
+          check("B1 Aurora 15-day anti-waiver/material-prejudice negative",!hasShortNoticeWaiverRiskEvidence(aurora)&&!find(aurora));
+          check("B2 Aurora protected-change model false positive rejected",verifyFindings([model(aurora)],aurora).verified.length===0);
+          const of=find(orion); check("C1 Orion 2-day actual waiver positive",hasShortNoticeWaiverRiskEvidence(orion)&&Boolean(of));
+          check("C2 Orion quote remains grounded",Boolean(of&&orion.includes(of.foundText)&&of.foundText.includes("2 business days")&&of.foundText.includes("waives Subcontractor's right")));
+          check("C3 Orion model true positive survives sanity",verifyFindings([model(orion)],orion).verified.length===1);
+          variants.forEach(([expected,t],i)=>check(`D${i+1} variant ${expected?'positive':'negative'} preserved`,Boolean(find(t))===expected));
+          if(failures){console.error(`\n${failures} check(s) failed.`);process.exit(1)}
           console.log("\nAll Aurora/Orion short-notice regression checks passed.");
           ''')
 
-          package = Path('package.json')
-          text = package.read_text()
-          old = '"test:accuracy:core": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/analyzer/__tests__/qa-core-accuracy-benchmark.test.mjs && node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/analyzer/__tests__/plain-text-parity-regression.test.mjs"'
-          new = '"test:accuracy:core": "node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/analyzer/__tests__/qa-core-accuracy-benchmark.test.mjs && node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/analyzer/__tests__/plain-text-parity-regression.test.mjs && node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/analyzer/__tests__/short-notice-protective-regression.test.mjs"'
-          assert old in text
-          package.write_text(text.replace(old, new, 1))
+          p=Path('package.json'); s=p.read_text()
+          old='lib/analyzer/__tests__/plain-text-parity-regression.test.mjs"'
+          new='lib/analyzer/__tests__/plain-text-parity-regression.test.mjs && node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/analyzer/__tests__/short-notice-protective-regression.test.mjs"'
+          assert old in s; p.write_text(s.replace(old,new,1))
           PY
-      - name: Install locked dependencies
-        run: npm ci
-      - name: Run focused short-notice regression
-        run: node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/analyzer/__tests__/short-notice-protective-regression.test.mjs
-      - name: Run core analyzer gate
-        run: npm run test:accuracy:core
-      - name: Validate TypeScript
-        run: npx tsc --noEmit
+      - run: npm ci
+      - run: node --experimental-loader ./lib/analyzer/__tests__/ts-relative-import.loader.mjs lib/analyzer/__tests__/short-notice-protective-regression.test.mjs
+      - run: npm run test:accuracy:core
+      - run: npx tsc --noEmit
       - name: Commit bounded fix
         run: |
           git config user.name "github-actions[bot]"
