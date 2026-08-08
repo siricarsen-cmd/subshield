@@ -36,6 +36,40 @@ function sentences(text: string): string[] {
     .filter(Boolean);
 }
 
+// PDF text layers commonly preserve visual line wraps as single newlines. For
+// cyber applicability, a single wrap inside an unfinished sentence must not
+// separate a condition from its bilateral-modification protection. Collapse
+// only those soft wraps; blank lines and lines already closed by punctuation
+// remain semantic boundaries. This is intentionally cyber-local so global
+// extraction, quote grounding, and other detector segmentation do not change.
+function cyberSentences(text: string): string[] {
+  const normalized = text.replace(/\r\n?/g, "\n");
+  const lines = normalized.split("\n");
+  let semanticText = "";
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) {
+      if (semanticText && !semanticText.endsWith("\n\n")) semanticText += "\n\n";
+      continue;
+    }
+
+    if (!semanticText) {
+      semanticText = line;
+      continue;
+    }
+
+    const previous = semanticText.trimEnd();
+    const previousClosed = /[.!?;:]$/.test(previous);
+    semanticText += previousClosed ? `\n\n${line}` : ` ${line}`;
+  }
+
+  return semanticText
+    .split(/(?<=[.!?])\s+|\n{2,}/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+}
+
 function signalSegments(text: string): SignalSegment[] {
   const result: SignalSegment[] = [];
   for (const sentence of sentences(text)) {
@@ -57,7 +91,7 @@ function signalSegments(text: string): SignalSegment[] {
 // not hidden by an earlier negative statement.
 function cyberSegments(text: string): SignalSegment[] {
   const result: SignalSegment[] = [];
-  for (const sentence of sentences(text)) {
+  for (const sentence of cyberSentences(text)) {
     const fragments = sentence
       .split(/\s*;\s*|,\s+(?=(?:but|however|except|provided\s+that)\b)/i)
       .map((fragment) => fragment.trim())
