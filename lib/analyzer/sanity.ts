@@ -17,19 +17,41 @@ const MANDATORY_SUBCONTRACTOR_NOTICE_RE = new RegExp(
   String.raw`\bSubcontractor\b[^.]{0,280}\b(?:must|shall|is\s+required\s+to)\b[^.]{0,120}\b(?:notify|provide|give|submit)\b[^.]{0,220}\b(?:within|no\s+later\s+than)\s+${SHORT_NOTICE_DAY_SOURCE}\s*(?:calendar|business|working)?\s*days?\b`,
   "i"
 );
+const SHORT_NOTICE_ENTITLEMENT_TOPIC_RE =
+  /\b(?:change|claim|equitable\s+adjustment|additional\s+compensation|compensation|schedule|delay|differing[\s-](?:site\s+)?condition|cost|time|scope|price|direction)\b/i;
 const PROTECTIVE_SHORT_NOTICE_RE =
   /\b(?:does|shall|will|may|can)\s+not\s+(?:waive|forfeit|bar|relinquish)|\b(?:is|are|shall|will)\s+not\s+(?:be\s+)?(?:waived|forfeited|barred|relinquished)|\b(?:late|later|untimely|delayed)\s+(?:notice|invoice)[^.]{0,140}\b(?:does|shall|will)\s+not\s+(?:waive|forfeit|bar|relinquish)|\bunless\b[^.]{0,220}\bmaterial\s+prejudice\b|\bunless\b[^.]{0,220}\b(?:Prime(?:\s+Contractor)?|Prime)\b[^.]{0,120}\b(?:demonstrates?|shows?|establishes?)\b[^.]{0,100}\bprejudice\b/i;
 const AFFIRMATIVE_SHORT_NOTICE_CONSEQUENCE_RE =
-  /(?:waiv(?:e|es|ed)|forfeit(?:s|ed)?|bar(?:s|red)?|relinquish(?:es|ed)?|constitutes?\s+(?:a\s+)?(?:complete\s+)?waiver|results?\s+in\s+(?:a\s+)?(?:complete\s+)?waiver|deemed\s+waived)[^.]{0,280}(?:\bright\b|request\s+for\s+equitable\s+adjustment|\bclaim\b|additional\s+compensation|\bcompensation\b|delay\s+relief|schedule\s+(?:relief|extension)|time\s+extension|adjustment\s+rights?)/i;
+  /(?:waiv(?:e|es|ed)|forfeit(?:s|ed)?|bar(?:s|red)?|relinquish(?:es|ed)?|constitutes?\s+(?:a\s+)?(?:complete\s+)?waiver|results?\s+in\s+(?:a\s+)?(?:complete\s+)?waiver|deemed\s+waived)[^.]{0,280}(?:request\s+for\s+equitable\s+adjustment|\bclaim\b|additional\s+compensation|\bcompensation\b|delay\s+relief|schedule\s+(?:relief|extension)|time\s+extension|adjustment\s+rights?)/i;
 const REVERSED_SHORT_NOTICE_CONSEQUENCE_RE =
-  /(?:\bright\b|request\s+for\s+equitable\s+adjustment|\bclaim\b|additional\s+compensation|\bcompensation\b|delay\s+relief|schedule\s+(?:relief|extension)|time\s+extension|adjustment\s+rights?)[^.]{0,220}(?:waived|forfeited|barred|relinquished)/i;
+  /(?:request\s+for\s+equitable\s+adjustment|\bclaim\b|additional\s+compensation|\bcompensation\b|delay\s+relief|schedule\s+(?:relief|extension)|time\s+extension|adjustment\s+rights?)[^.]{0,220}(?:waived|forfeited|barred|relinquished)/i;
+
+function splitFindingSentences(foundText: string): string[] {
+  return foundText
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(/(?<=[.!?])\s+/)
+    .filter(Boolean);
+}
 
 export function hasShortNoticeWaiverRiskEvidence(foundText: string): boolean {
-  if (!MANDATORY_SUBCONTRACTOR_NOTICE_RE.test(foundText)) return false;
-  if (PROTECTIVE_SHORT_NOTICE_RE.test(foundText)) return false;
+  const sentences = splitFindingSentences(foundText);
+  const dutyIndex = sentences.findIndex(
+    (sentence) =>
+      MANDATORY_SUBCONTRACTOR_NOTICE_RE.test(sentence) &&
+      SHORT_NOTICE_ENTITLEMENT_TOPIC_RE.test(sentence)
+  );
+  if (dutyIndex < 0) return false;
+
+  // A true trap normally states the deadline and its consequence in the same
+  // sentence or in the immediately following sentence. Keeping this window
+  // clause-local prevents an unrelated waiver elsewhere in a longer quote from
+  // being paired with a nearby numeric deadline.
+  const localWindow = sentences.slice(dutyIndex, dutyIndex + 2).join(" ");
+  if (PROTECTIVE_SHORT_NOTICE_RE.test(localWindow)) return false;
   return (
-    AFFIRMATIVE_SHORT_NOTICE_CONSEQUENCE_RE.test(foundText) ||
-    REVERSED_SHORT_NOTICE_CONSEQUENCE_RE.test(foundText)
+    AFFIRMATIVE_SHORT_NOTICE_CONSEQUENCE_RE.test(localWindow) ||
+    REVERSED_SHORT_NOTICE_CONSEQUENCE_RE.test(localWindow)
   );
 }
 
@@ -53,7 +75,7 @@ export function verifyFindings(
       dropped.push({
         finding,
         reason:
-          "Finding's own verified quote does not establish a mandatory Subcontractor notice deadline with an affirmative claim/adjustment waiver or forfeiture consequence, or it contains express anti-waiver/material-prejudice protection; not a short notice-of-claim trap.",
+          "Finding's own verified quote does not establish a mandatory Subcontractor change/claim notice deadline with an affirmative claim/adjustment forfeiture consequence, or it contains express anti-waiver/material-prejudice protection; not a short notice-of-claim trap.",
       });
       continue;
     }
