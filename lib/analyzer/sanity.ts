@@ -1,10 +1,11 @@
 // Verification entry point: preserves the established grounding/contradiction
-// checks in sanity-core.ts, then applies the shared short-notice acceptance
-// standard to every candidate (model-generated or deterministic) before a
-// finding is allowed to surface.
+// checks in sanity-core.ts, then applies shared finding-local acceptance rules
+// to every candidate (model-generated or deterministic) before it can surface.
 
 import { verifyFindings as verifyFindingsCore } from "./sanity-core";
 import type { VerificationResult as CoreVerificationResult } from "./sanity-core";
+import { SHORT_CURE_MAX_DAYS } from "./deterministic";
+import { hasAffirmativeCyberSignal, hasAffirmativeSclsSignal } from "./affirmative-signals";
 import type { Finding } from "./types";
 
 export * from "./sanity-core";
@@ -27,6 +28,18 @@ const AFFIRMATIVE_SHORT_NOTICE_CONSEQUENCE_RE =
   /(?:waiv(?:e|es|ed)|forfeit(?:s|ed)?|bar(?:s|red)?|relinquish(?:es|ed)?|constitutes?\s+(?:a\s+)?(?:complete\s+)?waiver|results?\s+in\s+(?:a\s+)?(?:complete\s+)?waiver|deemed\s+waived)[^.]{0,280}(?:request\s+for\s+equitable\s+adjustment|\bclaim\b|additional\s+compensation|\bcompensation\b|delay\s+relief|schedule\s+(?:relief|extension)|time\s+extension|adjustment\s+rights?)/i;
 const REVERSED_SHORT_NOTICE_CONSEQUENCE_RE =
   /(?:request\s+for\s+equitable\s+adjustment|\bclaim\b|additional\s+compensation|\bcompensation\b|delay\s+relief|schedule\s+(?:relief|extension)|time\s+extension|adjustment\s+rights?)[^.]{0,220}(?:waived|forfeited|barred|relinquished)/i;
+
+const CYBER_FINDING_RE =
+  /252\.204-7012|NIST\s*SP\s*800-171|\bCUI\b|controlled\s+unclassified\s+information|cybersecurity\s+flowdown/i;
+const SCLS_FINDING_RE =
+  /service\s+contract\s+labor\s+standards|service\s+contract\s+act|\bSCLS\b|\bSCA\b|52\.222-41/i;
+const CURE_FINDING_TITLE_RE = /short\s+default\s+cure|cure\s+period|termination\s+discretion/i;
+const LONG_CURE_DAY_RE =
+  /(?:(\d+)\s*(?:calendar|business|working)?\s*days?\s+to\s+cure|cure[^.]{0,100}\bwithin\s+(\d+)\s*(?:calendar|business|working)?\s*days?|(?:remains?|remain|is|are)\s+uncured\s+for\s+(\d+)\s*(?:calendar|business|working)?\s*days?)/i;
+const IMMEDIATE_TERMINATION_SIGNAL_RE =
+  /terminate[^.]{0,80}immediately|terminat(?:e|ion)[^.]{0,80}without\s+(?:a\s+)?cure|without\s+(?:further\s+)?notice|sole\s+discretion|(?:without\s+(?:any|a|an|providing(?:\s+an)?)|no)\s+(?:right|opportunity)\s+to\s+cure/i;
+const OTHER_LIABILITY_SIGNAL_RE =
+  /indemnif|hold\s+harmless|duty\s+to\s+defend|uncapped\s+liability|liability\s+cap|binding\s+arbitration|governing\s+law|continue[^.]{0,40}performance[^.]{0,80}(?:payment|withhold|dispute)/i;
 
 function splitFindingSentences(foundText: string): string[] {
   return foundText
@@ -52,12 +65,6 @@ export function hasShortNoticeWaiverRiskEvidence(foundText: string): boolean {
   );
   if (dutyIndex < 0) return false;
 
-  // A true notice-waiver clause can put a substantiation deadline between the
-  // initial notice duty and the waiver consequence (QA-D does exactly this).
-  // Search no farther than two follow-up sentences, and only cross an
-  // intervening sentence when that sentence remains part of the same
-  // notice/change/claim substantiation context. This keeps the rule local
-  // while preserving genuine multi-step notice traps.
   for (let followUpCount = 0; followUpCount <= 2; followUpCount++) {
     const endIndex = dutyIndex + followUpCount;
     if (endIndex >= sentences.length) break;
@@ -79,10 +86,48 @@ export function hasShortNoticeWaiverRiskEvidence(foundText: string): boolean {
 }
 
 function isShortNoticeWaiverFinding(finding: Finding): boolean {
+  return finding.familyKey === "payment" && NOTICE_WAIVER_REGULATION_RE.test(finding.regulation);
+}
+
+function isCureFinding(finding: Finding): boolean {
+  if (finding.familyKey !== "liability") return false;
+  if (CURE_FINDING_TITLE_RE.test(finding.regulation)) return true;
   return (
-    finding.familyKey === "payment" &&
-    NOTICE_WAIVER_REGULATION_RE.test(finding.regulation)
+    /termination/i.test(finding.regulation) &&
+    /\b(?:cure|uncured)\b/i.test(finding.foundText) &&
+    !OTHER_LIABILITY_SIGNAL_RE.test(finding.foundText)
   );
+}
+
+function additionalGuardReason(finding: Finding): string | null {
+  if (
+    finding.familyKey === "cyber" &&
+    CYBER_FINDING_RE.test(finding.regulation) &&
+    !hasAffirmativeCyberSignal(finding.foundText)
+  ) {
+    return "Finding's own verified quote contains no affirmative DFARS/CUI/NIST cybersecurity requirement; explicit non-applicability or bilateral future-change language cannot support an affirmative cyber finding.";
+  }
+
+  if (
+    finding.familyKey === "labor" &&
+    SCLS_FINDING_RE.test(finding.regulation) &&
+    !hasAffirmativeSclsSignal(finding.foundText)
+  ) {
+    return "Finding's own verified quote contains no affirmative Service Contract Labor Standards / Service Contract Act requirement; explicit non-applicability language cannot support an SCLS finding.";
+  }
+
+  if (isCureFinding(finding)) {
+    const dayMatch = LONG_CURE_DAY_RE.exec(finding.foundText);
+    const rawDays = dayMatch?.[1] ?? dayMatch?.[2] ?? dayMatch?.[3];
+    if (rawDays) {
+      const days = Number(rawDays);
+      if (days > SHORT_CURE_MAX_DAYS && !IMMEDIATE_TERMINATION_SIGNAL_RE.test(finding.foundText)) {
+        return `Finding's own verified quote provides a ${days}-day cure period with no immediate/no-cure/no-notice/sole-discretion termination right in that same quote; not a short/default-cure risk.`;
+      }
+    }
+  }
+
+  return null;
 }
 
 export function verifyFindings(
@@ -102,6 +147,13 @@ export function verifyFindings(
       });
       continue;
     }
+
+    const guardReason = additionalGuardReason(finding);
+    if (guardReason) {
+      dropped.push({ finding, reason: guardReason });
+      continue;
+    }
+
     verified.push(finding);
   }
 
