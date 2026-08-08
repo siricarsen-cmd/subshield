@@ -29,15 +29,37 @@ interface SignalSegment {
   fragment: string;
 }
 
-function signalSegments(text: string): SignalSegment[] {
-  const sentences = text
+function sentences(text: string): string[] {
+  return text
     .split(/(?<=[.!?])\s+|\n+/)
     .map((sentence) => sentence.trim())
     .filter(Boolean);
+}
+
+function signalSegments(text: string): SignalSegment[] {
   const result: SignalSegment[] = [];
-  for (const sentence of sentences) {
+  for (const sentence of sentences(text)) {
     const fragments = sentence
       .split(/\s*;\s*|,\s+(?=(?:but|however|except|provided\s+that|Subcontractor\b|Prime(?:\s+Contractor)?\b|Contractor\b|the\s+parties\b))/i)
+      .map((fragment) => fragment.trim())
+      .filter(Boolean);
+    for (const fragment of fragments) result.push({ fragment });
+  }
+  return result;
+}
+
+// Cyber conditions are slightly different from ordinary domain keywords: a
+// conditional sentence often reads "If the Government later requires CUI...,\n// the parties will execute a bilateral modification." Splitting that sentence
+// at the second subject would strip away the bilateral protection and turn the
+// first half into a false affirmative. Keep the full subject transition intact,
+// while still splitting explicit contrast clauses such as ", but Subcontractor
+// shall comply..." so a real affirmative requirement in the same sentence is
+// not hidden by an earlier negative statement.
+function cyberSegments(text: string): SignalSegment[] {
+  const result: SignalSegment[] = [];
+  for (const sentence of sentences(text)) {
+    const fragments = sentence
+      .split(/\s*;\s*|,\s+(?=(?:but|however|except|provided\s+that)\b)/i)
       .map((fragment) => fragment.trim())
       .filter(Boolean);
     for (const fragment of fragments) result.push({ fragment });
@@ -66,7 +88,7 @@ function findAffirmativeDomainFragment(text: string, pattern: RegExp): string | 
 }
 
 export function findAffirmativeCyberPattern(text: string, pattern: RegExp): string | null {
-  for (const { fragment } of signalSegments(text)) {
+  for (const { fragment } of cyberSegments(text)) {
     if (regexTest(pattern, fragment) && isAffirmativeCyberFragment(fragment)) return fragment;
   }
   return null;
