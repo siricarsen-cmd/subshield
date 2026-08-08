@@ -4,6 +4,7 @@
 
 import { runDeterministicDetectors as runDeterministicDetectorsCore } from "./deterministic-core";
 import { runComplianceCoverageDetectors } from "./compliance-coverage";
+import { runAuditRecordsCoverageDetector } from "./audit-records-coverage";
 import type { Finding } from "./types";
 
 export * from "./deterministic-core";
@@ -12,5 +13,6 @@ export function runDeterministicDetectors(documentText: string): Finding[] {
   return [
     ...runDeterministicDetectorsCore(documentText),
     ...runComplianceCoverageDetectors(documentText),
+    ...runAuditRecordsCoverageDetector(documentText),
   ];
 }
