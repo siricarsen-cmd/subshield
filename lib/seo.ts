@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { resolveCanonicalProductionOrigin } from "./production-origin";
 
 export const SITE_NAME = "SubShield";
-export const SITE_ORIGIN = "https://www.subshield.net";
+export const SITE_ORIGIN = resolveCanonicalProductionOrigin();
 export const DEFAULT_TITLE = "Government Subcontract Risk Review | SubShield";
 export const DEFAULT_DESCRIPTION =
   "Review government subcontract and teaming packages before you sign. SubShield flags payment traps, missing documents, flow-down risks, and negotiation questions.";
