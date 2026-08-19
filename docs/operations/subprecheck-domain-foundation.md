@@ -5,12 +5,15 @@ Status: PRE-CUTOVER READY. This runbook does not authorize the public cutover.
 ## Verified domain state
 
 - `https://www.subprecheck.com` is attached to the existing Vercel `subshield` project and serves Production.
-- `https://subprecheck.com` permanently redirects to `https://www.subprecheck.com`.
-- HTTPS is operational on the new apex and `www` hostnames.
+- `https://subprecheck.com` permanently redirects to `https://www.subprecheck.com` with the requested path preserved.
+- HTTPS and HSTS are operational on the new apex and `www` hostnames.
 - `https://www.subprecheck.com/api/health` returns `{ "status": "ok" }`.
+- `https://www.subshield.net/api/health` returns `{ "status": "ok" }`.
 - `https://www.subshield.net` remains the current canonical production site.
-- `https://subshield.net` continues to redirect to `https://www.subshield.net`.
-- Before cutover, the SubPreCheck hostname must continue to emit SubShield canonical metadata, robots host/sitemap values, and SubShield sitemap URLs.
+- `https://subshield.net` continues to redirect to `https://www.subshield.net` with the requested path preserved.
+- Before cutover, the SubPreCheck hostname continues to emit SubShield canonical metadata, robots host/sitemap values, and SubShield sitemap URLs.
+
+Post-merge production verification on 2026-08-19 confirmed these conditions after PR #118 deployed to Production.
 
 ## Canonical decision
 
@@ -22,20 +25,41 @@ The intended alternate-host behavior is:
 
 `https://subprecheck.com/<path>` -> permanent redirect -> `https://www.subprecheck.com/<path>`
 
+## Approved production-origin compatibility — COMPLETE
+
+PR #118 (`Prepare approved SubPreCheck production origin compatibility`) was merged before public cutover.
+
+The application now recognizes exactly two approved production origins:
+
+- current: `https://www.subshield.net`
+- future: `https://www.subprecheck.com`
+
+The compatibility layer:
+
+- keeps production health fail-closed for any other origin;
+- requires an approved HTTPS production origin without embedded credentials;
+- resolves SEO canonical/sitemap/robots origin from the approved `NEXT_PUBLIC_BASE_URL`;
+- preserves the current SubShield canonical while Vercel `NEXT_PUBLIC_BASE_URL` remains on SubShield;
+- is already tested for both approved origins.
+
+This removes the need for an emergency SEO/health code edit at cutover. The actual public canonical switch will occur only when Vercel Production `NEXT_PUBLIC_BASE_URL` is deliberately changed to `https://www.subprecheck.com` as part of the coordinated rebrand release.
+
+Visible branding remains SubShield until the separate rebrand work is ready.
+
 ## Current cutover dependencies
 
-The production application currently depends on `https://www.subshield.net` in these active areas:
+The remaining external/runtime dependencies that still select the current SubShield production identity are:
 
-1. SEO canonical origin (`lib/seo.ts`).
-2. Production health origin (`lib/production-health.ts`).
-3. Vercel `NEXT_PUBLIC_BASE_URL`.
-4. Stripe checkout success/cancel URLs generated from the application base URL.
-5. Supabase Site URL.
-6. Stripe live webhook endpoint.
-7. Stripe Billing Portal return URL.
-8. Production CI/smoke-test assumptions.
+1. Vercel Production `NEXT_PUBLIC_BASE_URL`.
+2. Supabase Site URL.
+3. Stripe live webhook endpoint.
+4. Stripe Billing Portal return URL.
+5. Production CI/smoke-test URLs that explicitly target the live canonical host.
+6. Vercel legacy-domain redirect configuration after the new site is verified.
+7. Search Console migration/submission after canonical ownership and redirects are live.
+8. Final visible SubPreCheck branding/copy/assets from the separate rebrand workstream.
 
-These items must not be switched independently.
+These items must not be switched independently in a way that creates a partially migrated public site.
 
 ## Safe pre-configuration completed
 
@@ -43,13 +67,17 @@ The following pre-cutover actions are complete:
 
 - Both SubPreCheck hostnames are connected to the existing Vercel project.
 - DNS, HTTPS, HSTS, application availability, and `/api/health` were verified on the new hostname.
-- `subprecheck.com` redirects permanently to `www.subprecheck.com`.
+- `subprecheck.com` redirects permanently to `www.subprecheck.com` and preserves paths.
 - Exact SubPreCheck authentication callback destinations were added to Supabase Redirect URLs while retaining existing SubShield, localhost, and Vercel entries.
 - Supabase Site URL remains `https://www.subshield.net`.
 - Stripe webhook and Billing Portal URLs were inventoried and intentionally left unchanged.
 - All SubShield domains and certificates remain in service.
 - Vercel `NEXT_PUBLIC_BASE_URL` remains on the current SubShield origin.
 - A live automated pre-cutover guard is present in GitHub and has passed.
+- PR #118 merged the approved SubShield/SubPreCheck production-origin compatibility layer.
+- Post-merge Production verification confirmed that SubPreCheck still advertises SubShield as canonical and both health endpoints remain healthy.
+- Post-merge `robots.txt` and `sitemap.xml` on `www.subprecheck.com` still advertise SubShield URLs.
+- Post-merge path checks confirmed both apex-domain redirects preserve an existing blog path.
 
 ## Supabase Auth URL Configuration — pre-cutover gate COMPLETE
 
@@ -63,15 +91,17 @@ Verified on 2026-08-19 in Supabase Authentication -> URL Configuration:
   - `https://subprecheck.com/reset-password`
   - `https://subprecheck.com/dashboard`
 
-At coordinated cutover, change the Supabase Site URL to `https://www.subprecheck.com` only after the new production application configuration is ready. Do not remove the SubShield Redirect URLs during the initial migration window.
+At coordinated cutover, change the Supabase Site URL to `https://www.subprecheck.com` only after the final SubPreCheck production release is ready. Do not remove the SubShield Redirect URLs during the initial migration window.
 
 ## Human-only provider gate: Vercel production environment variable
 
-The connected Vercel API available to the migration operator does not expose project environment-variable writes. `NEXT_PUBLIC_BASE_URL` must remain on the current SubShield origin during pre-configuration. At the coordinated cutover it must become:
+The connected Vercel API available to the migration operator does not expose project environment-variable writes. `NEXT_PUBLIC_BASE_URL` must remain on the current SubShield origin during pre-configuration.
+
+At coordinated cutover it must become:
 
 `https://www.subprecheck.com`
 
-Do not change it early because checkout/auth return URLs and the production health gate depend on it.
+Because PR #118 is already merged, this approved environment-variable change will select the SubPreCheck runtime/SEO origin through the tested compatibility layer. Do not make the change before the final branding release and external provider changes are ready to be coordinated.
 
 ## Stripe cutover requirements
 
@@ -94,7 +124,7 @@ The old SubShield domains must remain operational during and after this transiti
 
 ## Legacy-domain redirect requirement after cutover
 
-After the new canonical origin is fully configured and verified, preserve paths when redirecting the old domain:
+After the final SubPreCheck release, new canonical origin, auth, and billing configuration are fully verified, preserve paths when redirecting the old domain:
 
 - `https://www.subshield.net/<path>` -> permanent redirect -> `https://www.subprecheck.com/<path>`
 - `https://subshield.net/<path>` -> permanent redirect -> `https://www.subprecheck.com/<path>`
@@ -121,25 +151,26 @@ A passing result means the new domain foundation is ready while public canonical
 
 ## Remaining coordinated-cutover gates
 
-These items are intentionally not complete and must move together during the public cutover:
+These items are intentionally not complete and must be coordinated during the public rebrand release:
 
-1. Merge the final rebrand/domain code that changes the canonical SEO origin and production-health origin to `https://www.subprecheck.com` and updates domain-dependent tests/CI.
-2. Change Vercel Production `NEXT_PUBLIC_BASE_URL` to `https://www.subprecheck.com`.
-3. Change Supabase Site URL to `https://www.subprecheck.com` while retaining the old redirect allowlist entries.
-4. Update the existing Stripe webhook endpoint to the new canonical host and verify delivery.
-5. Update the Stripe Billing Portal return URL to the new canonical dashboard.
-6. Verify login, password reset, magic link, checkout success/cancel, dashboard access, analyzer/report flows, sitemap, robots, and canonical metadata on SubPreCheck.
-7. Only after the new site is healthy, configure path-preserving permanent redirects from the old SubShield domain.
-8. Verify old paths and blog URLs redirect to the matching SubPreCheck paths.
-9. Complete Search Console/domain-migration work after the redirects and canonical site are live.
+1. Finish and validate the visible SubPreCheck branding/copy/assets release. Do not publish a new-domain canonical while the production UI still presents the old brand unless the Command Center explicitly chooses that sequence.
+2. Update any production CI/smoke-test host assumptions needed for the new canonical release.
+3. Change Vercel Production `NEXT_PUBLIC_BASE_URL` to `https://www.subprecheck.com` and allow the resulting Production deployment to finish.
+4. Immediately verify SubPreCheck canonical metadata, robots, sitemap, `/api/health`, public routes, and security headers on that exact deployment.
+5. Change Supabase Site URL to `https://www.subprecheck.com` while retaining the old redirect allowlist entries.
+6. Verify login, password reset, magic link, dashboard access, and authenticated report flows on SubPreCheck.
+7. Update the existing Stripe webhook endpoint to the new canonical host and verify signed delivery.
+8. Update the Stripe Billing Portal return URL to the new canonical dashboard and verify checkout success/cancel and portal-return behavior.
+9. Only after the new site, auth, and billing paths are healthy, configure path-preserving permanent redirects from the old SubShield domain.
+10. Verify representative old static paths and every important indexed/blog path redirect to the matching SubPreCheck path.
+11. Complete Search Console/domain-migration work after the redirects and SubPreCheck canonical site are live.
+12. Keep both SubShield domains and certificates active for the migration/redirect period; do not allow them to expire.
 
 ## Public cutover is explicitly out of scope for this foundation work
 
-Do not, as part of this pre-cutover foundation work:
+Do not, as part of pre-cutover foundation work:
 
-- change `NEXT_PUBLIC_BASE_URL`;
-- change `SITE_ORIGIN` on `main`;
-- change the production health origin on `main`;
+- change Vercel Production `NEXT_PUBLIC_BASE_URL` to SubPreCheck;
 - change Supabase Site URL;
 - remove SubShield auth Redirect URLs;
 - update the Stripe webhook;
@@ -149,4 +180,4 @@ Do not, as part of this pre-cutover foundation work:
 - remove either SubShield domain from Vercel;
 - allow `subshield.net` to expire.
 
-The coordinated cutover must be treated as a separate, explicitly authorized operation with immediate verification and a rollback path.
+The coordinated cutover must be treated as a separate operation with immediate verification and a rollback path. The merged compatibility layer prepares the code for that event but does not itself authorize or perform the cutover.
