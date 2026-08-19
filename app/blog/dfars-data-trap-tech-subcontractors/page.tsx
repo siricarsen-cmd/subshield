@@ -19,7 +19,7 @@ export default function DfarsDataTrapArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            The DFARS Data Trap: Protecting Your Tech Firm's IP from Predatory Subcontracts
+            DFARS Cybersecurity and Data Rights: Risk Points for Technology Subcontractors
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
             How prime contractors use blanket cybersecurity flow-downs and vague data rights to strip software vendors and IT subcontractors of their margins and proprietary code.
@@ -57,7 +57,7 @@ export default function DfarsDataTrapArticle() {
             <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
               Before you can push back on a blanket DFARS cybersecurity mandate, you need to understand the mechanics of how general contractors pass federal rules down the chain. Read our foundational guide on
               <a href="/blog/understanding-far-flow-down-clauses" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
-                Deciphering FAR Flow-Down Clauses: What Subcontractors Must Accept vs. What to Delete →
+                Understanding FAR Flow-Down Clauses: What Belongs in Your Subcontract →
               </a>
             </p>
           </div>
@@ -97,7 +97,7 @@ export default function DfarsDataTrapArticle() {
               Don't let a prime contractor trick you into absorbing enterprise-level CMMC compliance costs or waiving rights to your commercial software.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Use <strong className="text-[#1A3668]">SubShield</strong> to continuously audit incoming subcontracts, isolate predatory DFARS flow-downs, and ensure your intellectual property remains legally locked down.
+              Use <strong className="text-[#1A3668]">SubPreCheck</strong> to continuously audit incoming subcontracts, isolate one-sided DFARS flow-downs, and ensure your intellectual property remains legally locked down.
             </p>
             <hr className="border-slate-100" />
             <a href="/pricing" className="block w-full py-2.5 text-center text-xs font-black uppercase tracking-wider text-white bg-[#FF5F1F] hover:bg-[#E04F1A] rounded-lg transition shadow-sm">

@@ -19,10 +19,10 @@ export default function ReaScopeCreepArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            Recovering from Scope Creep: The Subcontractor’s Guide to REAs Under the FAR
+            Requests for Equitable Adjustment: Notice and Documentation Basics for Subcontractors
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            Stop eating the costs of unapproved field changes. Learn how to construct a bulletproof Request for Equitable Adjustment that forces the prime to pay.
+            Stop eating the costs of unapproved field changes. Learn how to construct a well-supported Request for Equitable Adjustment that forces the prime to pay.
           </p>
         </div>
       </div>
@@ -115,7 +115,7 @@ export default function ReaScopeCreepArticle() {
               Don't let general contractor design errors or hidden field delays slowly liquidate your company's hard-earned margins.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your prime agreement or change order paperwork into the <strong className="text-[#1A3668]">SubShield AI REA Auditor</strong> to instantly flag aggressive notice constraints, isolate unfair waiver print, and arm your team with a complete strategic roadmap to demand full compensation.
+              Drop your prime agreement or change order paperwork into the <strong className="text-[#1A3668]">SubPreCheck AI REA Auditor</strong> to instantly flag aggressive notice constraints, isolate unfair waiver print, and arm your team with a complete strategic roadmap to demand full compensation.
             </p>
             <hr className="border-slate-100" />
             <a 

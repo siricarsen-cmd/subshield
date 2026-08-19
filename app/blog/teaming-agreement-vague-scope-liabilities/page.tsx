@@ -19,7 +19,7 @@ export default function TeamingAgreementsArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            The Teaming Agreement Bait-and-Switch: Preventing Vague Workshares After the Award
+            Teaming Agreement Workshare: Clarify Scope Before Award
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
             Don't let a prime contractor ride your qualifications to a federal win, only to freeze you out of the project scope once the check clears.
@@ -69,7 +69,7 @@ export default function TeamingAgreementsArticle() {
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
             <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">The Small Business Exclusivity Threat</h4>
             <p className="text-xs text-slate-600 leading-relaxed">
-              If the prime contractor is leveraging your specialized small business, veteran-owned, or minority-owned status to hit mandatory federal agency utilization quotas, a post-award bait-and-switch isn't just a breach of trust—it can constitute a civil false claims violation. Primes count on you staying quiet; armor your positions early so they don't dare test your boundaries.
+              If the prime contractor is leveraging your specialized small business, veteran-owned, or minority-owned status to hit mandatory federal agency utilization quotas, a post-award workshare uncertainty isn't just a breach of trust—it can constitute a civil false claims violation. Primes count on you staying quiet; armor your positions early so they don't dare test your boundaries.
             </p>
           </div>
 
@@ -111,7 +111,7 @@ export default function TeamingAgreementsArticle() {
               Don't let an aggressive prime contractor leverage your company's history to secure a federal award, only to freeze your crews out later.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Run your joint venture or pre-award paperwork through the <strong className="text-[#1A3668]">SubShield Pre-Bid Auditor</strong> to instantly verify workshare enforceability, isolate vague scope parameters, and lock down your fair share of the project revenue.
+              Run your joint venture or pre-award paperwork through the <strong className="text-[#1A3668]">SubPreCheck Pre-Bid Auditor</strong> to instantly verify workshare enforceability, isolate vague scope parameters, and lock down your fair share of the project revenue.
             </p>
             <hr className="border-slate-100" />
             <a 

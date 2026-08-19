@@ -60,15 +60,15 @@ export default function Home() {
         {/* LEFT COLUMN: BRAND TYPOGRAPHY */}
         <div className="lg:col-span-7 space-y-6 text-left">
           <span className="text-[10px] font-black text-[#FF5F1F] uppercase tracking-widest bg-orange-50 border border-orange-200/50 px-3 py-1 rounded-full inline-block">
-            Pre-Award Risk Review
+            Federal Subcontract Risk Review
           </span>
           
           <h1 className="text-3xl md:text-5xl font-black text-[#1A3668] tracking-tight uppercase leading-tight">
-            Review prime subcontract risk before you bid, sign, or commit.
+            Know the risks before you bid, sign, or commit.
           </h1>
           
           <p className="text-base md:text-lg text-[#596A7D] font-medium leading-relaxed max-w-2xl">
-            SubShield helps contractors review government subcontract, teaming, and prime-provided bid packages before attorney review — flagging payment traps, missing documents, vague scopes, flowdown risks, and negotiation questions to send back to the prime.
+            SubPreCheck gives federal subcontractors a structured first-pass review of prime-provided packages — surfacing payment, scope, flowdown, compliance, and missing-document issues before the package reaches counsel.
           </p>
           
           <div className="pt-2 flex flex-col sm:flex-row gap-4">
@@ -104,7 +104,7 @@ export default function Home() {
               </div>
 
               <p className="text-xs text-[#596A7D] font-medium leading-relaxed">
-                Upload your subcontract, teaming agreement, SOW, flowdowns, exhibits, or bid package. SubShield flags common risk areas before you commit or send the package to counsel.
+                Upload your subcontract, teaming agreement, SOW, flowdowns, exhibits, or bid package. SubPreCheck surfaces common risk areas before you commit and organizes the issues for discussion with the prime or counsel.
               </p>
 
               <div className="space-y-3 pt-2">
@@ -140,7 +140,7 @@ export default function Home() {
             Catch subcontract risk while you still have leverage.
           </h2>
           <p className="text-sm md:text-base text-[#596A7D] font-medium max-w-3xl mx-auto leading-relaxed">
-            Once the prime submits the bid or receives the award, subcontract terms can become harder to renegotiate. SubShield helps contractors identify missing information, unclear obligations, and risk-heavy terms before they commit pricing, labor, equipment, bonding, insurance, or performance capacity.
+            Once the prime submits the bid or receives the award, subcontract terms can become harder to renegotiate. SubPreCheck helps contractors identify missing information, unclear obligations, and risk-heavy terms before they commit pricing, labor, equipment, bonding, insurance, or performance capacity.
           </p>
         </div>
       </section>
@@ -162,7 +162,7 @@ export default function Home() {
               </span>
               <h3 className="text-xl font-black uppercase tracking-tight">Before bid, award, or signature</h3>
               <p className="text-sm text-slate-300 leading-relaxed">
-                Use SubShield before you commit to a prime&apos;s subcontract terms, teaming terms, scope, flowdowns, pricing assumptions, or compliance obligations.
+                Use SubPreCheck before you commit to a prime&apos;s subcontract terms, teaming terms, scope, flowdowns, pricing assumptions, or compliance obligations.
               </p>
               
               <div className="pt-4 pb-6 space-y-2">
@@ -193,7 +193,7 @@ export default function Home() {
               </span>
               <h3 className="text-xl font-black text-[#1A3668] uppercase tracking-tight">Already received or signed a subcontract?</h3>
               <p className="text-sm text-[#596A7D] leading-relaxed">
-                If you already moved forward without a structured review, SubShield can still help identify risk areas, missing documents, unclear obligations, and questions to raise with the prime or legal counsel.
+                If you already moved forward without a structured review, SubPreCheck can still help identify risk areas, missing documents, unclear obligations, and questions to raise with the prime or legal counsel.
               </p>
             </div>
             <div className="pt-8">
@@ -213,7 +213,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-2xl sm:text-3xl font-extrabold uppercase tracking-tight">
-              How SubShield Works
+              How SubPreCheck Works
             </h2>
           </div>
           
@@ -228,7 +228,7 @@ export default function Home() {
               },
               {
                 step: "2",
-                title: "SubShield runs an initial risk review",
+                title: "SubPreCheck runs an initial risk review",
                 desc: "The system flags common risk areas including payment timing, vague work scope, missing documents, flowdown exposure, and change-order risk."
               },
               {
@@ -239,7 +239,7 @@ export default function Home() {
               {
                 step: "4",
                 title: "Send the cleaner package to your attorney",
-                desc: "After the prime responds, SubShield recommends sending the revised package to qualified legal counsel for final review."
+                desc: "After the prime responds, send the revised package to qualified legal counsel so attorney time can focus on the legal questions that require legal judgment."
               }
             ].map((item, idx) => (
               <div key={idx} className="relative z-10 flex flex-col items-center text-center space-y-4">
@@ -261,10 +261,10 @@ export default function Home() {
             Review Scope
           </span>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-[#1A3668] uppercase tracking-tight mt-4">
-            What SubShield Flags
+            What SubPreCheck Flags
           </h2>
           <p className="text-sm text-[#596A7D] font-medium mt-2 leading-relaxed">
-            SubShield reviews the package for common government subcontract risk areas that can affect payment, scope, compliance, liability, and negotiation leverage.
+            SubPreCheck reviews the package for common government subcontract risk areas that can affect payment, scope, compliance, liability, and negotiation leverage.
           </p>
         </div>
 
@@ -298,7 +298,7 @@ export default function Home() {
               Built to support attorney review — not replace it.
             </h3>
             <p className="text-sm text-[#596A7D] font-medium leading-relaxed">
-              SubShield is not a law firm and does not provide legal advice. It helps contractors organize the first pass by identifying common risk areas, missing documents, unclear obligations, and questions for the prime. After the prime responds with a cleaner package, SubShield recommends sending the revised documents to qualified legal counsel for final review.
+              SubPreCheck is not a law firm and does not provide legal advice. It helps contractors organize the first pass by identifying common risk areas, missing documents, unclear obligations, and questions for the prime. After the prime responds with a cleaner package, SubPreCheck recommends sending the revised documents to qualified legal counsel for final review.
             </p>
             <ul className="space-y-3 pt-2">
               {[
@@ -324,7 +324,7 @@ export default function Home() {
               Built for contractors working under government primes.
             </h3>
             <p className="text-sm text-[#596A7D] font-medium leading-relaxed">
-              SubShield is designed specifically for teams navigating the complexities of federal contracting pipelines at the subcontract level.
+              SubPreCheck is designed specifically for teams navigating the complexities of federal contracting pipelines at the subcontract level.
             </p>
             <ul className="space-y-3 pt-2">
               {[
@@ -355,7 +355,7 @@ export default function Home() {
             Ready to review the package before you commit?
           </h2>
           <p className="text-base text-[#596A7D] font-medium leading-relaxed max-w-2xl mx-auto">
-            Upload your prime-provided subcontract, teaming, or bid package. SubShield will flag common risk areas, missing documents, and negotiation questions so you can go back to the prime before final attorney review.
+            Upload your prime-provided subcontract, teaming, or bid package. SubPreCheck will flag common risk areas, missing documents, and negotiation questions so you can go back to the prime before final attorney review.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
             <Link 

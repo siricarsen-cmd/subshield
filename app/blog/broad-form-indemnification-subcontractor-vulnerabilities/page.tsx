@@ -19,7 +19,7 @@ export default function BroadIndemnificationArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            The Danger of Broad Indemnification: Stop Insuring the Prime Contractor's Mistakes
+            Broad Indemnification: How Risk Can Shift to the Subcontractor
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
             How signing a standard, one-sided indemnity clause forces your trade company to pay for damages caused entirely by the general contractor’s negligence.
@@ -68,13 +68,13 @@ export default function BroadIndemnificationArticle() {
             Insurance policies are explicitly designed to cover *your* corporate liability and negligent actions. Most standard policy frameworks contain strict exclusions for "contractually assumed liabilities" where you agree to insure a third party's sole negligence. 
           </p>
           <p>
-            If the prime demands a multi-million dollar settlement under a broad-form clause, your insurance company can completely deny the claim. That leaves your company's cash reserves, equipment assets, and corporate survival completely exposed to a massive out-of-pocket legal judgment.
+            If the prime demands a multi-million dollar settlement under a broad-form clause, your insurance company can completely deny the claim. That leaves your company's cash reserves, equipment assets, and corporate survival insufficiently protected to a massive out-of-pocket legal judgment.
           </p>
 
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
             <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">The Anti-Indemnity Statute Shield</h4>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Because these clauses are so fundamentally predatory, over 40 states have enacted strict **Anti-Indemnity Statutes** that legally ban broad-form clauses in construction environments. However, GCs routinely try to bypass these state protections by inserting special "Choice of Law" clauses, forcing your agreement to be interpreted under the rules of a different state where broad-form traps are still permitted.
+              Because these clauses are so fundamentally one-sided, over 40 states have enacted strict **Anti-Indemnity Statutes** that legally ban broad-form clauses in construction environments. However, GCs routinely try to bypass these state protections by inserting special "Choice of Law" clauses, forcing your agreement to be interpreted under the rules of a different state where broad-form traps are still permitted.
             </p>
           </div>
 
@@ -116,7 +116,7 @@ export default function BroadIndemnificationArticle() {
               Don't let general contractors force your business to hold them harmless for their own structural or safety blunders.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your boilerplate agreement into the <strong className="text-[#1A3668]">SubShield AI Liability Engine</strong> to instantly pinpoint predatory indemnity triggers, isolate hidden choice-of-law traps, and secure your financial boundaries before signing.
+              Drop your boilerplate agreement into the <strong className="text-[#1A3668]">SubPreCheck AI Liability Engine</strong> to instantly pinpoint one-sided indemnity triggers, isolate hidden choice-of-law traps, and secure your financial boundaries before signing.
             </p>
             <hr className="border-slate-100" />
             <a 

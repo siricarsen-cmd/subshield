@@ -22,7 +22,7 @@ export default function ProprietaryPricingArticle() {
             Protecting Proprietary Supply Pricing: NDA Pitfalls for Commercial Trade Distributors
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            How standard non-disclosure agreements leave your custom bills of materials and specialized vendor quote channels completely exposed to pre-award bid shopping.
+            How standard non-disclosure agreements leave your custom bills of materials and specialized vendor quote channels insufficiently protected to pre-award bid shopping.
           </p>
         </div>
       </div>
@@ -39,7 +39,7 @@ export default function ProprietaryPricingArticle() {
             But on bid day, many trade distributors step directly into a structural trap. They assume the standard, boilerplated Non-Disclosure Agreement (NDA) they signed during the estimating phase keeps their data secure.
           </p>
           <p>
-            Then, days after submitting your numbers, you discover that the general contractor or prime broker has taken your meticulously engineered bill of materials, stripped your corporate branding, and handed it to a competitor to match. Your intellectual property has just been weaponized against you.
+            Then, days after submitting your numbers, you discover that the general contractor or prime broker has taken your meticulously engineered bill of materials, stripped your corporate branding, and handed it to a competitor to match. Your intellectual property has just been used against you.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -111,7 +111,7 @@ export default function ProprietaryPricingArticle() {
               Don't let aggressive prime contractors shop your custom engineered bills of materials to cut-rate brokers.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your incoming pre-bid NDAs, RFQs, or procurement addendums into the <strong className="text-[#1A3668]">SubShield AI Procurement Auditor</strong> to instantly flag one-way data risks, isolate unfair material usage clauses, and defend your profit boundaries before you click submit.
+              Drop your incoming pre-bid NDAs, RFQs, or procurement addendums into the <strong className="text-[#1A3668]">SubPreCheck AI Procurement Auditor</strong> to instantly flag one-way data risks, isolate unfair material usage clauses, and defend your profit boundaries before you click submit.
             </p>
             <hr className="border-slate-100" />
             <a 

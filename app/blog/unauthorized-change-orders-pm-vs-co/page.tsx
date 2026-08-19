@@ -119,7 +119,7 @@ export default function UnauthorizedChangeOrdersArticle() {
               Don't let verbal field commands trick your company into executing thousands of dollars in uncompensated volunteer work.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your boilerplate agreement or incoming project templates into the <strong className="text-[#1A3668]">SubShield AI Change Order Auditor</strong> to instantly isolate unfair change-management clauses, flag dangerous authority gaps, and arm your field teams with the exact tools to protect their revenues.
+              Drop your boilerplate agreement or incoming project templates into the <strong className="text-[#1A3668]">SubPreCheck AI Change Order Auditor</strong> to instantly isolate unfair change-management clauses, flag dangerous authority gaps, and arm your field teams with the exact tools to protect their revenues.
             </p>
             <hr className="border-slate-100" />
             <a 

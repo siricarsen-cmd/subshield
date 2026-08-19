@@ -14,10 +14,10 @@ export default function About() {
       <section className="bg-white border-b border-slate-200 pt-16 md:pt-24 pb-16 px-6">
         <div className="max-w-4xl mx-auto text-center space-y-6">
           <span className="text-[10px] font-black text-[#FF5F1F] uppercase tracking-widest bg-orange-50 border border-orange-200/50 px-3 py-1 rounded-full inline-block">
-            About SubShield
+            About SubPreCheck
           </span>
           <h1 className="text-3xl md:text-5xl font-black text-[#1A3668] tracking-tight uppercase leading-tight">
-            Built to help small businesses slow down, protect their margins, and clarify the details before they sign.
+            Built to help small federal subcontractors understand the package before they commit.
           </h1>
         </div>
       </section>
@@ -32,7 +32,7 @@ export default function About() {
             <div className="w-24 h-24 mb-6 rounded-full overflow-hidden border-2 border-orange-300 bg-[#596A7D] shrink-0 shadow-lg">
               <img 
                 src="/founder.jpg" 
-                alt="Carsen Siri, Founder of SubShield"
+                alt="Carsen Siri, Founder of SubPreCheck"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -45,7 +45,7 @@ export default function About() {
                 Carsen Siri
               </h2>
               <p className="text-sm font-bold text-slate-300 uppercase tracking-wide">
-                Founder, SubShield
+                Founder, SubPreCheck
               </p>
             </div>
           </div>
@@ -53,16 +53,16 @@ export default function About() {
           {/* Right Column: The Story */}
           <div className="p-10 md:w-2/3 space-y-6 text-sm text-[#596A7D] font-medium leading-relaxed">
             <p className="text-base font-bold text-[#1A3668] leading-relaxed">
-              My name is Carsen Siri. I created SubShield after digging deep into government contracting opportunities and realizing how quickly prime contractor and subcontractor relationships can turn heavily lopsided.
+              My name is Carsen Siri. I created SubPreCheck after digging deep into government contracting opportunities and realizing how quickly prime contractor and subcontractor relationships can turn heavily lopsided.
             </p>
             <p>
-              My background is in purchasing and procurement across national medical and industrial supply sectors. In those high-stakes environments, details meant everything. A single overlooked line item or an unverified risk-shifting clause could easily wipe out an entire project's profit margin.
+              My background is in purchasing and procurement across national medical and industrial supply sectors. In those high-stakes environments, details mattered. An overlooked line item or poorly understood risk-shifting term could materially affect cost, margin, or performance obligations.
             </p>
             <p>
               That foundational experience shaped the exact way I look at federal business agreements today: slow down, isolate the liabilities, verify the compliance paths, and never assume a verbal promise is enough. 
             </p>
             <p>
-              SubShield was built directly from that operational contractor mindset. It is not a law firm; it is a direct tool to organize your contract review, protect your working capital, and help you ask the right questions before you involve legal counsel and begin performance.
+              SubPreCheck was built from that operational contractor mindset. It is not a law firm; it is a first-pass review and organization tool designed to surface issues, identify missing information, and prepare a better package before qualified legal counsel performs final review.
             </p>
           </div>
         </div>
@@ -76,7 +76,7 @@ export default function About() {
               Sectors Built Into Our Rule-Matrix
             </h2>
             <p className="text-sm text-[#596A7D] font-medium mt-3 max-w-2xl mx-auto">
-              SubShield is designed to support the specific compliance and risk profiles of diverse lower-tier federal contractors.
+              SubPreCheck is designed to support the specific compliance and risk profiles of diverse lower-tier federal contractors.
             </p>
           </div>
 
@@ -149,7 +149,7 @@ export default function About() {
             Ready to review the package before you commit?
           </h2>
           <p className="text-base text-[#596A7D] font-medium leading-relaxed max-w-2xl mx-auto">
-            Isolate mandatory FAR flow-downs, strip out unfair liabilities, and organize your files before your formal legal review begins.
+            Review flow-downs, identify risk-shifting terms, and organize the package before formal legal review begins.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
             <Link 

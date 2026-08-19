@@ -19,7 +19,7 @@ export default function BuyAmericanActArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            The BAA Procurement Blindspot: Why Your Submittal Packages Are Gating Your Cash Flow
+            Buy American Act Sourcing: Domestic Content and Documentation Risks
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
             How a misunderstanding of the Buy American Act domestic content test forces trade subcontractors to eat thousands in replacement costs.
@@ -114,10 +114,10 @@ export default function BuyAmericanActArticle() {
               Stop Guessing on Federal Flow-Downs
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't sign a predatory boilerplate contract that passes absolute BAA liability onto your trade business. 
+              Don't sign a one-sided boilerplate contract that passes absolute BAA liability onto your trade business. 
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your agreement into the <strong className="text-[#1A3668]">SubShield AI Triage Engine</strong> to instantly identify hidden liability flags, isolate unfair material risk shifts, and receive an instant email talk-track to push back on the general contractor before placing a final document on your attorney's desk.
+              Drop your agreement into the <strong className="text-[#1A3668]">SubPreCheck AI Triage Engine</strong> to instantly identify hidden liability flags, isolate unfair material risk shifts, and receive an instant email talk-track to push back on the general contractor before placing a final document on your attorney's desk.
             </p>
             <hr className="border-slate-100" />
             <a 

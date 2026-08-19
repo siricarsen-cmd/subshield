@@ -19,7 +19,7 @@ export default function IncorporationReferenceArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            The Incorporation by Reference Ambush: Agreeing to Plans You’ve Never Seen
+            Incorporation by Reference: Review Documents You Are Being Asked to Accept
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
             How a single sentence in a standard subcontract legally binds your trade business to hundreds of pages of hidden prime contract liabilities.
@@ -73,7 +73,7 @@ export default function IncorporationReferenceArticle() {
             <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
               These invisible master agreements are the primary channel primes use to smuggle heavy compliance terms onto your balance sheet. Read our deep-dive analysis on 
               <a href="/blog/understanding-far-flow-down-clauses" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
-                Deciphering FAR Flow-Down Clauses: What Subcontractors Must Accept vs. What to Delete →
+                Understanding FAR Flow-Down Clauses: What Belongs in Your Subcontract →
               </a>
             </p>
           </div>
@@ -100,10 +100,10 @@ export default function IncorporationReferenceArticle() {
               Expose Hidden Flow-Down Risks
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't sign an agreement that binds you to hundreds of pages of invisible, predatory boilerplate rules.
+              Don't sign an agreement that binds you to hundreds of pages of invisible, one-sided boilerplate rules.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your contract bundle into the <strong className="text-[#1A3668]">SubShield AI Triage Engine</strong> to instantly scan for hidden incorporation triggers and isolate unfair design-risk shifts before they cost you your margins.
+              Drop your contract bundle into the <strong className="text-[#1A3668]">SubPreCheck AI Triage Engine</strong> to instantly scan for hidden incorporation triggers and isolate unfair design-risk shifts before they cost you your margins.
             </p>
             <hr className="border-slate-100" />
             <a href="/pricing" className="block w-full py-2.5 text-center text-xs font-black uppercase tracking-wider text-white bg-[#FF5F1F] hover:bg-[#E04F1A] rounded-lg transition shadow-sm">

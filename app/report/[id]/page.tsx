@@ -260,7 +260,7 @@ export default function ReportPage() {
               <AlertTriangle className="w-12 h-12 text-amber-600 mx-auto mb-3" />
               <h3 className="text-lg font-black text-amber-800 uppercase">Unable To Complete Reliable Risk Review</h3>
               <p className="text-sm text-amber-700 font-medium mt-2 max-w-xl mx-auto">
-                Critical risks may be present, but SubShield could not verify the document text well enough to issue a clean finding.
+                Critical risks may be present, but SubPreCheck could not verify the document text well enough to issue a clean finding.
                 {" "}See the {isPartialOcrScan ? "Partial OCR Scan" : "Limited Scan"} notice above — this is not a clean or low-risk result.
               </p>
             </div>

@@ -19,7 +19,7 @@ export default function DavisBaconPayrollArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            The Certified Payroll Trap: How Labor Misclassifications Liquidate Your Project Retention
+            Davis-Bacon Certified Payroll: Classification and Documentation Risks
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
             How minor administrative oversights on weekly Davis-Bacon Act logs give general contractors the legal leverage to freeze your progress payments.
@@ -80,7 +80,7 @@ export default function DavisBaconPayrollArticle() {
             <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
               Administrative logging delays shouldn't give the general contractor a legal excuse to hold up your progress draws. Read our deep-dive analysis on 
               <a href="/blog/government-contracting-payment-traps" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
-                The "Pay-When-Paid" Illusion: Weaponizing FAR Compliance to Mask Prime Overreach →
+                Pay-When-Paid and Pay-If-Paid: What Federal Subcontractors Should Review →
               </a>
             </p>
           </div>
@@ -108,10 +108,10 @@ export default function DavisBaconPayrollArticle() {
               Keep Your Project Revenue Moving
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't let a predatory boilerplate contract hand a general contractor the keys to freeze your cash flow over an administrative technicality.
+              Don't let a one-sided boilerplate contract hand a general contractor the keys to freeze your cash flow over an administrative technicality.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Run your paperwork through the <strong className="text-[#1A3668]">SubShield AI Risk Analyzer</strong> to isolate aggressive payment withholding clauses, flag dangerous flow-down liabilities, and arm your team with a plain-English playbook to push back during contract negotiations.
+              Run your paperwork through the <strong className="text-[#1A3668]">SubPreCheck AI Risk Analyzer</strong> to isolate aggressive payment withholding clauses, flag dangerous flow-down liabilities, and arm your team with a plain-English playbook to push back during contract negotiations.
             </p>
             <hr className="border-slate-100" />
             <a 

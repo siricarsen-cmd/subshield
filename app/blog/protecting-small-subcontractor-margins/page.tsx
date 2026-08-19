@@ -19,7 +19,7 @@ export default function ProtectingSmallSubcontractorMarginsArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            Built for the Field: Why Small Trade Contractors Are the Target of Bad Contracts, and How to Fight Back
+            Protecting Small Subcontractor Margins Before You Sign
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
             How general contractors exploit the lack of dedicated legal departments in small trade businesses to shift absolute project liability onto blameless field operators.
@@ -86,9 +86,9 @@ export default function ProtectingSmallSubcontractorMarginsArticle() {
               Related Field Intelligence
             </p>
             <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
-              Predatory liability shifts are the fastest way to drain your company's retained cash reserves on site. Read our complete legal survival guide on 
+              One-Sided liability shifts are the fastest way to drain your company's retained cash reserves on site. Read our complete legal survival guide on 
               <a href="/blog/broad-form-indemnification-subcontractors" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
-                The Danger of Broad Indemnification: Stop Insuring the Prime Contractor's Mistakes →
+                Broad Indemnification: How Risk Can Shift to the Subcontractor →
               </a>
             </p>
           </div>
@@ -119,7 +119,7 @@ export default function ProtectingSmallSubcontractorMarginsArticle() {
               Don't let corporate legal boilerplates turn your independent trade business into an uncompensated insurance cushion for the general contractor.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your commercial agreement documents into the <strong className="text-[#1A3668]">SubShield AI Contract Guard</strong> to instantly decode hidden liability shifts, flag aggressive payment terms, and secure your company's hard-earned margins before setting foot on site.
+              Drop your commercial agreement documents into the <strong className="text-[#1A3668]">SubPreCheck AI Contract Guard</strong> to instantly decode hidden liability shifts, flag aggressive payment terms, and secure your company's hard-earned margins before setting foot on site.
             </p>
             <hr className="border-slate-100" />
             <a 

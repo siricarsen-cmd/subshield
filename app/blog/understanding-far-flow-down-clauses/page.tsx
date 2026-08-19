@@ -19,10 +19,10 @@ export default function FarFlowDownClausesArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            Deciphering FAR Flow-Down Clauses: What Subcontractors Must Accept vs. What to Delete
+            Understanding FAR Flow-Down Clauses: What Belongs in Your Subcontract
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            Stop falling for the prime contractor's biggest bluff. Learn how to separate true mandatory federal flow-downs from predatory risk-shifting boilerplate.
+            Stop falling for the prime contractor's biggest bluff. Learn how to separate true mandatory federal flow-downs from one-sided risk-shifting boilerplate.
           </p>
         </div>
       </div>
@@ -97,9 +97,9 @@ export default function FarFlowDownClausesArticle() {
               Related Field Intelligence
             </p>
             <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
-              Predatory flow-downs are almost always hidden using legal shortcuts. Read our full strategic guide on how to protect your team from signing blind agreements:
+              One-Sided flow-downs are almost always hidden using legal shortcuts. Read our full strategic guide on how to protect your team from signing blind agreements:
               <a href="/blog/incorporation-by-reference-ambush" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
-                The Incorporation by Reference Ambush: Agreeing to Plans You’ve Never Seen →
+                Incorporation by Reference: Review Documents You Are Being Asked to Accept →
               </a>
             </p>
           </div>
@@ -129,7 +129,7 @@ export default function FarFlowDownClausesArticle() {
               Don't let an aggressive general contractor trick you into adopting dozens of unneeded federal liabilities.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your contract pack into the <strong className="text-[#1A3668]">SubShield AI Flow-Down Auditor</strong> to instantly separate mandatory federal requirements from artificial risk shifts, saving hours of unnecessary administrative headache.
+              Drop your contract pack into the <strong className="text-[#1A3668]">SubPreCheck AI Flow-Down Auditor</strong> to instantly separate mandatory federal requirements from artificial risk shifts, saving hours of unnecessary administrative headache.
             </p>
             <hr className="border-slate-100" />
             <a 

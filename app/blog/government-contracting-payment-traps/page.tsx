@@ -19,7 +19,7 @@ export default function PayWhenPaidTrapArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            The "Pay-When-Paid" Illusion: Weaponizing FAR Compliance to Mask Prime Overreach
+            Pay-When-Paid and Pay-If-Paid: What Federal Subcontractors Should Review
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
             How general contractors falsely invoke federal acquisition rules to justify withholding cash flow from trade subcontractors—and how the law actually protects you.
@@ -112,10 +112,10 @@ export default function PayWhenPaidTrapArticle() {
               Secure Your Payment Framework
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't sign a predatory boilerplate contract that turns your trade business into an interest-free bank for the general contractor.
+              Don't sign a one-sided boilerplate contract that turns your trade business into an interest-free bank for the general contractor.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your contract into the <strong className="text-[#1A3668]">SubShield AI Triage Engine</strong> to instantly scan for hidden conditional payment traps, flag unfair risk shifts, and receive an immediate negotiation script to keep your capital safe.
+              Drop your contract into the <strong className="text-[#1A3668]">SubPreCheck AI Triage Engine</strong> to instantly scan for hidden conditional payment traps, flag unfair risk shifts, and receive an immediate negotiation script to keep your capital safe.
             </p>
             <hr className="border-slate-100" />
             <a 

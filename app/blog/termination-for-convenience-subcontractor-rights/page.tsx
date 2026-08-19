@@ -19,7 +19,7 @@ export default function TerminationConvenienceArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            The T4C Exit Trap: Knowing Your Rights When the Prime Contractor Pulls the Plug
+            Termination for Convenience: What Subcontractors Should Review Before Signing
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
             Discover how to recover mobilization overhead, custom fabrication commitments, and earned profits when a project is cut short without warning.
@@ -74,9 +74,9 @@ export default function TerminationConvenienceArticle() {
           </ul>
 
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
-            <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">The Predatory "Zero-Recovery" Boilerplate</h4>
+            <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">The One-Sided "Zero-Recovery" Boilerplate</h4>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Watch out for private-market boilerplate additions that state: *"In the event of a termination for convenience, the Subcontractor shall only be entitled to payment for work actually installed in place, and waives all claims for unabsorbed overhead, materials ordered but uninstalled, or closeout costs."* This is a predatory trap designed to bypass standard federal protections.
+              Watch out for private-market boilerplate additions that state: *"In the event of a termination for convenience, the Subcontractor shall only be entitled to payment for work actually installed in place, and waives all claims for unabsorbed overhead, materials ordered but uninstalled, or closeout costs."* This is a one-sided trap designed to bypass standard federal protections.
             </p>
           </div>
 
@@ -88,7 +88,7 @@ export default function TerminationConvenienceArticle() {
             <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
               Convenience clauses are routinely smuggled into agreements through sweeping, unregulated regulatory addendums. Master your defense by reading 
               <a href="/blog/understanding-far-flow-down-clauses" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
-                Deciphering FAR Flow-Down Clauses: What Subcontractors Must Accept vs. What to Delete →
+                Understanding FAR Flow-Down Clauses: What Belongs in Your Subcontract →
               </a>
             </p>
           </div>
@@ -118,7 +118,7 @@ export default function TerminationConvenienceArticle() {
               Don't sign a boilerplate agreement that allows a prime contractor to cancel your pipeline and abandon your factory material liabilities.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your contract pack into the <strong className="text-[#1A3668]">SubShield AI Triage Engine</strong> to instantly scan for unfair termination waivers, flag unprotected supplier liabilities, and protect your company’s right to full settlement compensation.
+              Drop your contract pack into the <strong className="text-[#1A3668]">SubPreCheck AI Triage Engine</strong> to instantly scan for unfair termination waivers, flag unprotected supplier liabilities, and protect your company’s right to full settlement compensation.
             </p>
             <hr className="border-slate-100" />
             <a 

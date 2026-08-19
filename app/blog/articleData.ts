@@ -9,113 +9,113 @@ export interface Post {
 export const posts: Post[] = [
   {
     slug: "government-contracting-payment-traps",
-    title: "The 'Pay-When-Paid' Illusion: Weaponizing FAR Compliance to Mask Prime Overreach",
-    description: "How general contractors falsely invoke federal acquisition rules to justify withholding cash flow from trade subcontractors.",
+    title: "Pay-When-Paid and Pay-If-Paid: What Federal Subcontractors Should Review",
+    description: "Review contingent-payment language, payment timing, and federal subcontract payment context before accepting the prime's terms.",
     category: "Federal Prompt Payment",
     date: "May 20, 2026"
   },
   {
     slug: "understanding-far-flow-down-clauses",
-    title: "Deciphering FAR Flow-Down Clauses: What Subcontractors Must Accept vs. What to Delete",
-    description: "Stop falling for the prime contractor's biggest bluff. Learn how to separate mandatory federal flow-downs from predatory risk-shifting.",
+    title: "Understanding FAR Flow-Down Clauses: What Belongs in Your Subcontract",
+    description: "Learn how to separate applicable federal flow-downs from additional prime-drafted obligations and request missing context before signing.",
     category: "FAR & DFARS Compliance",
     date: "May 22, 2026"
   },
   {
     slug: "teaming-agreement-vague-scope-liabilities",
-    title: "The Teaming Agreement Bait-and-Switch: Preventing Vague Workshares After the Award",
-    description: "Don't let a prime contractor ride your qualifications to a federal win, only to freeze you out of the project scope once the check clears.",
+    title: "Teaming Agreement Workshare: Clarify Scope Before Award",
+    description: "Clarify workshare, scope, exclusivity, and post-award obligations before the prime relies on your participation in a federal pursuit.",
     category: "Pre-Award Strategy",
     date: "May 24, 2026"
   },
   {
     slug: "request-for-equitable-adjustment-under-far",
-    title: "Recovering from Scope Creep: The Subcontractor’s Guide to REAs Under the FAR",
-    description: "Stop eating the costs of unapproved field changes. Learn how to construct a bulletproof Request for Equitable Adjustment that forces payment.",
+    title: "Requests for Equitable Adjustment: Notice and Documentation Basics for Subcontractors",
+    description: "Review notice, authority, documentation, causation, and cost-support issues that can affect a subcontractor request for equitable adjustment.",
     category: "FAR Adjustments & Claims",
     date: "May 26, 2026"
   },
   {
     slug: "protecting-proprietary-supply-pricing",
     title: "Protecting Proprietary Supply Pricing: NDA Pitfalls for Commercial Trade Distributors",
-    description: "How standard non-disclosure agreements leave your custom bills of materials and specialized vendor quote channels completely exposed.",
+    description: "Review NDA, confidentiality, use, and disclosure terms that affect proprietary supplier pricing and bills of materials.",
     category: "Supply Chain & IP Defense",
     date: "May 28, 2026"
   },
   {
     slug: "termination-for-convenience-subcontractor-rights",
-    title: "The T4C Exit Trap: Knowing Your Rights When the Prime Contractor Pulls the Plug",
-    description: "Discover how to recover mobilization overhead, custom fabrication commitments, and earned profits when a project is cut short.",
+    title: "Termination for Convenience: What Subcontractors Should Review Before Signing",
+    description: "Review termination language, settlement rights, supplier commitments, notice, and cost recovery before accepting a convenience-termination clause.",
     category: "Contract Termination Risk",
     date: "May 30, 2026"
   },
   {
     slug: "broad-form-indemnification-subcontractor-vulnerabilities",
-    title: "The Danger of Broad Indemnification: Stop Insuring the Prime Contractor's Mistakes",
-    description: "How signing a standard, one-sided indemnity clause forces your trade company to pay for damages caused entirely by the general contractor.",
+    title: "Broad Indemnification: How Risk Can Shift to the Subcontractor",
+    description: "Review indemnity, duty-to-defend, negligence, insurance, and liability language that may shift risk beyond your own scope of work.",
     category: "Liability & Risk Defense",
     date: "Jun 01, 2026"
   },
   {
     slug: "defective-pricing-tina-liability",
-    title: "Defective Pricing and TINA Liability: When the Prime’s Mistake Becomes Your Legal Problem",
-    description: "How federal truth-in-negotiation thresholds allow general contractors to pass massive government compliance penalties down.",
+    title: "Defective Pricing and Certified Cost or Pricing Data: Subcontractor Risk Points",
+    description: "Review certified cost or pricing data, audit, disclosure, and indemnity terms that may create downstream defective-pricing exposure.",
     category: "Federal Audit Risk",
     date: "Jun 02, 2026"
   },
   {
     slug: "unauthorized-change-orders-pm-vs-co",
     title: "Dealing with Unauthorized Change Orders: PM Directions vs. Contracting Officer Authority",
-    description: "Discover why following verbal instructions from a field superintendent could force your business to absorb thousands in unrecoverable labor.",
+    description: "Review authority, written-notice, constructive-change, and documentation requirements before acting on informal direction.",
     category: "FAR Authority & Liability",
     date: "Jun 02, 2026"
   },
   {
     slug: "fighting-liquidated-damages-delay-claims",
-    title: "Fighting Back Against Liquidated Damages: Defending Your Ledger from Unfair Delay Claims",
-    description: "How general contractors weaponize milestone schedules to back-charge trade partners for cascading delays caused by other crews.",
+    title: "Liquidated Damages and Delay Claims: Terms to Review Before You Commit",
+    description: "Review milestone, causation, notice, waiver, and apportionment terms that affect exposure to liquidated damages and delay backcharges.",
     category: "Delay & Damage Defense",
     date: "Jun 02, 2026"
   },
   {
     slug: "protecting-small-subcontractor-margins",
-    title: "Built for the Field: Why Small Trade Contractors Are the Target of Bad Contracts, and How to Fight Back",
-    description: "How general contractors exploit the lack of dedicated legal departments in small trade businesses to shift absolute project liability.",
+    title: "Protecting Small Subcontractor Margins Before You Sign",
+    description: "A practical pre-award review of payment, scope, liability, termination, change, and flowdown terms that can affect small subcontractor margins.",
     category: "Small Business Defense",
     date: "Jun 02, 2026"
   },
   {
     slug: "davis-bacon-certified-payroll-errors",
-    title: "The Certified Payroll Trap: How Labor Misclassifications Liquidate Your Project Retention",
-    description: "How minor administrative oversights on weekly Davis-Bacon Act logs give general contractors the legal leverage to freeze progress payments.",
+    title: "Davis-Bacon Certified Payroll: Classification and Documentation Risks",
+    description: "Review wage classifications, payroll documentation, correction duties, and withholding risk on covered federal construction work.",
     category: "GovCon Labor Compliance",
     date: "Jun 02, 2026"
   },
   {
     slug: "buy-american-act-sourcing-mistakes",
-    title: "The BAA Procurement Blindspot: Why Your Submittal Packages Are Gating Your Cash Flow",
-    description: "How a misunderstanding of the Buy American Act domestic content test forces trade subcontractors to eat thousands in replacement costs.",
+    title: "Buy American Act Sourcing: Domestic Content and Documentation Risks",
+    description: "Review domestic-content requirements, sourcing documentation, exceptions, substitutions, and contract-specific Buy American obligations.",
     category: "Federal Sourcing Risk",
     date: "Jun 02, 2026"
   },
   {
     slug: "change-order-release-trap",
-    title: "The Change Order Release Trap: How 'Signing for Progress' Forfeits Delay Claims",
-    description: "How general contractors leverage minor document adjustments to trick trade subcontractors into waiving massive overhead and extension claims.",
+    title: "Change Order Releases: Watch for Waiver Language Before You Sign",
+    description: "Review release and waiver language in change orders, payment applications, and amendments before signing away unresolved impacts.",
     category: "Change Order Management",
     date: "Jun 02, 2026"
   },
   {
     slug: "incorporation-by-reference-ambush",
-    title: "The Incorporation by Reference Ambush: Agreeing to Plans You’ve Never Seen",
-    description: "How a single sentence in a standard subcontract legally binds your trade business to hundreds of pages of hidden prime contract liabilities.",
+    title: "Incorporation by Reference: Review Documents You Are Being Asked to Accept",
+    description: "Review incorporation-by-reference language and request the prime-contract documents, exhibits, and attachments you are being asked to accept.",
     category: "Contractual Risk Shift",
     date: "Jun 02, 2026"
   },
   {
     slug: "dfars-data-trap-tech-subcontractors",
-    title: "The DFARS Data Trap: Protecting Your Tech Firm's IP from Predatory Subcontracts",
-    description: "How prime contractors use blanket cybersecurity flow-downs and vague data rights to strip software vendors and IT subcontractors of their margins and proprietary code.",
+    title: "DFARS Cybersecurity and Data Rights: Risk Points for Technology Subcontractors",
+    description: "Review cybersecurity flow-downs, covered information triggers, data-rights language, background IP, and licensing terms before committing.",
     category: "IT & Professional Services",
     date: "Jun 20, 2026"
   }

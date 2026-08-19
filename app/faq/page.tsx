@@ -15,23 +15,23 @@ export default function FAQPage() {
   const faqs = [
     {
       icon: Scale,
-      q: "Is SubShield a law firm or a replacement for an attorney?",
-      a: "No. SubShield is an automated contract risk-screening and document-organization tool. It identifies targeted government-contracting issues, quotes supporting contract text, and organizes questions for negotiation and attorney review. SubShield does not provide legal advice, legal opinions, or legal representation."
+      q: "Is SubPreCheck a law firm or a replacement for an attorney?",
+      a: "No. SubPreCheck is a structured first-pass contract risk-screening and document-organization tool. It identifies targeted government-contracting issues, quotes supporting contract text, and organizes questions for discussion with the prime and attorney review. SubPreCheck does not provide legal advice, legal opinions, or legal representation."
     },
     {
       icon: FileSearch,
-      q: "What types of documents are a good fit for SubShield?",
-      a: "SubShield is designed for government-contracting documents provided by prime contractors, including solicitation packages, teaming agreements, draft subcontracts, flow-down packages, amendments, and related supporting documents. Its primary use is reviewing terms before bidding, signing, or committing resources."
+      q: "What types of documents are a good fit for SubPreCheck?",
+      a: "SubPreCheck is designed for government-contracting documents provided by prime contractors, including solicitation packages, teaming agreements, draft subcontracts, flow-down packages, amendments, and related supporting documents. Its primary use is reviewing terms before bidding, signing, or committing resources."
     },
     {
       icon: FileInput,
       q: "What file types can I submit?",
-      a: "SubShield accepts PDF, DOCX, TXT, and pasted contract text. Scanned PDFs may require optical character recognition. When the document text cannot be reviewed reliably, SubShield displays a Limited Scan or Partial OCR notice rather than presenting the result as a clean review."
+      a: "SubPreCheck accepts PDF, DOCX, TXT, and pasted contract text. Scanned PDFs may require optical character recognition. When the document text cannot be reviewed reliably, SubPreCheck displays a Limited Scan or Partial OCR notice rather than presenting the result as a clean review."
     },
     {
       icon: Clock,
       q: "How long does a review take?",
-      a: "Analysis begins after a document is uploaded or text is submitted. Text-based documents generally process more quickly, while large or scanned PDFs may take longer. The report becomes available after automated processing finishes. SubShield does not promise a fixed manual-review turnaround time."
+      a: "Analysis begins after a document is uploaded or text is submitted. Text-based documents generally process more quickly, while large or scanned PDFs may take longer. The report becomes available after automated processing finishes. SubPreCheck does not promise a fixed manual-review turnaround time."
     },
     {
       icon: FileText,
@@ -41,22 +41,27 @@ export default function FAQPage() {
     {
       icon: CreditCard,
       q: "How do plans and review credits work?",
-      a: "One available credit is required for each submitted document analysis. The Single Review Cycle provides 1 credit for $149.99 one time, the Active Bidder Plan provides 3 credits for each successfully paid eligible $249 monthly billing cycle, and the Enterprise Credit Pack provides 30 credits for $1,999 one time. Unused credits remain available in the customer account. A revised or amended document always requires another available credit and a new analysis; SubShield does not provide automated version comparison. Active Bidder customers can use the Stripe billing portal to update a payment method, view invoice history, or schedule cancellation at the end of the current billing period."
+      a: "One available credit is required for each submitted document analysis. The Single Review Cycle provides 1 credit for $149.99 one time, the Active Bidder Plan provides 3 credits for each successfully paid eligible $249 monthly billing cycle, and the Enterprise Credit Pack provides 30 credits for $1,999 one time. Unused credits remain available in the customer account. A revised or amended document always requires another available credit and a new analysis; SubPreCheck does not provide automated version comparison. Active Bidder customers can use the Stripe billing portal to update a payment method, view invoice history, or schedule cancellation at the end of the current billing period."
+    },
+    {
+      icon: Scale,
+      q: "How can SubPreCheck help make attorney review more efficient?",
+      a: "SubPreCheck can surface missing documents, organize evidence-grounded issues, and prepare focused questions before the package reaches counsel. A better-prepared package can reduce time spent on first-pass organization and help reserve attorney time for legal judgment and final review."
     },
     {
       icon: Shield,
       q: "How are my documents and reports handled?",
-      a: "Documents and reports are associated with the signed-in account and are processed to provide the SubShield service. Users can delete saved reviews from the dashboard. When an associated contract file is stored with the review, the deletion workflow also removes that stored file. Limited billing, accounting, fulfillment, security, transaction, and diagnostic records may remain as described in the Privacy Policy."
+      a: "Documents and reports are associated with the signed-in account and are processed to provide the SubPreCheck service. Users can delete saved reviews from the dashboard. When an associated contract file is stored with the review, the deletion workflow also removes that stored file. Limited billing, accounting, fulfillment, security, transaction, and diagnostic records may remain as described in the Privacy Policy."
     },
     {
       icon: ShieldAlert,
       q: "Does “No Critical Flags Detected” mean the contract is safe to sign?",
-      a: "No. It means SubShield did not detect the targeted critical issues in the document text it was able to review. It is not a legal opinion, approval, or guarantee that the agreement is complete, favorable, enforceable, or safe to sign. Qualified legal review may still be appropriate."
+      a: "No. It means SubPreCheck did not detect the targeted critical issues in the document text it was able to review. It is not a legal opinion, approval, or guarantee that the agreement is complete, favorable, enforceable, or safe to sign. Qualified legal review may still be appropriate."
     },
     {
       icon: Building2,
-      q: "Can I use SubShield for ordinary residential or commercial contracts?",
-      a: "SubShield is designed specifically for government-contracting and prime-to-subcontractor documents. Its detection rules focus on GovCon risks such as payment conditions, workshare, flow-downs, FAR and DFARS obligations, notice periods, wage requirements, cybersecurity, termination, and related compliance issues. It is not optimized for ordinary residential or general commercial agreements."
+      q: "Can I use SubPreCheck for ordinary residential or commercial contracts?",
+      a: "SubPreCheck is designed specifically for government-contracting and prime-to-subcontractor documents. Its detection rules focus on GovCon risks such as payment conditions, workshare, flow-downs, FAR and DFARS obligations, notice periods, wage requirements, cybersecurity, termination, and related compliance issues. It is not optimized for ordinary residential or general commercial agreements."
     }
   ];
 

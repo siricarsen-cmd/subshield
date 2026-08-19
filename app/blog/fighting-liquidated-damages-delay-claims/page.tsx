@@ -19,10 +19,10 @@ export default function LiquidatedDamagesArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            Fighting Back Against Liquidated Damages: Defending Your Ledger from Unfair Delay Claims
+            Liquidated Damages and Delay Claims: Terms to Review Before You Commit
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            How general contractors weaponize milestone schedules to back-charge trade partners for cascading delays caused by other crews.
+            How general contractors use milestone schedules to back-charge trade partners for cascading delays caused by other crews.
           </p>
         </div>
       </div>
@@ -46,7 +46,7 @@ export default function LiquidatedDamagesArticle() {
             <ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> The Concurrent Delay Trap
           </h3>
           <p>
-            The fundamental legal concept every subcontractor must master to fight back against a delay back-charge is **Concurrent Delay**.
+            The fundamental legal concept every subcontractor must master to respond against a delay back-charge is **Concurrent Delay**.
           </p>
           <p>
             General contractors count on you assuming that if your crew was late by five days, you are automatically liable for five days of project damages. But construction law tells a very different story. 
@@ -92,7 +92,7 @@ export default function LiquidatedDamagesArticle() {
             <CheckCircle className="w-5 h-5 text-[#FF5F1F]" /> Constructing Your Schedule Defense
           </h3>
           <p>
-            Protect your trade company from predatory closeout penalties by baking protective parameters directly into your contract documents:
+            Protect your trade company from one-sided closeout penalties by baking protective parameters directly into your contract documents:
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li><strong className="text-[#1A3668]">Enforce a Strict Apportionment Clause:</strong> Modify the indemnity print to state that you are only liable for the exact percentage of damages directly caused by your sole negligence: *"Subcontractor's liability for project delays shall be strictly limited to the direct, actual damages caused solely by Subcontractor, allocated proportionately based on fault."*</li>
@@ -114,7 +114,7 @@ export default function LiquidatedDamagesArticle() {
               Don't let an aggressive general contractor force your business to pay for project-wide scheduling collapses and third-party delays.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your prime agreement or schedule addendums into the <strong className="text-[#1A3668]">SubShield AI Delay Risk Auditor</strong> to instantly flag predatory non-apportionment traps, isolate hidden waiver clauses, and keep your company's revenue securely locked down.
+              Drop your prime agreement or schedule addendums into the <strong className="text-[#1A3668]">SubPreCheck AI Delay Risk Auditor</strong> to instantly flag one-sided non-apportionment traps, isolate hidden waiver clauses, and keep your company's revenue securely locked down.
             </p>
             <hr className="border-slate-100" />
             <a 

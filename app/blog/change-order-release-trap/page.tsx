@@ -19,7 +19,7 @@ export default function ChangeOrderTrapArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            The Change Order Release Trap: How "Signing for Progress" Forfeits Delay Claims
+            Change Order Releases: Watch for Waiver Language Before You Sign
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
             How general contractors leverage minor document print adjustments to trick trade subcontractors into waiving massive overhead and extension claims.
@@ -70,7 +70,7 @@ export default function ChangeOrderTrapArticle() {
             <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
               Losing your right to schedule extension days via a routine change order signature strips away your absolute best defense against end-of-project back-charges. Read our comprehensive field guide on
               <a href="/blog/fighting-liquidated-damages-delay-claims" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
-                Fighting Back Against Liquidated Damages: Defending Your Ledger from Unfair Delay Claims →
+                Liquidated Damages and Delay Claims: Terms to Review Before You Commit →
               </a>
             </p>
           </div>
@@ -100,7 +100,7 @@ export default function ChangeOrderTrapArticle() {
               Don't let a general contractor trick you into waiving thousands in delay overhead just to get a minor material modification signed.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Use <strong className="text-[#1A3668]">SubShield</strong> to continuously audit incoming paperwork modifications, isolate hidden waiver language, and ensure your right to equitable compensation remains legally locked down.
+              Use <strong className="text-[#1A3668]">SubPreCheck</strong> to continuously audit incoming paperwork modifications, isolate hidden waiver language, and ensure your right to equitable compensation remains legally locked down.
             </p>
             <hr className="border-slate-100" />
             <a href="/pricing" className="block w-full py-2.5 text-center text-xs font-black uppercase tracking-wider text-white bg-[#FF5F1F] hover:bg-[#E04F1A] rounded-lg transition shadow-sm">

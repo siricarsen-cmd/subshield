@@ -19,7 +19,7 @@ export default function TinaLiabilityArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            Defective Pricing and TINA Liability: When the Prime’s Mistake Becomes Your Legal Problem
+            Defective Pricing and Certified Cost or Pricing Data: Subcontractor Risk Points
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
             How federal truth-in-negotiation thresholds allow general contractors to pass massive government compliance penalties down onto blameless trade partners.
@@ -86,7 +86,7 @@ export default function TinaLiabilityArticle() {
             <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
               Data certification risks often tie directly into hidden supply-chain parameters. Sourcing non-compliant variants under domestic content tests can trigger sudden financial reviews. Read our full analysis on
               <a href="/blog/buy-american-act-sourcing-mistakes" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
-                The BAA Procurement Blindspot: Why Your Submittal Packages Are Gating Your Cash Flow →
+                Buy American Act Sourcing: Domestic Content and Documentation Risks →
               </a>
             </p>
           </div>
@@ -114,10 +114,10 @@ export default function TinaLiabilityArticle() {
               Shield Your Estimating Integrity
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't sign a predatory boilerplate contract that allows a prime contractor to pass federal defective pricing penalties down onto your trade business.
+              Don't sign a one-sided boilerplate contract that allows a prime contractor to pass federal defective pricing penalties down onto your trade business.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your federal agreement bundle or procurement addendums into the <strong className="text-[#1A3668]">SubShield AI TINA Auditor</strong> to instantly isolate unfair pricing indemnity triggers, flag dangerous audit risks, and secure your contract boundaries before signing.
+              Drop your federal agreement bundle or procurement addendums into the <strong className="text-[#1A3668]">SubPreCheck AI TINA Auditor</strong> to instantly isolate unfair pricing indemnity triggers, flag dangerous audit risks, and secure your contract boundaries before signing.
             </p>
             <hr className="border-slate-100" />
             <a 
