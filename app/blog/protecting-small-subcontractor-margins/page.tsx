@@ -100,9 +100,9 @@ export default function ProtectingSmallSubcontractorMarginsArticle() {
             A structured first-pass review can help a small business organize the issues before counsel gets involved, so attorney time can focus on the questions that actually require legal judgment:
           </p>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong className="text-[#1A3668]">Strike One-Sided Penalties:</strong> Line through any clauses that give the GC the automatic right to quickly withhold your entire progress check or assess un-apportioned liquidated damages without providing a clear, multi-day written warning and cure window.</li>
-            <li><strong className="text-[#1A3668]">Insist on Proportionate Accountability:</strong> Alter all indemnity and liability lines to state that your company is strictly accountable *only* for damages directly caused by your own field actions.</li>
-            <li><strong className="text-[#1A3668]">Leverage Automated Pre-Screening:</strong> Treat contract reviews as a mandatory pre-bid operational step, just like executing a material take-off or verifying field measurements.</li>
+            <li><strong className="text-[#1A3668]">Review Withholding and Delay Remedies:</strong> Identify when the prime may withhold payment, assess backcharges or liquidated damages, and whether notice, cure, causation, and apportionment protections are stated clearly.</li>
+            <li><strong className="text-[#1A3668]">Review Proportionate Accountability:</strong> Compare indemnity and liability language with your scope, insurance, control, governing law, and the losses the clause says you must absorb.</li>
+            <li><strong className="text-[#1A3668]">Use a Structured First Pass:</strong> Review the package before bid or signature so missing documents and risk-heavy terms can be organized before final legal review.</li>
           </ul>
         </div>
 

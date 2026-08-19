@@ -63,7 +63,7 @@ export default function ReaScopeCreepArticle() {
               <strong className="text-[#1A3668]">The Entitlement Framework:</strong> Identify the contractual basis for the request. The prime may rely on FAR changes or differing-site-condition clauses in its Government contract, while the subcontractor must also identify the change, notice, pass-through, or dispute provisions in its own subcontract.
             </li>
             <li>
-              <strong className="text-[#1A3668]">The Nexus Analysis:</strong> You cannot just show a pile of late invoices. You must draw a direct, unassailable line from the GC's delay notice to your idle field crew, proving that their administrative action directly forced your financial loss.
+              <strong className="text-[#1A3668]">The Causation Record:</strong> Connect the change or delay event to the specific labor, material, equipment, schedule, or overhead impact with contemporaneous records.
             </li>
             <li>
               <strong className="text-[#1A3668]">The Auditable Pricing Matrix:</strong> Break down every single component of impact—including direct labor hours, specialized premium freight charges for delayed material components, equipment standby rates, and home-office overhead margins.

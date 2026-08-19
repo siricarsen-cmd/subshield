@@ -53,23 +53,23 @@ export default function TerminationConvenienceArticle() {
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-[#FF5F1F]" /> What You Are Legally Entitled to Recover
+            <FileText className="w-5 h-5 text-[#FF5F1F]" /> Cost Categories to Check in the Clause
           </h3>
           <p>
             If the subcontract requires a termination settlement proposal, identify the cost categories and documentation the clause actually permits. Federal acquisition rules provide guidance for prime-subcontract termination administration, but the Government generally does not become responsible for paying a subcontractor's settlement directly.
           </p>
           <ul className="list-disc pl-5 space-y-4 text-xs text-slate-600 bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
             <li>
-              <strong className="text-[#1A3668]">Mobilization & Preparation Overhead:</strong> The complete costs of trucking gear to the site, establishing field management structures, and performing pre-construction takeoffs.
+              <strong className="text-[#1A3668]">Mobilization & Preparation:</strong> Check whether the clause permits reasonable mobilization, preparation, or demobilization costs and what documentation is required.
             </li>
             <li>
-              <strong className="text-[#1A3668]">Uncancelable Supply Commitments:</strong> If a factory has already custom-fabricated components or structural arrays that cannot be returned, the prime contractor must completely cover those vendor liabilities.
+              <strong className="text-[#1A3668]">Supplier Commitments:</strong> Identify how the clause treats noncancelable or custom-fabricated materials, cancellation charges, mitigation, title, and disposition.
             </li>
             <li>
-              <strong className="text-[#1A3668]">Earned Profit Margins:</strong> You are entitled to your full negotiated profit margin on every single hour of labor executed and every dollar of material deployed up to the exact split-second of termination.
+              <strong className="text-[#1A3668]">Profit and Overhead:</strong> Confirm whether profit or overhead is recoverable, on which cost categories, and whether the clause limits or excludes anticipated profit on unperformed work.
             </li>
             <li>
-              <strong className="text-[#1A3668]">Settlement Preparation Fees:</strong> The legal, accounting, and estimating costs required to build your settlement claim package can be billed directly back to the prime under FAR guidelines.
+              <strong className="text-[#1A3668]">Settlement Preparation:</strong> Check whether reasonable accounting, estimating, or settlement-preparation costs are allowed and whether legal or dispute-related costs are treated differently.
             </li>
           </ul>
 
@@ -86,7 +86,7 @@ export default function TerminationConvenienceArticle() {
               Related Field Intelligence
             </p>
             <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
-              Convenience clauses are routinely smuggled into agreements through sweeping, unregulated regulatory addendums. Master your defense by reading 
+              Termination language may also appear through flowdowns or incorporated terms. Compare it with the related flowdown guide: 
               <a href="/blog/understanding-far-flow-down-clauses" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
                 Understanding FAR Flow-Down Clauses: What Belongs in Your Subcontract →
               </a>
@@ -94,14 +94,14 @@ export default function TerminationConvenienceArticle() {
           </div>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-[#FF5F1F]" /> Defensive Pre-Sign Strategies
+            <CheckCircle className="w-5 h-5 text-[#FF5F1F]" /> Pre-Sign Review Questions
           </h3>
           <p>
-            Arm your agreements before a project disruption occurs by embedding clear closeout guardrails:
+            Before a project disruption occurs, make sure the agreement answers the closeout questions that matter:
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li><strong className="text-[#1A3668]">Insert a Termination Fee Matrix:</strong> Consider whether the subcontract should define the recoverable categories, documentation, deadlines, material commitments, demobilization, and treatment of profit or overhead if termination occurs.</li>
-            <li><strong className="text-[#1A3668]">Enforce True Reciprocity:</strong> If the general contractor demands the right to terminate your company for convenience without cause, demand a reciprocal right to terminate your performance obligations if they delay payments or disrupt field progress for more than 30 consecutive days.</li>
+            <li><strong className="text-[#1A3668]">Review Reciprocity and Suspension Rights:</strong> Consider whether the subcontract should address prolonged nonpayment, extended suspension, or prime-caused disruption, and have counsel align any reciprocal remedy with the governing contract.</li>
           </ul>
         </div>
 

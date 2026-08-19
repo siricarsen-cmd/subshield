@@ -46,16 +46,16 @@ export default function BroadIndemnificationArticle() {
             <ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> The Anatomy of a Broad-Form Clause
           </h3>
           <p>
-            Primes rely on trade contractors scanning over the indemnity text too quickly. A typical broad-form trap looks like this:
+            Broad indemnity language can be easy to overlook in a long subcontract. A clause may read like this:
           </p>
           <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl font-mono text-xs text-slate-600 leading-relaxed">
             "Subcontractor shall defend, indemnify, and hold harmless the Contractor from any and all claims, losses, or liabilities arising out of the project, **regardless of whether caused in part or in whole by the negligence of the Contractor.**"
           </div>
           <p>
-            Look closely at that bolded fine print. By signing that line, you are no longer just a trade specialist; you are now acting as an uncompensated insurance carrier for the prime contractor. 
+            The highlighted language attempts to allocate liability beyond losses caused solely by the subcontractor. Its enforceability and scope depend on governing law and the rest of the agreement. 
           </p>
           <p>
-            If a GC's supervisor makes a critical scaffolding error or structural miscalculation that leads to an injury claim, their legal team will immediately invoke this clause. They will force *your* business to pay for their defense attorneys, their corporate settlement costs, and their judicial judgments.
+            If a claim involves the prime's conduct, the clause may still be invoked against the subcontractor depending on its wording. That can create defense-cost, indemnity, and insurance questions that should be resolved before signing.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -65,10 +65,10 @@ export default function BroadIndemnificationArticle() {
             Indemnity and duty-to-defend obligations should also be checked against the subcontractor's insurance program. Contractual liability coverage, exclusions, additional-insured status, and state law can affect whether a particular loss is insured.
           </p>
           <p>
-            Insurance policies are explicitly designed to cover *your* corporate liability and negligent actions. Most standard policy frameworks contain strict exclusions for "contractually assumed liabilities" where you agree to insure a third party's sole negligence. 
+            Insurance treatment is policy-specific. Contractual-liability exclusions often contain exceptions, and additional-insured or insured-contract provisions can change the analysis. Have the broker review the proposed indemnity and defense language against the actual policy. 
           </p>
           <p>
-            If the prime demands a multi-million dollar settlement under a broad-form clause, your insurance company can completely deny the claim. That leaves your company's cash reserves, equipment assets, and corporate survival insufficiently protected to a massive out-of-pocket legal judgment.
+            If the contractual obligation extends beyond available insurance, the subcontractor may face uninsured defense or indemnity exposure. The amount and coverage outcome depend on the claim, policy, contract, and governing law.
           </p>
 
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
@@ -84,7 +84,7 @@ export default function BroadIndemnificationArticle() {
               Related Field Intelligence
             </p>
             <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
-              Assuming a prime's third-party field liabilities can open your business up to massive out-of-pocket judgments that insurance companies exclude. Read our structural strategy on
+              Broad liability terms can affect both cash flow and insurance planning. Read the related pre-award margin guide on
               <a href="/blog/protecting-small-subcontractor-margins" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
                 Protecting Small Subcontractor Margins: Contractual Shields for Trade Cash Flows →
               </a>
@@ -98,8 +98,8 @@ export default function BroadIndemnificationArticle() {
             Before signing, identify the liability boundary the clause creates and discuss any proposed revision with counsel and your insurance broker:
           </p>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong className="text-[#1A3668]">Insist on Comparative/Proportionate Fault:</strong> Line through any phrase that holds you liable for the GC's negligence. Demand that the clause limit your indemnity obligations strictly: *"but only to the extent caused by the negligent acts or omissions of the Subcontractor."*</li>
-            <li><strong className="text-[#1A3668]">Strike the Duty to Defend Upfront:</strong> Delete any language requiring you to pay for the GC's legal defense fees before a court has actually determined who was at fault for the accident.</li>
+            <li><strong className="text-[#1A3668]">Review Proportionate-Fault Language:</strong> Ask counsel whether the indemnity should be limited to losses caused by the subcontractor's acts or omissions and whether the proposed wording complies with applicable anti-indemnity law.</li>
+            <li><strong className="text-[#1A3668]">Separate Defense From Indemnity:</strong> Review when any duty to defend begins, who controls counsel, how defense costs are allocated, and whether the obligation is broader than the indemnity permitted by governing law.</li>
           </ul>
         </div>
 

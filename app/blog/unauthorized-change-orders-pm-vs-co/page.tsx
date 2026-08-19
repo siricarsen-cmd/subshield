@@ -46,7 +46,7 @@ export default function UnauthorizedChangeOrdersArticle() {
             <ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> The Law of Implied vs. Actual Authority
           </h3>
           <p>
-            The brutal reality of public and heavy commercial contracting is that the law does not care about good intentions or verbal handshakes. It cares strictly about **Actual Authority**.
+            Public contracting places substantial weight on **actual authority** and on following the written change procedure. Good-faith field direction does not automatically create authority to change price, scope, or schedule.
           </p>
           <p>
             Under federal acquisition rules, only contracting officers may enter into or modify Government contracts within the limits of their delegated authority. CORs and technical personnel may have delegated administrative duties, but their appointment normally does not authorize them to change contract price, scope, delivery, or other terms unless specific authority exists.
@@ -97,7 +97,7 @@ export default function UnauthorizedChangeOrdersArticle() {
             <CheckCircle className="w-5 h-5 text-[#FF5F1F]" /> Establishing an Unshakeable Field Routine
           </h3>
           <p>
-            Never risk your company's weekly payroll on a verbal field instruction. Take control of your change management track with these non-negotiable operational steps:
+            Use a disciplined change-management process so field direction, cost, schedule impact, and contractual notice are documented consistently:
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li><strong className="text-[#1A3668]">Issue an Immediate Written Directive Notice:</strong> When a verbal change is requested, send prompt written notice consistent with the subcontract before proceeding when practicable: *"Pursuant to your field direction on June 2, we are proceeding with the re-routing modification under protest. We estimate the impact to be $12,500 and 3 working days, and expect a formal written modification from the Contracting Officer within 48 hours."*</li>

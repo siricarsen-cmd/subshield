@@ -54,40 +54,40 @@ export default function FarFlowDownClausesArticle() {
             </li>
           </ol>
           <p>
-            By failing to draw a line between the two, trade subcontractors routinely accept strict commercial penalties and design tracking frameworks that belong entirely to the prime's management team.
+            Without that clause-by-clause review, a subcontractor can accept obligations that are broader than necessary for its scope or that carry unpriced administrative cost.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-[#FF5F1F]" /> What You Must Accept (The Real Rules)
+            <FileText className="w-5 h-5 text-[#FF5F1F]" /> Examples to Check Clause by Clause
           </h3>
           <p>
             Do not decide applicability from a clause title alone. For each cited FAR or DFARS clause, check the text for subcontract instructions, thresholds, scope triggers, lower-tier requirements, and any permitted substitutions.
           </p>
           <ul className="list-disc pl-5 space-y-1">
-            <li><strong className="text-[#1A3668]">FAR 52.222-26:</strong> Equal Opportunity compliance tracking.</li>
-            <li><strong className="text-[#1A3668]">FAR 52.222-41:</strong> Service Contract Act guidelines for prevailing wages.</li>
-            <li><strong className="text-[#1A3668]">FAR 52.203-13:</strong> Contractor Code of Business Ethics and Conduct (typically applied if your sub-scope clears major dollar thresholds).</li>
+            <li><strong className="text-[#1A3668]">FAR 52.222-26:</strong> Check whether the equal-opportunity clause and its subcontract requirements apply to the transaction.</li>
+            <li><strong className="text-[#1A3668]">FAR 52.222-41:</strong> Check whether the Service Contract Labor Standards clause applies to the covered services and workers.</li>
+            <li><strong className="text-[#1A3668]">FAR 52.203-13:</strong> Check the current clause text for value, performance-period, commercial-item, and lower-tier applicability conditions.</li>
           </ul>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> What to Strike: Red-Flag Overreach Clauses
+            <ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> Clauses That Deserve Commercial Review
           </h3>
           <p>
             Some clauses deserve closer commercial review even when the prime has a reason to include them. The key question is what the clause actually requires of your company and whether that obligation has been priced and scoped.
           </p>
           <ul className="list-disc pl-5 space-y-4">
             <li>
-              <strong className="text-[#1A3668]">FAR 52.249-2 (Termination for Convenience):</strong> Primes love to copy this clause to give themselves the right to terminate your trade contract for absolutely any reason without penalty. You must add protective language ensuring you are fully compensated for all field mobilization, ordered material packages, and earned profit up to the termination date.
+              <strong className="text-[#1A3668]">Termination for Convenience:</strong> If the subcontract gives the prime a convenience-termination right, review the actual subcontract clause for notice, recoverable cost categories, committed materials, demobilization, settlement deadlines, overhead, and profit treatment rather than assuming the prime-contract FAR clause creates identical subcontractor rights.
             </li>
             <li>
-              <strong className="text-[#1A3668]">FAR 52.215-2 (Audit and Records):</strong> Unless strictly required by project thresholds, do not allow a prime contractor to demand open-book access to your corporate financials, historical material markups, or internal labor cost margins under the guise of a "government audit."
+              <strong className="text-[#1A3668]">Audit and Records:</strong> Confirm which audit or record-access clause applies, what records are within scope, the retention period, and whether any prime access right is broader than the Government requirement being flowed down.
             </li>
           </ul>
 
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
-            <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">The "Mutatis Mutandis" Trap</h4>
+            <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">Substitutions and Mutatis Mutandis Language</h4>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Watch out for sweeping prefaces that state: *"Wherever the term 'Government' appears, it shall mean 'Contractor'."* This lazy boilerplate turns reasonable federal provisions into highly aggressive commercial weapons, giving a standard general contractor the same sweeping regulatory enforcement powers as the United States military.
+              A substitution clause can adapt a prime-contract provision for the prime-subcontract relationship, but it can also create ambiguity if every Government reference is replaced mechanically. Review which terms are being substituted, which obligations make sense at the subcontract level, and how conflicts are resolved.
             </p>
           </div>
 
@@ -97,7 +97,7 @@ export default function FarFlowDownClausesArticle() {
               Related Field Intelligence
             </p>
             <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
-              One-Sided flow-downs are almost always hidden using legal shortcuts. Read our full strategic guide on how to protect your team from signing blind agreements:
+              Incorporation language can extend the review beyond the face of the subcontract. See the related guide on documents incorporated by reference:
               <a href="/blog/incorporation-by-reference-ambush" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
                 Incorporation by Reference: Review Documents You Are Being Asked to Accept →
               </a>

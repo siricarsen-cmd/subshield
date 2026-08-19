@@ -93,7 +93,7 @@ export default function DavisBaconPayrollArticle() {
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li><strong className="text-[#1A3668]">Verify Wage Determinations Early:</strong> Ensure the exact, current federal wage decision document is attached to your contract files on day one, not a placeholder reference.</li>
-            <li><strong className="text-[#1A3668]">Negotiate Reasonable Cure Windows:</strong> Strike out any boilerplate language that allows the GC to quickly withhold payments for minor clerical errors. Insist on a mandatory 5-to-10 day written notice and cure window for payroll discrepancies.</li>
+            <li><strong className="text-[#1A3668]">Review Cure and Withholding Language:</strong> Consider whether correctable payroll discrepancies should have a defined notice-and-cure process and confirm how any withholding right relates to the labor clauses and subcontract.</li>
             <li><strong className="text-[#1A3668]">Audit the Flow-Down Framework:</strong> Run every incoming public procurement contract through an analytical check to make sure you aren't signing away your rights to equitable adjustment over audit-induced delays.</li>
           </ul>
         </div>
