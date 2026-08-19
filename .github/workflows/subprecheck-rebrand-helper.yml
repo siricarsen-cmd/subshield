@@ -41,7 +41,11 @@ jobs:
         run: node lib/__tests__/public-ux-consistency.test.mjs
 
       - name: Verify SEO foundation while keeping SubShield canonical pre-cutover
-        run: node --experimental-strip-types lib/__tests__/seo-foundation.test.mjs
+        run: >-
+          node --experimental-loader
+          ./lib/analyzer/__tests__/ts-relative-import.loader.mjs
+          --experimental-strip-types
+          lib/__tests__/seo-foundation.test.mjs
 
       - name: Validate TypeScript
         run: npx tsc --noEmit
