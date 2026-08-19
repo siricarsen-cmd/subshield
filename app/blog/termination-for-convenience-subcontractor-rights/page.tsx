@@ -22,7 +22,7 @@ export default function TerminationConvenienceArticle() {
             Termination for Convenience: What Subcontractors Should Review Before Signing
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            Discover how to recover mobilization overhead, custom fabrication commitments, and earned profits when a project is cut short without warning.
+            Review the subcontract's termination-for-convenience clause before signing so you understand notice, closeout, supplier commitments, and what costs may be recoverable.
           </p>
         </div>
       </div>
@@ -39,7 +39,7 @@ export default function TerminationConvenienceArticle() {
             Just like that, your project pipeline is wiped out. The GC tells your team to pack up their tools, submit an invoice for field hours recorded through yesterday, and exit the premises. 
           </p>
           <p>
-            They want you to believe that a <strong className="text-[#1A3668]">Termination for Convenience (T4C)</strong> clause gives them a free pass to completely wipe their hands of your business relationship. But under standard federal acquisition principles, a T4C is not a license to strip you of your investments—it is a highly regulated cost-recovery framework.
+            They want you to believe that a <strong className="text-[#1A3668]">Termination for Convenience (T4C)</strong> clause gives them a free pass to completely wipe their hands of your business relationship. Federal prime contracts contain detailed termination rules, but a subcontractor's rights against the prime depend on the subcontract language and applicable law. Do not assume the prime-contract settlement framework automatically passes through.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -49,14 +49,14 @@ export default function TerminationConvenienceArticle() {
             General contractors use T4C boilerplate text as an operational safety valve. If the project owner loses funding, redesigns the master layout, or if the GC simply decides they want to self-perform your scope to pocket more margin, they pull this trigger.
           </p>
           <p>
-            However, a prime contractor cannot use a convenience termination to create an unconscionable financial loss for your trade business. While they have the absolute right to halt future field performance, **they are legally required to make you whole for the expenses you incurred to support that project.**
+            A subcontract termination clause may limit or define what the prime owes after a convenience termination. Review whether it covers work performed, committed materials, demobilization, settlement expenses, overhead, profit, cancellation charges, and other closeout costs.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
             <FileText className="w-5 h-5 text-[#FF5F1F]" /> What You Are Legally Entitled to Recover
           </h3>
           <p>
-            When a prime contractor pulls the plug for convenience, your accounting track shifts from a progress-billing format to a comprehensive **termination settlement proposal**. You have a regulatory right to demand recovery for:
+            If the subcontract requires a termination settlement proposal, identify the cost categories and documentation the clause actually permits. Federal acquisition rules provide guidance for prime-subcontract termination administration, but the Government generally does not become responsible for paying a subcontractor's settlement directly.
           </p>
           <ul className="list-disc pl-5 space-y-4 text-xs text-slate-600 bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
             <li>
@@ -76,7 +76,7 @@ export default function TerminationConvenienceArticle() {
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
             <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">The One-Sided "Zero-Recovery" Boilerplate</h4>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Watch out for private-market boilerplate additions that state: *"In the event of a termination for convenience, the Subcontractor shall only be entitled to payment for work actually installed in place, and waives all claims for unabsorbed overhead, materials ordered but uninstalled, or closeout costs."* This is a one-sided trap designed to bypass standard federal protections.
+              Watch out for private-market boilerplate additions that state: *"In the event of a termination for convenience, the Subcontractor shall only be entitled to payment for work actually installed in place, and waives all claims for unabsorbed overhead, materials ordered but uninstalled, or closeout costs."* This language can materially narrow the subcontractor's closeout recovery and should be evaluated before signing.
             </p>
           </div>
 
@@ -100,7 +100,7 @@ export default function TerminationConvenienceArticle() {
             Arm your agreements before a project disruption occurs by embedding clear closeout guardrails:
           </p>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong className="text-[#1A3668]">Insert a Termination Fee Matrix:</strong> Negotiate a concrete, tier-based termination fee that triggers automatically if the plug is pulled, ensuring immediate cash-flow restoration without a protracted accounting battle.</li>
+            <li><strong className="text-[#1A3668]">Insert a Termination Fee Matrix:</strong> Consider whether the subcontract should define the recoverable categories, documentation, deadlines, material commitments, demobilization, and treatment of profit or overhead if termination occurs.</li>
             <li><strong className="text-[#1A3668]">Enforce True Reciprocity:</strong> If the general contractor demands the right to terminate your company for convenience without cause, demand a reciprocal right to terminate your performance obligations if they delay payments or disrupt field progress for more than 30 consecutive days.</li>
           </ul>
         </div>
@@ -112,13 +112,13 @@ export default function TerminationConvenienceArticle() {
               <Ban className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">
-              Armor Your Closeout Boundaries
+              Review Before You Commit
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't sign a boilerplate agreement that allows a prime contractor to cancel your pipeline and abandon your factory material liabilities.
+              Use the article as a checklist for terms, documents, and questions to resolve before bidding, signing, or committing resources.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your contract pack into the <strong className="text-[#1A3668]">SubPreCheck AI Triage Engine</strong> to instantly scan for unfair termination waivers, flag unprotected supplier liabilities, and protect your company’s right to full settlement compensation.
+              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.
             </p>
             <hr className="border-slate-100" />
             <a 

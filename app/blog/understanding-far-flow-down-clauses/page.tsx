@@ -22,7 +22,7 @@ export default function FarFlowDownClausesArticle() {
             Understanding FAR Flow-Down Clauses: What Belongs in Your Subcontract
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            Stop falling for the prime contractor's biggest bluff. Learn how to separate true mandatory federal flow-downs from one-sided risk-shifting boilerplate.
+            Learn how to distinguish clause requirements that apply to your subcontract from additional prime-drafted obligations that need separate review.
           </p>
         </div>
       </div>
@@ -36,21 +36,21 @@ export default function FarFlowDownClausesArticle() {
             It is a standard tactical move for a General Contractor during public procurement. They attach a massive addendum to your contract labeled <strong className="text-[#1A3668]">"Federal Acquisition Regulation (FAR) Flow-Down Provisions."</strong> It contains dozens of dense, alphanumeric legal codes, and the project manager tells you, *"Take it or leave it. Every line is legally mandated by the federal government."*
           </p>
           <p>
-            If you sign that addendum without auditing it, you are likely adopting severe administrative burdens, strict audit exposures, and structural liabilities that the federal government never intended to place on a trade subcontractor. 
+            If you sign the addendum without reviewing applicability, you may accept reporting, audit, cyber, labor, or commercial obligations that were not priced into your scope. 
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> The GC Bluff: Mandatory vs. Self-Serving Flow-Downs
+            <ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> Start With Clause Applicability
           </h3>
           <p>
-            Here is the core industry truth: there are two distinct categories of federal flow-down clauses, and general contractors routinely mix them together to disguise their own self-serving provisions:
+            There is no single universal FAR flowdown list for every subcontract. Applicability can depend on the prime contract, clause text, subcontract type, dollar value, scope, agency supplement, and whether the subcontract is for commercial products or commercial services.
           </p>
           <ol className="list-decimal pl-5 space-y-2 text-xs text-slate-600 bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
             <li>
-              <strong className="text-[#1A3668]">Mandatory Flow-Downs:</strong> These are clauses explicitly dictated by the federal government that *must* be included in subcontracts to maintain project compliance (e.g., anti-kickback rules, certified payroll tracking, and equal opportunity laws).
+              <strong className="text-[#1A3668]">Required Flowdowns:</strong> Some clauses expressly direct the prime to include specified language in qualifying subcontracts, sometimes only when stated thresholds or scope triggers are met.
             </li>
             <li>
-              <strong className="text-[#FF5F1F]">Non-Mandatory / Risk-Shifting Flow-Downs:</strong> These are clauses the government applies to the *Prime Contractor* only. The government does not care about your subcontract framework here, but the prime slips them in anyway to insulate themselves from their own performance risks.
+              <strong className="text-[#FF5F1F]">Additional Prime Terms:</strong> A prime may also include commercial risk-allocation terms or broader obligations for its own contract-management reasons. Those terms should be analyzed separately rather than assumed to be federally required.
             </li>
           </ol>
           <p>
@@ -61,7 +61,7 @@ export default function FarFlowDownClausesArticle() {
             <FileText className="w-5 h-5 text-[#FF5F1F]" /> What You Must Accept (The Real Rules)
           </h3>
           <p>
-            True mandatory federal flow-downs are primarily focused on worker ethics, labor tracking, and base security compliance. You should readily accept clauses like:
+            Do not decide applicability from a clause title alone. For each cited FAR or DFARS clause, check the text for subcontract instructions, thresholds, scope triggers, lower-tier requirements, and any permitted substitutions.
           </p>
           <ul className="list-disc pl-5 space-y-1">
             <li><strong className="text-[#1A3668]">FAR 52.222-26:</strong> Equal Opportunity compliance tracking.</li>
@@ -73,7 +73,7 @@ export default function FarFlowDownClausesArticle() {
             <ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> What to Strike: Red-Flag Overreach Clauses
           </h3>
           <p>
-            If you spot these clauses in your flow-down addendum, they are target parameters for immediate deletion or heavy modification:
+            Some clauses deserve closer commercial review even when the prime has a reason to include them. The key question is what the clause actually requires of your company and whether that obligation has been priced and scoped.
           </p>
           <ul className="list-disc pl-5 space-y-4">
             <li>
@@ -111,8 +111,8 @@ export default function FarFlowDownClausesArticle() {
             Take back your negotiating leverage during procurement by establishing a clean review process:
           </p>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong className="text-[#1A3668]">Insist on Threshold Exemptions:</strong> Many FAR clauses only apply to subcontracts exceeding $150,000 or $250,000. If your supply or field installation scope falls under those numbers, strike the clauses out completely based on federal text rules.</li>
-            <li><strong className="text-[#1A3668]">Isolate True Flow-Down Lists:</strong> Demand that the prime explicitly state which clauses are legally mandatory under federal acquisition guidelines versus which ones are internal company preferences.</li>
+            <li><strong className="text-[#1A3668]">Insist on Threshold Exemptions:</strong> FAR and DFARS clauses use different thresholds and applicability tests, and those thresholds can change. Verify the current text of each clause instead of relying on a single dollar cutoff.</li>
+            <li><strong className="text-[#1A3668]">Isolate True Flow-Down Lists:</strong> Ask the prime to identify the source of each flowdown, provide referenced attachments, and explain any contract-specific applicability assumptions that affect your scope or pricing.</li>
           </ul>
         </div>
 
@@ -123,13 +123,13 @@ export default function FarFlowDownClausesArticle() {
               <Network className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">
-              Filter Out Prime Contractor Overreach
+              Review Before You Commit
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't let an aggressive general contractor trick you into adopting dozens of unneeded federal liabilities.
+              Use the article as a checklist for terms, documents, and questions to resolve before bidding, signing, or committing resources.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your contract pack into the <strong className="text-[#1A3668]">SubPreCheck AI Flow-Down Auditor</strong> to instantly separate mandatory federal requirements from artificial risk shifts, saving hours of unnecessary administrative headache.
+              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.
             </p>
             <hr className="border-slate-100" />
             <a 

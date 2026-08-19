@@ -22,7 +22,7 @@ export default function LiquidatedDamagesArticle() {
             Liquidated Damages and Delay Claims: Terms to Review Before You Commit
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            How general contractors use milestone schedules to back-charge trade partners for cascading delays caused by other crews.
+            Review critical-path responsibility, notice, apportionment, owner liquidated damages, and no-damages-for-delay language before accepting schedule risk.
           </p>
         </div>
       </div>
@@ -36,7 +36,7 @@ export default function LiquidatedDamagesArticle() {
             On a complex, multi-trade commercial job site, the project schedule is a living organism. If the framing crew falls behind, the mechanical rough-in stalls. If the mechanical trades block a corridor, your installation crews are locked out of their designated workspace. Delays ripple across the project structure daily.
           </p>
           <p>
-            But when a project misses its master completion date, general contractors rarely pause to conduct a fair assessment of who actually disrupted the schedule. Instead, they face severe per-day penalties from the owner, and they move instantly to protect their own fee.
+            But when a project misses its master completion date, general contractors rarely pause to conduct a fair assessment of who actually disrupted the schedule. Instead, they face severe per-day penalties from the owner, and they move quickly to protect their own fee.
           </p>
           <p>
             The GC’s project management team will scan the daily logs, isolate a week where your crew was under-staffed or waiting on a material delivery, and drop a massive assessment of <strong className="text-[#1A3668]">Liquidated Damages (LDs)</strong> onto your desk—often wiping out your entire profit margin and withholding your retention in a single stroke.
@@ -52,7 +52,7 @@ export default function LiquidatedDamagesArticle() {
             General contractors count on you assuming that if your crew was late by five days, you are automatically liable for five days of project damages. But construction law tells a very different story. 
           </p>
           <p>
-            If the project schedule was *simultaneously* delayed by an unapproved architectural change, severe weather, or a structural error made by a completely different trade, the delay is legally considered concurrent. Under standard judicial principles, **a prime contractor cannot assess liquidated damages against a subcontractor for a delay period where the GC or owner was also independently delaying the critical path.**
+            If the project schedule was *simultaneously* delayed by an unapproved architectural change, severe weather, or a structural error made by a completely different trade, the delay is legally considered concurrent. Concurrent-delay treatment varies with the facts, contract language, governing law, and the ability to prove critical-path causation. Do not assume that overlapping delay automatically eliminates a subcontractor's exposure or recovery.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -96,8 +96,8 @@ export default function LiquidatedDamagesArticle() {
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li><strong className="text-[#1A3668]">Enforce a Strict Apportionment Clause:</strong> Modify the indemnity print to state that you are only liable for the exact percentage of damages directly caused by your sole negligence: *"Subcontractor's liability for project delays shall be strictly limited to the direct, actual damages caused solely by Subcontractor, allocated proportionately based on fault."*</li>
-            <li><strong className="text-[#1A3668]">Establish a Per-Day Dollar Cap:</strong> Never leave your contract exposure open-ended. Negotiate a maximum threshold for liquidated damages, capping the total possible assessment at 5% to 10% of your absolute subcontract value.</li>
-            <li><strong className="text-[#1A3668]">Submit Non-Compliance Trackers Weekly:</strong> If your field crews arrive on-site and cannot access a room because another trade hasn't cleared their staging, document it via email immediately. A paper trail proving your access was obstructed is your absolute best asset to defeat an end-of-project damage claim.</li>
+            <li><strong className="text-[#1A3668]">Establish a Per-Day Dollar Cap:</strong> Never leave your contract exposure open-ended. Consider whether the subcontract should cap delay exposure, limit pass-through of owner liquidated damages, require causation and apportionment, or exclude delays outside the subcontractor's control. The appropriate structure is deal-specific.</li>
+            <li><strong className="text-[#1A3668]">Submit Non-Compliance Trackers Weekly:</strong> If your field crews arrive on-site and cannot access a room because another trade hasn't cleared their staging, document it via email immediately. Contemporaneous records of access restrictions, predecessor delays, instructions, manpower, and schedule impacts can be important evidence if a delay claim later arises.</li>
           </ul>
         </div>
 
@@ -108,13 +108,13 @@ export default function LiquidatedDamagesArticle() {
               <Clock className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">
-              Defend Your Retention & Profits
+              Review Before You Commit
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't let an aggressive general contractor force your business to pay for project-wide scheduling collapses and third-party delays.
+              Use the article as a checklist for terms, documents, and questions to resolve before bidding, signing, or committing resources.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your prime agreement or schedule addendums into the <strong className="text-[#1A3668]">SubPreCheck AI Delay Risk Auditor</strong> to instantly flag one-sided non-apportionment traps, isolate hidden waiver clauses, and keep your company's revenue securely locked down.
+              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.
             </p>
             <hr className="border-slate-100" />
             <a 

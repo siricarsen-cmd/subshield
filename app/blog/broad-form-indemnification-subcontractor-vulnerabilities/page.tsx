@@ -22,7 +22,7 @@ export default function BroadIndemnificationArticle() {
             Broad Indemnification: How Risk Can Shift to the Subcontractor
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            How signing a standard, one-sided indemnity clause forces your trade company to pay for damages caused entirely by the general contractor’s negligence.
+            Review indemnity, duty-to-defend, negligence, insurance, and governing-law language before accepting liability outside your own scope.
           </p>
         </div>
       </div>
@@ -39,7 +39,7 @@ export default function BroadIndemnificationArticle() {
             But under a <strong className="text-[#1A3668]">Broad-Form Indemnification Clause</strong>, general contractors completely tear up this standard framework of fairness. 
           </p>
           <p>
-            They embed aggressive boilerplate lines that force you to take on absolute financial liability for any accidents, injuries, or property damage on the job site—even if the incident was caused 100% by the general contractor’s own negligence or poor management.
+            Some indemnity clauses are drafted broadly enough to reach losses involving the prime's acts, shared fault, or claims beyond the subcontractor's direct work. The effect depends on the wording and governing law.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -62,7 +62,7 @@ export default function BroadIndemnificationArticle() {
             <FileText className="w-5 h-5 text-[#FF5F1F]" /> The Uninsured Risk Exposure
           </h3>
           <p>
-            The absolute scariest part of a broad-form indemnity clause is that **your standard Commercial General Liability (CGL) insurance policy will routinely refuse to cover the loss.**
+            Indemnity and duty-to-defend obligations should also be checked against the subcontractor's insurance program. Contractual liability coverage, exclusions, additional-insured status, and state law can affect whether a particular loss is insured.
           </p>
           <p>
             Insurance policies are explicitly designed to cover *your* corporate liability and negligent actions. Most standard policy frameworks contain strict exclusions for "contractually assumed liabilities" where you agree to insure a third party's sole negligence. 
@@ -74,7 +74,7 @@ export default function BroadIndemnificationArticle() {
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
             <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">The Anti-Indemnity Statute Shield</h4>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Because these clauses are so fundamentally one-sided, over 40 states have enacted strict **Anti-Indemnity Statutes** that legally ban broad-form clauses in construction environments. However, GCs routinely try to bypass these state protections by inserting special "Choice of Law" clauses, forcing your agreement to be interpreted under the rules of a different state where broad-form traps are still permitted.
+              Many states regulate construction indemnity, but the rules differ by jurisdiction and by the type of indemnity or defense obligation at issue. Choice-of-law and venue provisions can therefore be important review points. Have counsel evaluate the clause under the law that is likely to govern.
             </p>
           </div>
 
@@ -95,7 +95,7 @@ export default function BroadIndemnificationArticle() {
             <CheckCircle className="w-5 h-5 text-[#FF5F1F]" /> Rewriting the Boundary Rules
           </h3>
           <p>
-            Never risk your company's financial future by signing away your liability boundaries. Protect your assets with two non-negotiable revisions:
+            Before signing, identify the liability boundary the clause creates and discuss any proposed revision with counsel and your insurance broker:
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li><strong className="text-[#1A3668]">Insist on Comparative/Proportionate Fault:</strong> Line through any phrase that holds you liable for the GC's negligence. Demand that the clause limit your indemnity obligations strictly: *"but only to the extent caused by the negligent acts or omissions of the Subcontractor."*</li>
@@ -110,13 +110,13 @@ export default function BroadIndemnificationArticle() {
               <ShieldX className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">
-              Erase Unfair Indemnity Risks
+              Review Before You Commit
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't let general contractors force your business to hold them harmless for their own structural or safety blunders.
+              Use the article as a checklist for terms, documents, and questions to resolve before bidding, signing, or committing resources.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your boilerplate agreement into the <strong className="text-[#1A3668]">SubPreCheck AI Liability Engine</strong> to instantly pinpoint one-sided indemnity triggers, isolate hidden choice-of-law traps, and secure your financial boundaries before signing.
+              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.
             </p>
             <hr className="border-slate-100" />
             <a 

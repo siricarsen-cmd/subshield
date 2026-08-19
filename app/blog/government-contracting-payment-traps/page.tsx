@@ -22,7 +22,7 @@ export default function PayWhenPaidTrapArticle() {
             Pay-When-Paid and Pay-If-Paid: What Federal Subcontractors Should Review
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            How general contractors falsely invoke federal acquisition rules to justify withholding cash flow from trade subcontractors—and how the law actually protects you.
+            Review contingent-payment language, payment timing, withholding rights, and federal construction payment provisions before accepting the prime's terms.
           </p>
         </div>
       </div>
@@ -36,43 +36,43 @@ export default function PayWhenPaidTrapArticle() {
             It is one of the most frustrating phone calls a subcontractor can receive. Your lighting or industrial installation scope is 100% complete, fully inspected, and signed off. Yet, 60 days pass, and your progress invoice remains unpaid. When you call the general contractor’s accounting trailer, they give you a rehearsed response: <strong className="text-[#1A3668]">"The government hasn't funded that draw yet. Under our contract's 'Pay-When-Paid' clause, we don't owe you a dime until Uncle Sam pays us."</strong>
           </p>
           <p>
-            They make it sound like an unbendable rule of federal procurement. But in the world of federal contracting, this defense is often a complete legal illusion used to force subcontractors to act as interest-free banks for the prime contractor.
+            A prime's payment position should be tested against the actual subcontract, the applicable federal construction payment clause if one is incorporated, and governing law. Federal procurement rules do not create one universal answer for every pay-when-paid or pay-if-paid dispute.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 trick-color text-[#FF5F1F]" /> The Truth About FAR Prompt Payment
+            <ShieldAlert className="w-5 h-5 trick-color text-[#FF5F1F]" /> What FAR Prompt Payment Language Can Affect
           </h3>
           <p>
-            Here is the reality that prime contractors do not want you to know: the federal government takes subcontractor cash flow incredibly seriously. Under **FAR 52.232-27 (The Prompt Payment Act Clause for Construction Contracts)**, specific statutory guardrails protect your money.
+            On covered federal construction contracts, FAR 52.232-27 includes subcontract payment and interest provisions that the prime must include in qualifying subcontracts. Those provisions matter, but they do not make the Government a party to a private payment dispute between a prime and subcontractor.
           </p>
           <p>
-            When a prime contractor submits a progress payment request to a federal agency, they are legally required to certify that:
+            When the clause applies, review the subcontract for the required payment framework, including:
           </p>
           <ul className="list-disc pl-5 space-y-2 text-xs text-slate-600 bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
-            <li>They will pay their subcontractors from the proceeds of that specific draw within **7 days** of receiving cash from the government.</li>
-            <li>Any withholdings or project delays are justified by actual, deficient performance by the subcontractor.</li>
+            <li>the stated deadline for paying subcontractors after the prime receives Government payment;</li>
+            <li>interest terms for late subcontract payments and the notice process for withholding or retaining amounts.</li>
           </ul>
           <p>
-            If a prime contractor takes money from the federal government for your completed scope and uses it to cover their own overhead, shortfalls on other jobs, or corporate expenses, they are committing a severe compliance violation.
+            If payment is delayed, separate the questions: what the subcontract requires, whether the prime has received the related Government payment, what withholding notice was issued, and what other remedies may be available.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-[#FF5F1F]" /> The Trap: "Pay-IF-Paid" vs. "Pay-WHEN-Paid"
+            <FileText className="w-5 h-5 text-[#FF5F1F]" /> Pay-If-Paid vs. Pay-When-Paid Language
           </h3>
           <p>
-            Primes count on trade subcontractors not understanding the massive legal distinction between two very specific words in the boilerplate text:
+            The wording matters because contingent-payment provisions can allocate timing or non-payment risk differently. Their enforceability and effect can also vary by governing law.
           </p>
           <p>
-            A true <strong className="text-[#1A3668]">"Pay-When-Paid"</strong> clause merely sets a reasonable *timing* framework for when payment should arrive. In most courts, it does not absolve the prime contractor of their ultimate debt. If the government goes bankrupt or delays funding indefinitely, the prime still legally owes you for your completed labor.
+            A clause labeled <strong className="text-[#1A3668]">"Pay-When-Paid"</strong> may address payment timing, but labels alone are not enough. Read the full provision for outside deadlines, conditions precedent, withholding rights, and language allocating owner non-payment risk.
           </p>
           <p>
-            However, primes routinely sneak aggressive <strong className="text-[#FF5F1F]">"Pay-If-Paid"</strong> language into subcontracts. This shifts the absolute risk of owner non-payment completely onto your shoulders. It states that the owner paying the prime is a mandatory "condition precedent" to your payment. If the owner never pays, you have legally agreed that you are entitled to exactly $0.
+            A <strong className="text-[#FF5F1F]">"Pay-If-Paid"</strong> or condition-precedent provision may attempt to shift owner non-payment risk downstream. Whether it has that effect depends on the actual wording and applicable law, so it is a term to flag for counsel before signing.
           </p>
 
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
             <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">The Federal Contracting Exception</h4>
             <p className="text-xs text-slate-600 leading-relaxed">
-              On federal projects, the Miller Act provides subcontractors with a powerful statutory bond option to sue for payment after 90 days of non-payment. Primes know this, which is why they try to use creative boilerplate text to get you to waive your prompt payment and Miller Act rights before a shovel ever touches the dirt.
+              On covered federal construction projects, the Miller Act payment bond can provide a separate payment remedy for qualifying claimants, subject to statutory timing, tier, notice, and filing requirements. Bond rights should be evaluated separately from the subcontract's contingent-payment language.
             </p>
           </div>
 
@@ -90,15 +90,15 @@ export default function PayWhenPaidTrapArticle() {
           </div>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-[#FF5F1F]" /> Striking Out the Contingency Trap
+            <CheckCircle className="w-5 h-5 text-[#FF5F1F]" /> Questions to Resolve Before Signing
           </h3>
           <p>
-            Never sign a subcontract that leaves your company's cash flow at the mercy of an owner-prime relationship you cannot control. Protect your cash flow with these exact strategies:
+            Before accepting contingent-payment language, identify the commercial and legal questions that need to be resolved:
           </p>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong className="text-[#1A3668]">Strike Out "Condition Precedent":</strong> Line through any phrases stating that payment to the prime is a "condition precedent" or that the subcontractor "assumes the risk of owner non-payment."</li>
-            <li><strong className="text-[#1A3668]">Insist on an Absolute Stop-Gap:</strong> Add clear fallback language: *"In no event shall subcontractor payment be delayed more than 60 days from invoice submission, regardless of whether prime contractor has received payment from the owner."*</li>
-            <li><strong className="text-[#1A3668]">Leverage FAR Interest Clauses:</strong> Remind the prime that under FAR guidelines, if they delay a subcontractor's payment without an official, certified deficiency notice, they are legally obligated to pay interest on those late funds.</li>
+            <li><strong className="text-[#1A3668]">Identify Conditions:</strong> Flag any "condition precedent" language or wording that shifts the risk of owner non-payment.</li>
+            <li><strong className="text-[#1A3668]">Ask for a Defined Outside Date:</strong> Consider whether the subcontract should contain a clear payment deadline that is not open-ended.</li>
+            <li><strong className="text-[#1A3668]">Check Withholding and Interest Terms:</strong> Confirm the required notice, retainage, withholding, and interest provisions that actually apply to the subcontract.</li>
           </ul>
         </div>
 
@@ -109,13 +109,13 @@ export default function PayWhenPaidTrapArticle() {
               <Landmark className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">
-              Secure Your Payment Framework
+              Review Before You Commit
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't sign a one-sided boilerplate contract that turns your trade business into an interest-free bank for the general contractor.
+              Use the article as a checklist for terms, documents, and questions to resolve before bidding, signing, or committing resources.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your contract into the <strong className="text-[#1A3668]">SubPreCheck AI Triage Engine</strong> to instantly scan for hidden conditional payment traps, flag unfair risk shifts, and receive an immediate negotiation script to keep your capital safe.
+              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.
             </p>
             <hr className="border-slate-100" />
             <a 

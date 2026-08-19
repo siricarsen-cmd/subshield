@@ -22,7 +22,7 @@ export default function ProtectingSmallSubcontractorMarginsArticle() {
             Protecting Small Subcontractor Margins Before You Sign
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            How general contractors exploit the lack of dedicated legal departments in small trade businesses to shift absolute project liability onto blameless field operators.
+            A practical pre-award checklist for payment, scope, change, liability, termination, and flowdown terms that can affect a small subcontractor's margin.
           </p>
         </div>
       </div>
@@ -49,7 +49,7 @@ export default function ProtectingSmallSubcontractorMarginsArticle() {
             Large general contractors employ massive legal and risk-management departments whose sole corporate mandate is to isolate the prime contractor from financial exposure. 
           </p>
           <p>
-            When drafting subcontracts, these teams intentionally construct "risk tunnels." If there is a design mismatch, a site delay, a payment freeze, or a safety incident, the contract language is engineered to automatically funnel that liability downstream until it lands squarely on the lowest tier handling the physical work.
+            Prime contractors commonly use subcontract terms to allocate project risk downstream. The business question is whether each allocation matches your scope, price, insurance, schedule control, and ability to manage the risk.
           </p>
           <p>
             They count on the fact that you will check the contract price, verify the scope of work, review the billing cycle rules, and sign the document without scanning the back-page clauses that grant them the right to freeze your progress draws over a minor administrative detail.
@@ -76,7 +76,7 @@ export default function ProtectingSmallSubcontractorMarginsArticle() {
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
             <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">The "Size Exclusion" Fallacy</h4>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Many small business owners assume that because their subcontract value is minor compared to the master project budget, the GC won't waste time enforcing complex boilerplate penalties against them. The exact opposite is true. Because smaller trades lack the cash reserves to sustain a prolonged legal battle, primes use contract technicalities as immediate leverage to force cheap closeout settlements.
+              Many small business owners assume that because their subcontract value is minor compared to the master project budget, the GC won't waste time enforcing complex boilerplate penalties against them. A smaller subcontract value does not make boilerplate irrelevant. Notice, payment, release, indemnity, change, and termination provisions can still materially affect cash flow and closeout leverage.
             </p>
           </div>
 
@@ -87,7 +87,7 @@ export default function ProtectingSmallSubcontractorMarginsArticle() {
             </p>
             <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
               One-Sided liability shifts are the fastest way to drain your company's retained cash reserves on site. Read our complete legal survival guide on 
-              <a href="/blog/broad-form-indemnification-subcontractors" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
+              <a href="/blog/broad-form-indemnification-subcontractor-vulnerabilities" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
                 Broad Indemnification: How Risk Can Shift to the Subcontractor →
               </a>
             </p>
@@ -97,10 +97,10 @@ export default function ProtectingSmallSubcontractorMarginsArticle() {
             <CheckCircle className="w-5 h-5 text-[#FF5F1F]" /> Leveling the Operational Playing Field
           </h3>
           <p>
-            You do not need an expensive law firm on your payroll to protect your company's bank account. You can balance the scales by executing a strict, three-part negotiation routine:
+            A structured first-pass review can help a small business organize the issues before counsel gets involved, so attorney time can focus on the questions that actually require legal judgment:
           </p>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong className="text-[#1A3668]">Strike One-Sided Penalties:</strong> Line through any clauses that give the GC the automatic right to instantly withhold your entire progress check or assess un-apportioned liquidated damages without providing a clear, multi-day written warning and cure window.</li>
+            <li><strong className="text-[#1A3668]">Strike One-Sided Penalties:</strong> Line through any clauses that give the GC the automatic right to quickly withhold your entire progress check or assess un-apportioned liquidated damages without providing a clear, multi-day written warning and cure window.</li>
             <li><strong className="text-[#1A3668]">Insist on Proportionate Accountability:</strong> Alter all indemnity and liability lines to state that your company is strictly accountable *only* for damages directly caused by your own field actions.</li>
             <li><strong className="text-[#1A3668]">Leverage Automated Pre-Screening:</strong> Treat contract reviews as a mandatory pre-bid operational step, just like executing a material take-off or verifying field measurements.</li>
           </ul>
@@ -113,13 +113,13 @@ export default function ProtectingSmallSubcontractorMarginsArticle() {
               <Users className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">
-              Defend Your Field Profitability
+              Review Before You Commit
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't let corporate legal boilerplates turn your independent trade business into an uncompensated insurance cushion for the general contractor.
+              Use the article as a checklist for terms, documents, and questions to resolve before bidding, signing, or committing resources.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your commercial agreement documents into the <strong className="text-[#1A3668]">SubPreCheck AI Contract Guard</strong> to instantly decode hidden liability shifts, flag aggressive payment terms, and secure your company's hard-earned margins before setting foot on site.
+              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.
             </p>
             <hr className="border-slate-100" />
             <a 
