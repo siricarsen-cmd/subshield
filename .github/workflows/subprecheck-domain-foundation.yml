@@ -1,0 +1,30 @@
+name: SubPreCheck Domain Foundation
+
+on:
+  pull_request:
+    paths:
+      - "scripts/verify-subprecheck-domain-foundation.mjs"
+      - ".github/workflows/subprecheck-domain-foundation.yml"
+      - "docs/operations/subprecheck-domain-foundation.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-precutover-domain-foundation:
+    name: DNS / SSL / canonical guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Verify SubPreCheck pre-cutover foundation
+        run: node scripts/verify-subprecheck-domain-foundation.mjs
