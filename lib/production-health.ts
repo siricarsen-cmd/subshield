@@ -1,4 +1,5 @@
 import { resolveAppBaseUrl } from "./app-base-url";
+import { isApprovedProductionOrigin } from "./production-origin";
 
 export type ProductionHealthStatus = "ok" | "unavailable";
 
@@ -20,8 +21,6 @@ interface ProductionHealthEnvironment {
   CONTACT_FROM_EMAIL?: string;
   CONTACT_TO_EMAIL?: string;
 }
-
-const PRODUCTION_ORIGIN = "https://www.subshield.net";
 
 const REQUIRED_RUNTIME_KEYS = [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -51,7 +50,7 @@ export function getProductionHealthStatus(
   }
 
   try {
-    if (resolveAppBaseUrl(environment) !== PRODUCTION_ORIGIN) {
+    if (!isApprovedProductionOrigin(resolveAppBaseUrl(environment))) {
       return "unavailable";
     }
   } catch {
