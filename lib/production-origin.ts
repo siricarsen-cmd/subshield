@@ -20,33 +20,40 @@ export function isApprovedProductionOrigin(
   return (APPROVED_PRODUCTION_ORIGINS as readonly string[]).includes(origin);
 }
 
+function parseConfiguredOrigin(rawUrl: string): string | null {
+  let url: URL;
+
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return null;
+  }
+
+  if (url.protocol !== "https:" || url.username || url.password) {
+    return null;
+  }
+
+  return url.origin;
+}
+
 export function resolveCanonicalProductionOrigin(
   environment: ProductionOriginEnvironment = process.env as ProductionOriginEnvironment,
 ): ApprovedProductionOrigin {
   const configuredBaseUrl = environment.NEXT_PUBLIC_BASE_URL?.trim();
 
   if (configuredBaseUrl) {
-    let configuredOrigin: string;
+    const configuredOrigin = parseConfiguredOrigin(configuredBaseUrl);
 
-    try {
-      configuredOrigin = new URL(configuredBaseUrl).origin;
-    } catch {
-      if (environment.VERCEL_ENV === "production") {
-        throw new Error(
-          "NEXT_PUBLIC_BASE_URL must be a valid approved production origin.",
-        );
-      }
-
-      return SUBSHIELD_PRODUCTION_ORIGIN;
-    }
-
-    if (isApprovedProductionOrigin(configuredOrigin)) {
+    if (
+      configuredOrigin
+      && isApprovedProductionOrigin(configuredOrigin)
+    ) {
       return configuredOrigin;
     }
 
     if (environment.VERCEL_ENV === "production") {
       throw new Error(
-        "NEXT_PUBLIC_BASE_URL must match an approved production origin.",
+        "NEXT_PUBLIC_BASE_URL must be a valid approved HTTPS production origin without credentials.",
       );
     }
   }
