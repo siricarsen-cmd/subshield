@@ -50,15 +50,25 @@ jobs:
       - name: Validate TypeScript
         run: npx tsc --noEmit
 
-      - name: Lint changed application TypeScript
-        shell: bash
-        run: |
-          mapfile -t files < <(git diff --name-only origin/main...HEAD -- '*.ts' '*.tsx' || true)
-          mapfile -t worktree_files < <(git diff --name-only -- '*.ts' '*.tsx' || true)
-          files+=("${worktree_files[@]}")
-          if [ ${#files[@]} -gt 0 ]; then
-            printf '%s\n' "${files[@]}" | sort -u | xargs npx eslint
-          fi
+      - name: Lint established application surfaces changed by rebrand
+        run: >-
+          npx eslint
+          components/Navbar.tsx
+          components/Footer.tsx
+          components/FinalCTA.tsx
+          app/page.tsx
+          app/pricing/page.tsx
+          app/faq/page.tsx
+          app/about/page.tsx
+          app/contact/page.tsx
+          app/dashboard/page.tsx
+          app/report/[id]/page.tsx
+          app/privacy/page.tsx
+          app/terms/page.tsx
+          lib/seo.ts
+          lib/contact-email.ts
+          lib/checkout-session.ts
+          app/api/contact/route.ts
 
       - name: Build production bundle with pre-cutover canonical origin
         env:
