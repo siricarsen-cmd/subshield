@@ -1,0 +1,88 @@
+name: One-Time SubPreCheck Blog Accuracy Helper
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  refine-and-verify:
+    if: github.head_ref == 'rebrand/subprecheck-application-copy' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out rebrand branch
+        uses: actions/checkout@v4
+        with:
+          ref: rebrand/subprecheck-application-copy
+          fetch-depth: 0
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Apply article accuracy and tone refinements
+        run: node scripts/refine-subprecheck-blog-accuracy.mjs
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify public copy and all 16 article routes
+        run: node lib/__tests__/public-ux-consistency.test.mjs
+
+      - name: Verify SEO foundation keeps SubShield canonical pre-cutover
+        run: >-
+          node --experimental-loader
+          ./lib/analyzer/__tests__/ts-relative-import.loader.mjs
+          --experimental-strip-types
+          lib/__tests__/seo-foundation.test.mjs
+
+      - name: Validate TypeScript
+        run: npx tsc --noEmit
+
+      - name: Build production bundle with pre-cutover canonical origin
+        env:
+          VERCEL_ENV: production
+          NEXT_PUBLIC_BASE_URL: https://www.subshield.net
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+          STRIPE_SECRET_KEY: sk_test_ci_placeholder
+          STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+          NEXT_PUBLIC_STRIPE_PRICE_SINGLE_REVIEW_CYCLE: price_ci_single
+          NEXT_PUBLIC_STRIPE_PRICE_ACTIVE_BIDDER_PLAN: price_ci_active
+          NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE_PLAN: price_ci_enterprise
+          OPENAI_API_KEY: sk-ci-placeholder
+          RESEND_API_KEY: re_ci_placeholder
+          CONTACT_FROM_EMAIL: ci@example.com
+          CONTACT_TO_EMAIL: ci@example.com
+        run: npm run build
+
+      - name: Remove one-time helper files
+        run: |
+          rm scripts/refine-subprecheck-blog-accuracy.mjs
+          rm .github/workflows/subprecheck-blog-accuracy-helper.yml
+
+      - name: Commit verified article refinements
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "Refine SubPreCheck blog accuracy and tone"
+          git push origin HEAD:rebrand/subprecheck-application-copy
