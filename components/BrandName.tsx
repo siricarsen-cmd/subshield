@@ -9,7 +9,8 @@ export default function BrandName({ styled = false, className }: BrandNameProps)
   }
 
   return (
-    <span className={className} aria-label="SubPreCheck">
+    <span className={className}>
+      <span className="sr-only">SubPreCheck</span>
       <span aria-hidden="true" className="text-[#FF5F1F]">Sub</span>
       <span aria-hidden="true" className="text-[#1A3668]">Pre</span>
       <span aria-hidden="true" className="text-[#FF5F1F]">Check</span>
