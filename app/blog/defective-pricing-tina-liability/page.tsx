@@ -19,10 +19,10 @@ export default function TinaLiabilityArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            Defective Pricing and TINA Liability: When the Prime’s Mistake Becomes Your Legal Problem
+            Defective Pricing and Certified Cost or Pricing Data: Subcontractor Risk Points
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            How federal truth-in-negotiation thresholds allow general contractors to pass massive government compliance penalties down onto blameless trade partners.
+            Review certified cost or pricing data, audit, disclosure, recordkeeping, and downstream price-adjustment terms when they apply to your subcontract.
           </p>
         </div>
       </div>
@@ -46,13 +46,13 @@ export default function TinaLiabilityArticle() {
             <ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> The Truth in Negotiations Act (TINA) Mandate
           </h3>
           <p>
-            The root of this risk lies in a strict piece of federal procurement law formerly known as the **Truth in Negotiations Act (TINA)**, now codified under FAR Part 15.4.
+            The current FAR uses the term **certified cost or pricing data** for certain negotiated procurements and modifications. The requirements are addressed in FAR Part 15.4 and related clauses.
           </p>
           <p>
-            TINA legally mandates that on sole-source federal contracts crossing large statutory dollar thresholds, contractors must submit **"certified cost or pricing data."** This means you are legally certifying that your raw estimating logs, material supplier agreements, and labor projections are accurate, complete, and current up to the exact minute of final price agreement.
+            Certified cost or pricing data are required only when the FAR's applicability rules are met and no exception applies. As of 2026, the FAR threshold is generally $2.5 million, subject to the current regulation and exceptions such as adequate price competition or qualifying commercial products and services.
           </p>
           <p>
-            If a general contractor submits their master price proposal to a federal agency and uses your numbers as a baseline, they will force you to execute a matching **Certificate of Current Cost or Pricing Data**. By signing that form, you accept direct, flow-down exposure to federal defective pricing audits.
+            A subcontractor may have certified cost or pricing data obligations when the applicable prime-contract clause requires them and the subcontract or modification meets the relevant tests. Check FAR 52.215-12 or 52.215-13, any exceptions, the certification date, audit rights, and the subcontract's price-reduction or indemnity language.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -74,7 +74,7 @@ export default function TinaLiabilityArticle() {
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
             <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">The "Actual Cause" Legal Defense</h4>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Under federal procurement law, a prime contractor cannot legally pass a defective pricing reduction down to a subcontractor unless they can definitively prove that the government *actually relied* on the sub's specific data discrepancy to lower the contract value. If the prime altered your numbers, added artificial markups, or ignored your warnings before submittal, their indemnity claim completely falls apart.
+              Defective-pricing adjustments involve detailed questions about the data submitted, whether it was current, accurate, and complete, how it affected the negotiated price, and what the subcontract says about downstream adjustments. Do not rely on a blanket causation defense; preserve the pricing record and obtain counsel for a disputed reduction.
             </p>
           </div>
 
@@ -86,7 +86,7 @@ export default function TinaLiabilityArticle() {
             <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
               Data certification risks often tie directly into hidden supply-chain parameters. Sourcing non-compliant variants under domestic content tests can trigger sudden financial reviews. Read our full analysis on
               <a href="/blog/buy-american-act-sourcing-mistakes" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
-                The BAA Procurement Blindspot: Why Your Submittal Packages Are Gating Your Cash Flow →
+                Buy American Act Sourcing: Domestic Content and Documentation Risks →
               </a>
             </p>
           </div>
@@ -111,13 +111,13 @@ export default function TinaLiabilityArticle() {
               <AlertTriangle className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">
-              Shield Your Estimating Integrity
+              Review Before You Commit
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't sign a predatory boilerplate contract that allows a prime contractor to pass federal defective pricing penalties down onto your trade business.
+              Use the article as a checklist for terms, documents, and questions to resolve before bidding, signing, or committing resources.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your federal agreement bundle or procurement addendums into the <strong className="text-[#1A3668]">SubShield AI TINA Auditor</strong> to instantly isolate unfair pricing indemnity triggers, flag dangerous audit risks, and secure your contract boundaries before signing.
+              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.
             </p>
             <hr className="border-slate-100" />
             <a 

@@ -475,7 +475,7 @@ export default function DashboardPage() {
         <div>
           <div className="flex items-center space-x-2 mb-12">
             <Building2 className="h-8 w-8 text-[#FF5F1F]" strokeWidth={2.5} />
-            <span className="font-black text-[#1A3668] text-xl tracking-tight uppercase">SUBSHIELD</span>
+            <span className="font-black text-[#1A3668] text-xl tracking-tight uppercase">SUBPRECHECK</span>
           </div>
           
           <nav className="space-y-4">
@@ -630,7 +630,7 @@ export default function DashboardPage() {
                   disabled={isPasting || !pasteText.trim() || !intakeEnabled}
                   className="bg-[#FF5F1F] hover:bg-[#E04F1A] text-white text-xs font-black uppercase tracking-wider py-2.5 px-6 rounded-lg transition disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed w-full sm:w-auto"
                 >
-                  {isPasting ? "Scanning..." : "Run Triage On Pasted Text"}
+                  {isPasting ? "Scanning..." : "Run Review On Pasted Text"}
                 </button>
               </div>
             </div>
@@ -638,7 +638,7 @@ export default function DashboardPage() {
 
           {/* Registry Table */}
           <section>
-            <h2 className="text-sm font-black text-[#1A3668] uppercase tracking-widest mb-4">Audit Operations Registry</h2>
+            <h2 className="text-sm font-black text-[#1A3668] uppercase tracking-widest mb-4">Review Registry</h2>
             <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-wider">
@@ -719,7 +719,7 @@ export default function DashboardPage() {
               </button>
             </div>
             <p className="text-sm text-slate-600 font-medium mb-1">
-              This will permanently delete this review, uploaded contract files, and generated report from your SubShield dashboard. This cannot be undone. Payment records may still be retained for billing/accounting purposes.
+              This will permanently delete this review, uploaded contract files, and generated report from your SubPreCheck dashboard. This cannot be undone. Payment records may still be retained for billing/accounting purposes.
             </p>
             <p className="text-xs text-slate-500 font-medium mb-4">
               Type <span className="font-black text-slate-700">DELETE</span> below to confirm.

@@ -19,10 +19,10 @@ export default function DavisBaconPayrollArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            The Certified Payroll Trap: How Labor Misclassifications Liquidate Your Project Retention
+            Davis-Bacon Certified Payroll: Classification and Documentation Risks
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            How minor administrative oversights on weekly Davis-Bacon Act logs give general contractors the legal leverage to freeze your progress payments.
+            Review wage determinations, classifications, certified-payroll duties, correction procedures, and withholding language on covered federal construction work.
           </p>
         </div>
       </div>
@@ -33,10 +33,10 @@ export default function DavisBaconPayrollArticle() {
         {/* Article Body */}
         <div className="lg:col-span-2 space-y-6 text-sm text-slate-700 leading-relaxed font-medium">
           <p>
-            When a subcontractor signs onto a federally funded job site, they aren’t just agreeing to build a project—they are stepping into an aggressive regulatory tracking system managed by the Department of Labor (DOL). At the heart of this system is the <strong className="text-[#1A3668]">Davis-Bacon Act (DBA)</strong>, which mandates that every worker be paid local prevailing wages and fringes.
+            When Davis-Bacon Related Acts requirements apply to a federal construction contract, the wage determination and labor clauses establish prevailing-wage, fringe, classification, and payroll obligations for covered workers. Confirm coverage and the actual wage determination before pricing the work.
           </p>
           <p>
-            For trade business owners, the risk isn't usually an intentional desire to underpay workers. The real danger stems from the brutal complexity of the weekly **WH-347 Certified Payroll Form**. A single administrative slip can trigger an audit that completely drains your corporate margin.
+            Covered contractors and subcontractors generally must submit weekly payroll information and a statement of compliance. DOL's WH-347 is an optional form for that purpose, not the only permissible format. Classification or payroll errors can require correction and back wages, so the process should be set before mobilization.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -49,7 +49,7 @@ export default function DavisBaconPayrollArticle() {
             However, DOL inspectors do not care what a worker's internal title is. They care strictly about the **tools in their hands**. 
           </p>
           <p>
-            If a worker classified as a "Laborer" is caught by an inspector holding an impact driver, running specialized wire, or mounting enclosures, that worker must legally be compensated at the full journeyman rate for that specific trade. An audit can force you to pay thousands of dollars in retroactive back-pay, plus interest, extending backward across months of completed work.
+            Classification depends on the work actually performed, the applicable wage determination, and any recognized apprenticeship or classification rules. Do not assume an internal job title controls the required wage rate; verify mixed duties and apprenticeship status before payroll is submitted.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -59,10 +59,10 @@ export default function DavisBaconPayrollArticle() {
             Because federal prime contract clauses hold the General Contractor jointly liable for any labor compliance deficiencies on the job site, GCs monitor subcontractor submittals with extreme paranoia.
           </p>
           <p>
-            If your weekly WH-347 form contains even a minor clerical error—such as a mismatched apprentice certification number or an incorrect fringe benefit calculation—the GC won't just ask you to fix it. Under standard boilerplate contract frameworks, they possess the immediate right to **freeze your entire monthly progress payment** or completely hold back your 10% retention across all scopes.
+            Payroll deficiencies can lead to correction requests, investigations, and withholding under applicable labor clauses. Whether a prime may withhold a particular subcontract payment also depends on the subcontract and the circumstances, so review the withholding and cure language before award.
           </p>
           <p>
-            A minor administrative error handled by an office clerk can instantly turn into a multi-week cash flow crisis that leaves you struggling to cover field payroll.
+            A minor administrative error handled by an office clerk can quickly turn into a multi-week cash flow crisis that leaves you struggling to cover field payroll.
           </p>
 
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
@@ -80,7 +80,7 @@ export default function DavisBaconPayrollArticle() {
             <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
               Administrative logging delays shouldn't give the general contractor a legal excuse to hold up your progress draws. Read our deep-dive analysis on 
               <a href="/blog/government-contracting-payment-traps" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
-                The "Pay-When-Paid" Illusion: Weaponizing FAR Compliance to Mask Prime Overreach →
+                Pay-When-Paid and Pay-If-Paid: What Federal Subcontractors Should Review →
               </a>
             </p>
           </div>
@@ -93,7 +93,7 @@ export default function DavisBaconPayrollArticle() {
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li><strong className="text-[#1A3668]">Verify Wage Determinations Early:</strong> Ensure the exact, current federal wage decision document is attached to your contract files on day one, not a placeholder reference.</li>
-            <li><strong className="text-[#1A3668]">Negotiate Reasonable Cure Windows:</strong> Strike out any boilerplate language that allows the GC to instantly withhold payments for minor clerical errors. Insist on a mandatory 5-to-10 day written notice and cure window for payroll discrepancies.</li>
+            <li><strong className="text-[#1A3668]">Review Cure and Withholding Language:</strong> Consider whether correctable payroll discrepancies should have a defined notice-and-cure process and confirm how any withholding right relates to the labor clauses and subcontract.</li>
             <li><strong className="text-[#1A3668]">Audit the Flow-Down Framework:</strong> Run every incoming public procurement contract through an analytical check to make sure you aren't signing away your rights to equitable adjustment over audit-induced delays.</li>
           </ul>
         </div>
@@ -105,13 +105,13 @@ export default function DavisBaconPayrollArticle() {
               <Construction className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">
-              Keep Your Project Revenue Moving
+              Review Before You Commit
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't let a predatory boilerplate contract hand a general contractor the keys to freeze your cash flow over an administrative technicality.
+              Use the article as a checklist for terms, documents, and questions to resolve before bidding, signing, or committing resources.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Run your paperwork through the <strong className="text-[#1A3668]">SubShield AI Risk Analyzer</strong> to isolate aggressive payment withholding clauses, flag dangerous flow-down liabilities, and arm your team with a plain-English playbook to push back during contract negotiations.
+              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.
             </p>
             <hr className="border-slate-100" />
             <a 

@@ -13,13 +13,13 @@ export default function BlogDashboardPage() {
       <div className="bg-[#1A3668] text-white py-20 px-4 sm:px-6 lg:px-8 text-center border-b-4 border-[#FF5F1F]">
         <div className="max-w-4xl mx-auto space-y-4">
           <span className="inline-block bg-[#FF5F1F] text-white text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-sm">
-            SubShield Knowledge Hub
+            SubPreCheck Knowledge Hub
           </span>
           <h1 className="text-3xl md:text-5xl font-black tracking-tight uppercase leading-none">
-            Contract Strategy & Operational Survival Guides
+            Federal Subcontract Risk Guides
           </h1>
           <p className="text-slate-300 text-sm md:text-base max-w-2xl mx-auto font-medium leading-relaxed">
-            Plain-English intelligence, federal procurement breakdowns, and contract risk mitigation strategies explicitly engineered to defend subcontractor margins.
+            Practical guidance on federal subcontract terms, flowdowns, payment, scope, compliance, and the questions to resolve before you commit.
           </p>
         </div>
       </div>
@@ -76,10 +76,10 @@ export default function BlogDashboardPage() {
           <div className="absolute top-0 right-0 w-32 h-32 bg-[#FF5F1F]/5 rounded-full blur-2xl transform translate-x-10 -translate-y-10"></div>
           <div className="max-w-2xl mx-auto space-y-4">
             <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tight">
-              Stop Risking Your Retention on Predatory Contract Boilerplate
+              Review the Terms Before They Become Your Obligation
             </h2>
             <p className="text-slate-300 text-xs md:text-sm font-medium leading-relaxed">
-              Isolate unfair indemnities, identify hidden liability flow-downs, and secure your payment thresholds before your crews ever set foot on site.
+              Surface risk-shifting terms, missing flowdowns, and payment questions before you bid, sign, or commit resources — then organize the package for final legal review.
             </p>
             <div className="pt-4 flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Link

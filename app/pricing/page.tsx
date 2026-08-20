@@ -58,7 +58,7 @@ export default function PricingPage() {
   const faqData = [
     {
       q: "Does this replace my attorney?",
-      a: "No. SubShield provides AI-assisted, evidence-grounded screening and preparation materials, not legal advice or legal opinions. Use the report to organize questions and consult qualified government-contracts counsel before signing or relying on final contract terms.",
+      a: "No. SubPreCheck provides structured, evidence-grounded first-pass screening and preparation materials, not legal advice or legal opinions. Use the report to organize issues before counsel so attorney time can focus on the legal questions that require legal judgment.",
     },
     {
       q: "How do the credits and plans work?",
@@ -66,11 +66,11 @@ export default function PricingPage() {
     },
     {
       q: "What if my document is revised or amended?",
-      a: "A revised or amended document requires another available credit and a new analysis. SubShield does not currently offer automated version comparison or track changes between reports.",
+      a: "A revised or amended document requires another available credit and a new analysis. SubPreCheck does not currently offer automated version comparison or track changes between reports.",
     },
     {
       q: "What can I submit for analysis?",
-      a: "SubShield accepts PDF, DOCX, TXT, and pasted text. It is intended for government-contracting materials such as teaming agreements, solicitation documents, statements of work, and draft subcontracts.",
+      a: "SubPreCheck accepts PDF, DOCX, TXT, and pasted text. It is intended for government-contracting materials such as teaming agreements, solicitation documents, statements of work, and draft subcontracts.",
     },
   ];
 
@@ -86,7 +86,7 @@ export default function PricingPage() {
           Simple, Transparent Pricing
         </h1>
         <p className="text-lg text-[#596A7D] font-medium leading-relaxed max-w-3xl mx-auto">
-          Choose a one-time credit purchase or a monthly plan based on your review volume. Each credit covers one complete document ingestion and analysis.
+          Choose a one-time credit purchase or a monthly plan based on your review volume. Each credit covers one complete document ingestion and analysis, helping you organize issues before final legal review.
         </p>
       </section>
 

@@ -19,10 +19,10 @@ export default function IncorporationReferenceArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            The Incorporation by Reference Ambush: Agreeing to Plans You’ve Never Seen
+            Incorporation by Reference: Review Documents You Are Being Asked to Accept
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            How a single sentence in a standard subcontract legally binds your trade business to hundreds of pages of hidden prime contract liabilities.
+            Review every document incorporated by reference so you know which prime-contract terms, specifications, exhibits, and flowdowns may affect your subcontract.
           </p>
         </div>
       </div>
@@ -36,7 +36,7 @@ export default function IncorporationReferenceArticle() {
             It happens during almost every commercial project kickoff. A general contractor hands an estimator a clean, standard 10-page subcontract. The payment terms look reasonable, the scope matches your takeoffs, and the schedule seems doable. You sign it, thinking the boundaries are secure.
           </p>
           <p>
-            Then, months later, a massive design conflict delays the project. You ask for an equitable adjustment, only for the GC to point to a clause you have never seen, declaring that you waived your right to delay damages weeks ago. Welcome to the <strong className="text-[#1A3668]">Incorporation by Reference Ambush</strong>.
+            Then, months later, a massive design conflict delays the project. You ask for an equitable adjustment, only for the GC to point to a clause you have never seen, declaring that you waived your right to delay damages weeks ago. Welcome to the <strong className="text-[#1A3668]">Incorporation by Reference</strong>.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -49,10 +49,10 @@ export default function IncorporationReferenceArticle() {
             "The Subcontractor hereby agrees to be bound to the Contractor by all terms, provisions, general conditions, and supplementary specifications of the Prime Contract, which is incorporated herein by reference as though fully rewritten."
           </div>
           <p>
-            By signing that single line, you have legally signed the **Prime Contract**—a massive, 300-to-500 page document signed between the GC and the end owner that you likely have never seen. 
+            An incorporation clause may make specified prime-contract provisions relevant to the subcontract, but its legal effect depends on the language, the incorporated documents, the subject matter, and governing law. Do not treat a reference as harmless simply because the attachment was not provided. 
           </p>
           <p>
-            If that master document contains severe liquidated damages, aggressive milestone penalties, or extreme architectural dispute-resolution terms, those parameters instantly "flow down" and bind your business. You have essentially signed a blank check for liability.
+            Incorporated schedules, specifications, dispute terms, notice rules, liquidated-damages provisions, or compliance clauses may affect your obligations if the subcontract makes them applicable. The correct response is to obtain and review the referenced documents before signing.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -62,7 +62,7 @@ export default function IncorporationReferenceArticle() {
             In industrial and commercial specialty trades, this ambush frequently targets design modifications. For instance, the prime agreement might state that the contractor assumes absolute responsibility for verifying any structural or coordination discrepancies in the field. 
           </p>
           <p>
-            When that flows down to you, you are no longer just an installation sub—you are now legally carrying the liability for engineering and design oversights. If a fixture layout runs into ductwork or structural iron, the GC can force you to re-route your layout entirely at your own expense, claiming you agreed to catch the coordination error before ordering materials.
+            Design-assist, coordination, verification, and delegated-design duties should be separated carefully. An incorporated prime term may affect those duties, but responsibility for a specific conflict depends on the subcontract scope, drawings, specifications, design roles, and applicable law.
           </p>
 
           {/* Strategic Internal SEO Cross-Link */}
@@ -73,7 +73,7 @@ export default function IncorporationReferenceArticle() {
             <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
               These invisible master agreements are the primary channel primes use to smuggle heavy compliance terms onto your balance sheet. Read our deep-dive analysis on 
               <a href="/blog/understanding-far-flow-down-clauses" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
-                Deciphering FAR Flow-Down Clauses: What Subcontractors Must Accept vs. What to Delete →
+                Understanding FAR Flow-Down Clauses: What Belongs in Your Subcontract →
               </a>
             </p>
           </div>
@@ -85,8 +85,8 @@ export default function IncorporationReferenceArticle() {
             You can protect your company from invisible liabilities by enforcing two strict contract negotiation rules:
           </p>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong className="text-[#1A3668]">Demand the Master Document:</strong> Never sign a subcontract that incorporates an external document without demanding a complete digital copy of the Prime Contract first. If the GC refuses to provide it, strike out the reference clause completely.</li>
-            <li><strong className="text-[#1A3668]">Add an Order of Precedence Clause:</strong> Force an explicit line into your agreement stating that if there is any conflict between your subcontract and the incorporated prime agreement, the terms of your subcontract take absolute precedence.</li>
+            <li><strong className="text-[#1A3668]">Demand the Master Document:</strong> Request the incorporated prime-contract sections, general conditions, specifications, exhibits, flowdown matrix, wage determination, cyber attachments, and other referenced documents needed to understand your obligations. Flag anything the prime will not provide.</li>
+            <li><strong className="text-[#1A3668]">Add an Order of Precedence Clause:</strong> Review the order-of-precedence clause so the team knows which document controls if the subcontract, prime contract, drawings, specifications, or exhibits conflict.</li>
           </ul>
         </div>
 
@@ -97,13 +97,13 @@ export default function IncorporationReferenceArticle() {
               <Scale className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">
-              Expose Hidden Flow-Down Risks
+              Review Before You Commit
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't sign an agreement that binds you to hundreds of pages of invisible, predatory boilerplate rules.
+              Use the article as a checklist for terms, documents, and questions to resolve before bidding, signing, or committing resources.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your contract bundle into the <strong className="text-[#1A3668]">SubShield AI Triage Engine</strong> to instantly scan for hidden incorporation triggers and isolate unfair design-risk shifts before they cost you your margins.
+              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.
             </p>
             <hr className="border-slate-100" />
             <a href="/pricing" className="block w-full py-2.5 text-center text-xs font-black uppercase tracking-wider text-white bg-[#FF5F1F] hover:bg-[#E04F1A] rounded-lg transition shadow-sm">

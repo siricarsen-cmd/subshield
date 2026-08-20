@@ -22,7 +22,7 @@ export default function UnauthorizedChangeOrdersArticle() {
             Dealing with Unauthorized Change Orders: PM Directions vs. Contracting Officer Authority
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            Discover why following verbal instructions from a field superintendent or government inspector could force your trade business to absorb thousands in unrecoverable labor costs.
+            Review who has authority to direct changes, what written notice is required, and how extra work must be documented before field instructions become disputed cost.
           </p>
         </div>
       </div>
@@ -46,13 +46,13 @@ export default function UnauthorizedChangeOrdersArticle() {
             <ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> The Law of Implied vs. Actual Authority
           </h3>
           <p>
-            The brutal reality of public and heavy commercial contracting is that the law does not care about good intentions or verbal handshakes. It cares strictly about **Actual Authority**.
+            Public contracting places substantial weight on **actual authority** and on following the written change procedure. Good-faith field direction does not automatically create authority to change price, scope, or schedule.
           </p>
           <p>
-            Under federal acquisition regulations (specifically FAR Part 1.6), a government Project Manager, Contracting Officer’s Representative (COR), or technical inspector possesses absolutely **no legal authority to alter a contract or obligate funds**. They have *implied authority* to supervise field production, but they cannot sign checks.
+            Under federal acquisition rules, only contracting officers may enter into or modify Government contracts within the limits of their delegated authority. CORs and technical personnel may have delegated administrative duties, but their appointment normally does not authorize them to change contract price, scope, delivery, or other terms unless specific authority exists.
           </p>
           <p>
-            Only an officially designated **Contracting Officer (CO)** possesses the legal power to bind the government financially. If you execute extra work based entirely on a PM’s verbal nod, the law views your labor as a voluntary contribution. The government is under no legal obligation to pay for it, and the prime contractor will use that same logic to deny your back-charges.
+            For a subcontractor, the immediate question is also contractual privity: who at the prime may direct your work and what procedure preserves a request for additional time or money. A Government field instruction does not by itself guarantee a direct payment right for a subcontractor.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -76,7 +76,7 @@ export default function UnauthorizedChangeOrdersArticle() {
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
             <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">The Ratification Roadblock</h4>
             <p className="text-xs text-slate-600 leading-relaxed">
-              While a Contracting Officer technically has the power to retroactively validate an unauthorized field order through a process called "ratification," this cycle requires high-level administrative reviews and months of accounting evaluation. Most ratification requests are summarily rejected because it is far easier for the agency to simply state that the subcontractor should have known the rules.
+              While a Contracting Officer technically has the power to retroactively validate an unauthorized field order through a process called "ratification," this cycle requires high-level administrative reviews and months of accounting evaluation. Ratification of an unauthorized commitment is a formal Government process with specific conditions. It should not be treated as a routine fallback for a subcontractor that performed work without the required authorization.
             </p>
           </div>
 
@@ -86,7 +86,7 @@ export default function UnauthorizedChangeOrdersArticle() {
               Related Field Intelligence
             </p>
             <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
-              If you have already performed unauthorized work on a verbal handshake and faced a rejection, your only path to recovery is a formal regulatory filing. Read our full blueprint on
+              If extra work has already been performed, document the direction, costs, schedule effect, and notices immediately, then follow the subcontract's change and dispute procedures and any prime-sponsored pass-through process that may apply. Read our full blueprint on
               <a href="/blog/request-for-equitable-adjustment-under-far" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
                 Navigating Requests for Equitable Adjustment (REA): Recovering Costs Under FAR Rules →
               </a>
@@ -97,12 +97,12 @@ export default function UnauthorizedChangeOrdersArticle() {
             <CheckCircle className="w-5 h-5 text-[#FF5F1F]" /> Establishing an Unshakeable Field Routine
           </h3>
           <p>
-            Never risk your company's weekly payroll on a verbal field instruction. Take control of your change management track with these non-negotiable operational steps:
+            Use a disciplined change-management process so field direction, cost, schedule impact, and contractual notice are documented consistently:
           </p>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong className="text-[#1A3668]">Issue an Immediate Written Directive Notice:</strong> The exact millisecond a verbal change is requested, send a formal email notice back to the GC before executing any labor: *"Pursuant to your field direction on June 2, we are proceeding with the re-routing modification under protest. We estimate the impact to be $12,500 and 3 working days, and expect a formal written modification from the Contracting Officer within 48 hours."*</li>
+            <li><strong className="text-[#1A3668]">Issue an Immediate Written Directive Notice:</strong> When a verbal change is requested, send prompt written notice consistent with the subcontract before proceeding when practicable: *"Pursuant to your field direction on June 2, we are proceeding with the re-routing modification under protest. We estimate the impact to be $12,500 and 3 working days, and expect a formal written modification from the Contracting Officer within 48 hours."*</li>
             <li><strong className="text-[#1A3668]">Segregate All Tracking Codes:</strong> Instruct your field foreman to track every single hour of labor and every line item of material used for that specific modification on a separate, dedicated timecard stamped "Disputed Field Directive." Never blend change-order labor with your base scope logs.</li>
-            <li><strong className="text-[#1A3668]">Strike Out "Work First, Settle Later" Boilerplate:</strong> Modify incoming contracts to ensure you have the right to halt production on disputed changes if the cumulative cost of unauthorized modifications exceeds 5% of your total contract value.</li>
+            <li><strong className="text-[#1A3668]">Strike Out "Work First, Settle Later" Boilerplate:</strong> Review any continue-performance or work-first-settle-later clause with counsel so the team understands when it must proceed, when it may pause, and how disputed changes are preserved.</li>
           </ul>
         </div>
 
@@ -113,13 +113,13 @@ export default function UnauthorizedChangeOrdersArticle() {
               <UserCheck className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">
-              Shield Your Field Capital
+              Review Before You Commit
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't let verbal field commands trick your company into executing thousands of dollars in uncompensated volunteer work.
+              Use the article as a checklist for terms, documents, and questions to resolve before bidding, signing, or committing resources.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your boilerplate agreement or incoming project templates into the <strong className="text-[#1A3668]">SubShield AI Change Order Auditor</strong> to instantly isolate unfair change-management clauses, flag dangerous authority gaps, and arm your field teams with the exact tools to protect their revenues.
+              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.
             </p>
             <hr className="border-slate-100" />
             <a 

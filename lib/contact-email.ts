@@ -46,7 +46,7 @@ export function buildContactEmail(
   <body style="margin:0;padding:24px;background:#f4f5f7;font-family:Arial,sans-serif;">
     <main style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
       <div style="background:#0a192f;color:#ffffff;padding:22px 24px;">
-        <h1 style="margin:0;font-size:20px;">SubShield Contact Request</h1>
+        <h1 style="margin:0;font-size:20px;">SubPreCheck Contact Request</h1>
       </div>
       <table role="presentation" style="width:100%;border-collapse:collapse;">
         <tbody>
@@ -68,7 +68,7 @@ export function buildContactEmail(
 </html>`;
 
   const text = [
-    "SubShield Contact Request",
+    "SubPreCheck Contact Request",
     "",
     `Name: ${submission.name}`,
     `Customer email: ${submission.email}`,
@@ -84,7 +84,7 @@ export function buildContactEmail(
   ].join("\n");
 
   return {
-    subject: `[SubShield Contact] ${reasonLabel}`,
+    subject: `[SubPreCheck Contact] ${reasonLabel}`,
     html,
     text,
   };

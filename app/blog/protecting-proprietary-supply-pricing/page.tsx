@@ -22,7 +22,7 @@ export default function ProprietaryPricingArticle() {
             Protecting Proprietary Supply Pricing: NDA Pitfalls for Commercial Trade Distributors
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            How standard non-disclosure agreements leave your custom bills of materials and specialized vendor quote channels completely exposed to pre-award bid shopping.
+            Review whether pre-bid NDAs, RFQs, and portal terms actually protect your pricing matrices, bills of materials, supplier relationships, and engineering work product.
           </p>
         </div>
       </div>
@@ -39,7 +39,7 @@ export default function ProprietaryPricingArticle() {
             But on bid day, many trade distributors step directly into a structural trap. They assume the standard, boilerplated Non-Disclosure Agreement (NDA) they signed during the estimating phase keeps their data secure.
           </p>
           <p>
-            Then, days after submitting your numbers, you discover that the general contractor or prime broker has taken your meticulously engineered bill of materials, stripped your corporate branding, and handed it to a competitor to match. Your intellectual property has just been weaponized against you.
+            Then, days after submitting your numbers, you discover that the general contractor or prime broker has taken your meticulously engineered bill of materials, stripped your corporate branding, and handed it to a competitor to match. Your intellectual property has just been used against you.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -49,10 +49,10 @@ export default function ProprietaryPricingArticle() {
             The fundamental mistake specialty suppliers make is failing to check the **direction of the data flow** inside the agreement. 
           </p>
           <p>
-            The overwhelming majority of pre-bid NDAs handed out by general contractors are strictly **one-way agreements**. They are masterfully written to ensure you don't reveal the project owner’s proprietary site maps or architectural blueprints. However, they contain absolutely zero reciprocal text protecting the proprietary data, custom configurations, or specialized pricing matrices *you* supply to the GC.
+            Some pre-bid NDAs are one-way agreements that focus on protecting owner or prime information rather than the subcontractor's pricing, designs, or supplier data. They are masterfully written to ensure you don't reveal the project owner’s proprietary site maps or architectural blueprints. However, they contain absolutely zero reciprocal text protecting the proprietary data, custom configurations, or specialized pricing matrices *you* supply to the GC.
           </p>
           <p>
-            Legally, the moment you click submit on their online procurement portal, your custom packages and negotiated commodity price thresholds become fair game for aggressive pre-award bid shopping.
+            Do not assume an NDA or procurement portal protects your submission. Review confidentiality definitions, permitted uses, exclusions, portal terms, ownership, and any license granted with the proposal.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -68,7 +68,7 @@ export default function ProprietaryPricingArticle() {
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
             <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">The "Approved Equal" Submittal Raid</h4>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Watch out for clauses in the procurement specs that grant the GC an automatic, irrevocable license to use your engineering submittals to source "approved equals." If you provide your specialized system layouts or substitution calculations without protective headers, you are essentially providing your competitors with free engineering services.
+              Watch out for clauses in the procurement specs that grant the GC an automatic, irrevocable license to use your engineering submittals to source "approved equals." If engineering submittals or substitution work product will be shared before award, confirm how the recipient may use, reproduce, disclose, or rely on that material.
             </p>
           </div>
 
@@ -93,7 +93,7 @@ export default function ProprietaryPricingArticle() {
           </p>
           <ul className="list-disc pl-5 space-y-2">
             <li><strong className="text-[#1A3668]">Enforce a True Bilateral NDA:</strong> Insist that the pre-bid agreement be converted into a strict, two-way mutual contract that explicitly includes "pricing matrices, material bills of quantities, and factory component configurations" within the legal definition of protected trade secrets.</li>
-            <li><strong className="text-[#1A3668]">Insert Pricing Expiration & Shopping Penalties:</strong> Add explicit text directly to your proposal files stating that the pricing provided is conditional upon non-disclosure, and that any unauthorized distribution to third-party competitors will automatically nullify the quote and trigger immediate commercial procurement penalties.</li>
+            <li><strong className="text-[#1A3668]">Insert Pricing Expiration & Shopping Penalties:</strong> State proposal validity, confidentiality expectations, permitted use, and pricing expiration clearly, and have counsel review any remedy or restriction you intend to make binding.</li>
             <li><strong className="text-[#1A3668]">Mask Factory Lead-Time Strategies:</strong> Keep highly specialized logistics details or internal factory allocation channels close to your chest until a formal letter of intent is executed.</li>
           </ul>
         </div>
@@ -105,13 +105,13 @@ export default function ProprietaryPricingArticle() {
               <EyeOff className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">
-              Shield Your Proprietary Pricing
+              Review Before You Commit
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't let aggressive prime contractors shop your custom engineered bills of materials to cut-rate brokers.
+              Use the article as a checklist for terms, documents, and questions to resolve before bidding, signing, or committing resources.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your incoming pre-bid NDAs, RFQs, or procurement addendums into the <strong className="text-[#1A3668]">SubShield AI Procurement Auditor</strong> to instantly flag one-way data risks, isolate unfair material usage clauses, and defend your profit boundaries before you click submit.
+              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.
             </p>
             <hr className="border-slate-100" />
             <a 

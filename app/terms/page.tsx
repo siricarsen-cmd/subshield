@@ -31,23 +31,23 @@ export default function TermsPage() {
             Acceptance of Terms
           </h2>
           <p className="text-sm text-slate-600 leading-relaxed font-medium">
-            These Terms of Use govern access to and use of SubShield. By accessing or using the service, you agree to these Terms. If you do not agree, do not use SubShield.
+            These Terms of Use govern access to and use of SubPreCheck. By accessing or using the service, you agree to these Terms. If you do not agree, do not use SubPreCheck.
           </p>
         </section>
 
         <section className="bg-white border border-slate-200 rounded-xl p-6 md:p-8 shadow-sm space-y-6" aria-labelledby="service-description">
           <h2 id="service-description" className="text-sm font-black text-[#0A192F] uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
             <FileText className="w-4 h-4 text-[#FF6B00]" aria-hidden="true" />
-            Description of SubShield
+            Description of SubPreCheck
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm leading-relaxed font-medium text-slate-600">
             <div className="space-y-1.5">
               <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">AI-Assisted Screening</h3>
-              <p>SubShield accepts PDF, DOCX, TXT, and pasted text and produces evidence-grounded screening and preparation reports for government-contracting documents.</p>
+              <p>SubPreCheck accepts PDF, DOCX, TXT, and pasted text and produces evidence-grounded screening and preparation reports for government-contracting documents.</p>
             </div>
             <div className="space-y-1.5">
               <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">No Legal Advice</h3>
-              <p>SubShield is not a law firm, does not provide legal advice or legal opinions, and does not create an attorney-client relationship. Consult a qualified government-contracts attorney or other qualified legal counsel before signing or relying on final contract terms.</p>
+              <p>SubPreCheck is not a law firm, does not provide legal advice or legal opinions, and does not create an attorney-client relationship. Consult a qualified government-contracts attorney or other qualified legal counsel before signing or relying on final contract terms.</p>
             </div>
           </div>
         </section>
@@ -75,8 +75,8 @@ export default function TermsPage() {
             Prohibited Content and Uses
           </h2>
           <div className="space-y-3 text-sm text-amber-900 leading-relaxed font-medium">
-            <p>Do not submit classified information, export-controlled information, Controlled Unclassified Information (CUI), passwords, complete payment-card data, Social Security numbers, medical records, malware, or information you have no right to use. SubShield is not represented as an authorized environment for government-restricted information.</p>
-            <p>You may not use SubShield unlawfully; interfere with service operation; attempt to access another user&apos;s account, files, or reports; bypass authentication, payment, or credit controls; probe the service for vulnerabilities without authorization; or use the service to infringe another person&apos;s rights.</p>
+            <p>Do not submit classified information, export-controlled information, Controlled Unclassified Information (CUI), passwords, complete payment-card data, Social Security numbers, medical records, malware, or information you have no right to use. SubPreCheck is not represented as an authorized environment for government-restricted information.</p>
+            <p>You may not use SubPreCheck unlawfully; interfere with service operation; attempt to access another user&apos;s account, files, or reports; bypass authentication, payment, or credit controls; probe the service for vulnerabilities without authorization; or use the service to infringe another person&apos;s rights.</p>
           </div>
         </section>
 
@@ -110,8 +110,8 @@ export default function TermsPage() {
           </div>
           <div className="border-t border-slate-100 pt-5 space-y-3 text-sm text-slate-600 leading-relaxed font-medium">
             <p>One available credit is reserved when a paid analysis begins and remains consumed when the analysis is successfully processed. A genuine processing failure restores the credit under the implemented review lifecycle. Viewing a completed report does not consume another credit.</p>
-            <p>A revised or amended document requires another available credit and a new analysis. SubShield does not currently provide automated version comparison.</p>
-            <p>Stripe handles payment processing. SubShield does not store complete card numbers. Billing questions and refund requests are handled based on the circumstances and applicable payment rules; submitting a request does not guarantee approval.</p>
+            <p>A revised or amended document requires another available credit and a new analysis. SubPreCheck does not currently provide automated version comparison.</p>
+            <p>Stripe handles payment processing. SubPreCheck does not store complete card numbers. Billing questions and refund requests are handled based on the circumstances and applicable payment rules; submitting a request does not guarantee approval.</p>
           </div>
         </section>
 
@@ -122,7 +122,7 @@ export default function TermsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm leading-relaxed font-medium text-slate-600">
             <div className="space-y-1.5">
               <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">Availability and Processing</h3>
-              <p>SubShield may experience interruptions, delays, file-extraction problems, or processing failures. The service does not promise uninterrupted availability, perfect detection, or successful processing of every document.</p>
+              <p>SubPreCheck may experience interruptions, delays, file-extraction problems, or processing failures. The service does not promise uninterrupted availability, perfect detection, or successful processing of every document.</p>
             </div>
             <div className="space-y-1.5">
               <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">Deletion and Limited Retention</h3>
@@ -137,7 +137,7 @@ export default function TermsPage() {
             Intellectual Property and Report Use
           </h2>
           <div className="space-y-3 text-sm text-slate-600 leading-relaxed font-medium">
-            <p>You retain your rights in documents and text you submit. SubShield and its licensors retain their rights in the service, software, interface, branding, and original service materials.</p>
+            <p>You retain your rights in documents and text you submit. SubPreCheck and its licensors retain their rights in the service, software, interface, branding, and original service materials.</p>
             <p>You may use reports for your personal or internal business purposes, including preparation for discussions with a prime contractor or qualified legal counsel. You may not resell access to the service, misrepresent a report as a legal opinion, or copy or exploit the service itself beyond normal authorized use.</p>
           </div>
         </section>
@@ -147,7 +147,7 @@ export default function TermsPage() {
             Suspension or Restriction
           </h2>
           <p className="text-sm text-slate-600 leading-relaxed font-medium">
-            SubShield may suspend or restrict access when reasonably necessary to address misuse, suspected fraud, security threats, chargebacks or payment disputes, prohibited uploads, attempts to bypass service controls, or risks to other users or the service.
+            SubPreCheck may suspend or restrict access when reasonably necessary to address misuse, suspected fraud, security threats, chargebacks or payment disputes, prohibited uploads, attempts to bypass service controls, or risks to other users or the service.
           </p>
         </section>
 
@@ -156,7 +156,7 @@ export default function TermsPage() {
             Changes to the Service or Terms
           </h2>
           <p className="text-sm text-slate-600 leading-relaxed font-medium">
-            SubShield may change, add, or discontinue service features and may update these Terms as the service develops. Updated Terms will be posted on this page with a revised effective date. If you do not accept updated Terms, stop using the service.
+            SubPreCheck may change, add, or discontinue service features and may update these Terms as the service develops. Updated Terms will be posted on this page with a revised effective date. If you do not accept updated Terms, stop using the service.
           </p>
         </section>
 

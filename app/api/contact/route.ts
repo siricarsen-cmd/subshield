@@ -42,7 +42,7 @@ async function deliverContactEmail({
   const resend = new Resend(configuration.apiKey);
   const result = await resend.emails.send(
     {
-      from: `SubShield Website <${configuration.fromEmail}>`,
+      from: `SubPreCheck Website <${configuration.fromEmail}>`,
       to: configuration.toEmail,
       replyTo: submission.email,
       subject,

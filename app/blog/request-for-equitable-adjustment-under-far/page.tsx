@@ -19,10 +19,10 @@ export default function ReaScopeCreepArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            Recovering from Scope Creep: The Subcontractor’s Guide to REAs Under the FAR
+            Requests for Equitable Adjustment: Notice and Documentation Basics for Subcontractors
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            Stop eating the costs of unapproved field changes. Learn how to construct a bulletproof Request for Equitable Adjustment that forces the prime to pay.
+            Review change authority, notice, documentation, pass-through, and pricing requirements before extra work becomes a disputed cost.
           </p>
         </div>
       </div>
@@ -36,7 +36,7 @@ export default function ReaScopeCreepArticle() {
             It is the silent killer of construction profitability: <strong className="text-[#1A3668]">Scope Creep</strong>. It starts small. A field engineer asks your foreman to temporarily re-route an overhead conduit run. A structural clash requires your material packages to be re-staged across three different floors. The general contractor promises, *"Put together your tickets, and we will take care of you on the back end."*
           </p>
           <p>
-            But on a federal or heavy commercial site, verbal promises are completely worthless. If you execute extra work or absorb structural delays without initiating a formal <strong className="text-[#1A3668]">Request for Equitable Adjustment (REA)</strong> under the guidelines of FAR Part 43, you are effectively volunteering your company’s profit margins to cover their design mistakes.
+            On a federal subcontract, a subcontractor's recovery path usually depends first on its own subcontract: who can direct changes, when notice is due, whether a pass-through request is required, and what documentation must be maintained. FAR Part 43 governs Government contract changes; it does not automatically give a subcontractor direct rights against the Government.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -46,10 +46,10 @@ export default function ReaScopeCreepArticle() {
             Many specialty subcontractors hesitate to stand up for their scope boundaries because they assume filing an adjustment means entering an aggressive, multi-year legal battle with the general contractor. 
           </p>
           <p>
-            That is a massive operational misunderstanding. An REA is not a formal lawsuit or a contract claim; it is an administrative, collaborative proposal. It allows you to say: *"The conditions on this job site have radically changed from our bid documents. Here is the exact economic reality of what it costs to execute this scope under the new parameters."*
+            That is a massive operational misunderstanding. An REA can be a request to adjust contract price, schedule, or other terms based on an asserted change or impact. Its treatment depends on the contract, the posture of the dispute, and whether it is being presented by the prime or passed through for a subcontractor. It allows you to say: *"The conditions on this job site have radically changed from our bid documents. Here is the exact economic reality of what it costs to execute this scope under the new parameters."*
           </p>
           <p>
-            Even better, because an REA is considered an administrative project cost rather than a legal dispute, **the costs you incur to prepare the REA (such as hiring an independent estimator or scheduling consultant) can often be fully included in the recovery request itself.**
+            Do not assume REA preparation costs are automatically recoverable. Cost allowability can depend on what work was performed, when a matter became a claim or dispute, and the applicable contract and cost principles.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -60,10 +60,10 @@ export default function ReaScopeCreepArticle() {
           </p>
           <ul className="list-disc pl-5 space-y-4 text-xs text-slate-600 bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
             <li>
-              <strong className="text-[#1A3668]">The Entitlement Framework:</strong> You must explicitly cite the exact FAR clause that authorizes the adjustment—typically **FAR 52.243-4 (Changes)** or **FAR 52.236-2 (Differing Site Conditions)**. Show exactly how the actual site environment deviated from the contract prints.
+              <strong className="text-[#1A3668]">The Entitlement Framework:</strong> Identify the contractual basis for the request. The prime may rely on FAR changes or differing-site-condition clauses in its Government contract, while the subcontractor must also identify the change, notice, pass-through, or dispute provisions in its own subcontract.
             </li>
             <li>
-              <strong className="text-[#1A3668]">The Nexus Analysis:</strong> You cannot just show a pile of late invoices. You must draw a direct, unassailable line from the GC's delay notice to your idle field crew, proving that their administrative action directly forced your financial loss.
+              <strong className="text-[#1A3668]">The Causation Record:</strong> Connect the change or delay event to the specific labor, material, equipment, schedule, or overhead impact with contemporaneous records.
             </li>
             <li>
               <strong className="text-[#1A3668]">The Auditable Pricing Matrix:</strong> Break down every single component of impact—including direct labor hours, specialized premium freight charges for delayed material components, equipment standby rates, and home-office overhead margins.
@@ -71,9 +71,9 @@ export default function ReaScopeCreepArticle() {
           </ul>
 
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
-            <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">The Severe Notice-Window Ambush</h4>
+            <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">The Short Notice Windows</h4>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Watch out for hidden boilerplate notice limits in the GC's contract. Many agreements state that if you do not provide written notice of a differing site condition or an upcoming change within **48 to 72 hours** of its occurrence, you completely forfeit your legal right to ever collect an adjustment. If your team waits until the monthly invoice cycle, the door is closed.
+              Watch out for hidden boilerplate notice limits in the GC's contract. Some subcontracts impose short written-notice windows for changes, delays, or differing conditions. Missing a deadline can create serious waiver arguments, but the legal effect is contract- and jurisdiction-specific. Track the actual notice period rather than relying on a generic 48-to-72-hour rule.
             </p>
           </div>
 
@@ -109,13 +109,13 @@ export default function ReaScopeCreepArticle() {
               <Gavel className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">
-              Recover Every Dollar of Scope Creep
+              Review Before You Commit
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't let general contractor design errors or hidden field delays slowly liquidate your company's hard-earned margins.
+              Use the article as a checklist for terms, documents, and questions to resolve before bidding, signing, or committing resources.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your prime agreement or change order paperwork into the <strong className="text-[#1A3668]">SubShield AI REA Auditor</strong> to instantly flag aggressive notice constraints, isolate unfair waiver print, and arm your team with a complete strategic roadmap to demand full compensation.
+              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.
             </p>
             <hr className="border-slate-100" />
             <a 

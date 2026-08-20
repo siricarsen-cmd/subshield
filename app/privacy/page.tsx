@@ -32,7 +32,7 @@ export default function PrivacyPage() {
             Overview
           </h2>
           <p className="text-sm text-slate-600 leading-relaxed font-medium">
-            This Privacy Policy explains the information SubShield handles when you create an account, submit material for review, purchase credits or a subscription, view reports, or use the Contact form. It also explains how that information is used and the choices available to you.
+            This Privacy Policy explains the information SubPreCheck handles when you create an account, submit material for review, purchase credits or a subscription, view reports, or use the Contact form. It also explains how that information is used and the choices available to you.
           </p>
         </section>
 
@@ -44,7 +44,7 @@ export default function PrivacyPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm leading-relaxed font-medium text-slate-600">
             <div className="space-y-1.5">
               <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">Account Information</h3>
-              <p>SubShield handles the email address and authentication information associated with your account.</p>
+              <p>SubPreCheck handles the email address and authentication information associated with your account.</p>
             </div>
             <div className="space-y-1.5">
               <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">Review Submissions</h3>
@@ -52,11 +52,11 @@ export default function PrivacyPage() {
             </div>
             <div className="space-y-1.5">
               <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">Payment References</h3>
-              <p>Stripe processes payments. SubShield receives payment-related transaction and fulfillment references but does not store complete payment-card numbers.</p>
+              <p>Stripe processes payments. SubPreCheck receives payment-related transaction and fulfillment references but does not store complete payment-card numbers.</p>
             </div>
             <div className="space-y-1.5">
               <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">Support Communications</h3>
-              <p>When you use the Contact form, SubShield handles the name, email address, optional company name, inquiry reason, and message you submit.</p>
+              <p>When you use the Contact form, SubPreCheck handles the name, email address, optional company name, inquiry reason, and message you submit.</p>
             </div>
           </div>
         </section>
@@ -67,7 +67,7 @@ export default function PrivacyPage() {
             Information Produced by the Service
           </h2>
           <p className="text-sm text-slate-600 leading-relaxed font-medium">
-            SubShield produces and maintains information needed to operate reviews and customer accounts. Depending on how you use the service, this may include report results, review status, timestamps, filenames, Storage paths, extraction and processing metadata, and records used to account for review credits, purchases, and fulfillment.
+            SubPreCheck produces and maintains information needed to operate reviews and customer accounts. Depending on how you use the service, this may include report results, review status, timestamps, filenames, Storage paths, extraction and processing metadata, and records used to account for review credits, purchases, and fulfillment.
           </p>
         </section>
 
@@ -91,7 +91,7 @@ export default function PrivacyPage() {
             Service Providers
           </h2>
           <p className="text-sm text-slate-600 leading-relaxed font-medium">
-            SubShield currently relies on Vercel for application hosting and runtime services; Supabase for authentication, database, and file storage; Stripe for payment processing and billing-portal access; Resend for Contact-form delivery; and OpenAI for AI-assisted analysis of submitted text and extracted document content. These providers handle information as needed to deliver their services. This Policy does not claim certifications, government authorizations, or contractual protections that have not been verified.
+            SubPreCheck currently relies on Vercel for application hosting and runtime services; Supabase for authentication, database, and file storage; Stripe for payment processing and billing-portal access; Resend for Contact-form delivery; and OpenAI for AI-assisted analysis of submitted text and extracted document content. These providers handle information as needed to deliver their services. This Policy does not claim certifications, government authorizations, or contractual protections that have not been verified.
           </p>
         </section>
 
@@ -103,7 +103,7 @@ export default function PrivacyPage() {
           <div className="space-y-3 text-sm text-slate-600 leading-relaxed font-medium">
             <p>Uploaded files may remain associated with a review until you delete that review. Pasted text is processed to generate a report; this Policy does not promise that every temporary processing copy is retained or immediately erased.</p>
             <p>Deleting a review from the dashboard removes the customer-facing review and its associated uploaded Storage file when one exists. Limited accounting, transaction, credit-fulfillment, security, and diagnostic records may remain after deletion.</p>
-            <p>SubShield does not promise immediate removal from every backup or an automatic retention period that is not implemented.</p>
+            <p>SubPreCheck does not promise immediate removal from every backup or an automatic retention period that is not implemented.</p>
           </div>
         </section>
 
@@ -113,7 +113,7 @@ export default function PrivacyPage() {
           </h2>
           <div className="space-y-3 text-sm text-amber-900 leading-relaxed font-medium">
             <p>Do not submit classified information, export-controlled information, passwords, complete payment-card data, Social Security numbers, medical records, or personal information that is not necessary for the review.</p>
-            <p>SubShield is not represented as an authorized system for classified information, export-controlled information, Controlled Unclassified Information (CUI), FedRAMP workloads, or other government-restricted information. You are responsible for having the right and authority to submit all material you provide.</p>
+            <p>SubPreCheck is not represented as an authorized system for classified information, export-controlled information, Controlled Unclassified Information (CUI), FedRAMP workloads, or other government-restricted information. You are responsible for having the right and authority to submit all material you provide.</p>
           </div>
         </section>
 
@@ -125,11 +125,11 @@ export default function PrivacyPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm leading-relaxed font-medium text-slate-600">
             <div className="space-y-1.5">
               <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">Security</h3>
-              <p>SubShield uses HTTPS and reasonable access controls intended to protect account and review information. No online service can guarantee absolute security, and SubShield does not claim unverified security certifications or government approval.</p>
+              <p>SubPreCheck uses HTTPS and reasonable access controls intended to protect account and review information. No online service can guarantee absolute security, and SubPreCheck does not claim unverified security certifications or government approval.</p>
             </div>
             <div className="space-y-1.5">
               <h3 className="font-black text-slate-800 uppercase tracking-tight text-xs">No Data-Broker Sales</h3>
-              <p>SubShield does not sell uploaded contract documents or account information as a data-broker product.</p>
+              <p>SubPreCheck does not sell uploaded contract documents or account information as a data-broker product.</p>
             </div>
           </div>
         </section>
@@ -152,7 +152,7 @@ export default function PrivacyPage() {
             Changes to This Policy
           </h2>
           <p className="text-sm text-slate-600 leading-relaxed font-medium">
-            SubShield may update this Privacy Policy as the service changes. A revised policy will be posted on this page with an updated effective date.
+            SubPreCheck may update this Privacy Policy as the service changes. A revised policy will be posted on this page with an updated effective date.
           </p>
         </section>
 

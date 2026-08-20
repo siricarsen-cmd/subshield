@@ -19,10 +19,10 @@ export default function TeamingAgreementsArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            The Teaming Agreement Bait-and-Switch: Preventing Vague Workshares After the Award
+            Teaming Agreement Workshare: Clarify Scope Before Award
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            Don't let a prime contractor ride your qualifications to a federal win, only to freeze you out of the project scope once the check clears.
+            Clarify workshare, scope, exclusivity, proposal responsibilities, and post-award expectations before your company commits bid resources.
           </p>
         </div>
       </div>
@@ -39,20 +39,20 @@ export default function TeamingAgreementsArticle() {
             You spend dozens of unbillable hours helping them draft submittals, engineer layouts, and sharpen pricing matrices. The agency awards the contract to the team. 
           </p>
           <p>
-            Then, the celebration ends. The prime hands you a definitive subcontract that cuts your scope in half, slashes your profit margin, or replaces you entirely. When you threaten to sue, you realize a brutal legal reality: your Teaming Agreement wasn't actually an enforceable contract for work. It was merely an "agreement to agree."
+            Then, the celebration ends. The prime hands you a definitive subcontract that cuts your scope in half, slashes your profit margin, or replaces you entirely. A later dispute can turn on whether the teaming agreement created enforceable obligations or left essential terms for future negotiation. That answer depends on the document and governing law.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> The Fatal Flaw: Vague "Agreements to Agree"
+            <ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> The Key Risk: Vague "Agreements to Agree"
           </h3>
           <p>
-            Courts across the country routinely throw out lawsuits brought by jilted subcontractors because of a single, systemic drafting error: **vague scope allocation**.
+            Vague scope allocation can create significant enforceability and business-risk questions, especially when the agreement leaves workshare or key commercial terms for future negotiation.
           </p>
           <p>
-            If your Teaming Agreement includes lazy boilerplate text like: *“Upon award, the Prime and Subcontractor will negotiate a definitive agreement in good faith for a mutually agreeable portion of the project package,”* you have signed a legally useless document.
+            If your Teaming Agreement includes lazy boilerplate text like: *“Upon award, the Prime and Subcontractor will negotiate a definitive agreement in good faith for a mutually agreeable portion of the project package,”* you have signed a potentially incomplete document.
           </p>
           <p>
-            Under federal procurement case law, an agreement to negotiate in the future is completely unenforceable. If the prime contractor decides to shop your numbers to a cheaper, non-compliant competitor after winning the award, a judge cannot force them to hire you.
+            Courts have treated teaming agreements differently depending on their wording and governing law. Treat phrases such as "good faith negotiation" or "mutually agreeable subcontract" as signals to obtain legal review rather than assuming a guaranteed post-award workshare.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -69,7 +69,7 @@ export default function TeamingAgreementsArticle() {
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
             <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">The Small Business Exclusivity Threat</h4>
             <p className="text-xs text-slate-600 leading-relaxed">
-              If the prime contractor is leveraging your specialized small business, veteran-owned, or minority-owned status to hit mandatory federal agency utilization quotas, a post-award bait-and-switch isn't just a breach of trust—it can constitute a civil false claims violation. Primes count on you staying quiet; armor your positions early so they don't dare test your boundaries.
+              If the proposal relies on your small-business status, past performance, or stated participation, confirm that the proposal commitments, subcontracting-plan obligations, and expected workshare are documented consistently. Potential misrepresentation issues are fact-specific and should be referred to qualified counsel.
             </p>
           </div>
 
@@ -93,8 +93,8 @@ export default function TeamingAgreementsArticle() {
             Establish hard boundaries before lending your company's credentials to a prime contractor's proposal track:
           </p>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong className="text-[#1A3668]">Insert the Mandatory Execution Trigger:</strong> Ensure the agreement explicitly states that the execution of the attached subcontract is a *mandatory automatic consequence* of the prime receiving the federal award, leaving zero room for post-award renegotiations.</li>
-            <li><strong className="text-[#1A3668]">Strike "Good Faith Negotiation" Boilerplate:</strong> Delete any language that frames your post-award relationship as a future negotiation cycle. If the commercial terms aren't defined right now, do not let them use your company's resume.</li>
+            <li><strong className="text-[#1A3668]">Insert the Mandatory Execution Trigger:</strong> Ask counsel whether the agreement should state a defined workshare, scope, exclusivity period, negotiation framework, or attached form of subcontract rather than leaving every material term open.</li>
+            <li><strong className="text-[#1A3668]">Strike "Good Faith Negotiation" Boilerplate:</strong> Flag future-negotiation language and make sure the business understands what is binding now, what remains open, and what happens if the parties cannot agree after award.</li>
           </ul>
         </div>
 
@@ -105,13 +105,13 @@ export default function TeamingAgreementsArticle() {
               <Handshake className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">
-              Lock in Your Pre-Award Scope
+              Review Before You Commit
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't let an aggressive prime contractor leverage your company's history to secure a federal award, only to freeze your crews out later.
+              Use the article as a checklist for terms, documents, and questions to resolve before bidding, signing, or committing resources.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Run your joint venture or pre-award paperwork through the <strong className="text-[#1A3668]">SubShield Pre-Bid Auditor</strong> to instantly verify workshare enforceability, isolate vague scope parameters, and lock down your fair share of the project revenue.
+              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.
             </p>
             <hr className="border-slate-100" />
             <a 

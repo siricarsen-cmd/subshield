@@ -19,10 +19,10 @@ export default function BuyAmericanActArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            The BAA Procurement Blindspot: Why Your Submittal Packages Are Gating Your Cash Flow
+            Buy American Act Sourcing: Domestic Content and Documentation Risks
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            How a misunderstanding of the Buy American Act domestic content test forces trade subcontractors to eat thousands in replacement costs.
+            Review the exact domestic-preference clause, product classification, sourcing evidence, exceptions, and substitution process before committing to federal material requirements.
           </p>
         </div>
       </div>
@@ -46,16 +46,14 @@ export default function BuyAmericanActArticle() {
             The biggest mistake subcontractors make is assuming that if a product is assembled or bought from a supplier inside the United States, it automatically complies with the BAA. It doesn't.
           </p>
           <p>
-            The Buy American Act requires a strict **two-part domestic content test** for construction materials:
+            Buy American requirements vary with the clause and the item being supplied. For manufactured items covered by the current FAR domestic-content test, review where the item is manufactured and the applicable component-cost threshold. Construction-material clauses and agency supplements can use different definitions and exceptions.
           </p>
           <ol className="list-decimal pl-5 space-y-2 text-xs text-slate-600 bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
-            <li>The item must be manufactured or physically altered in the United States.</li>
-            <li>
-              The cost of components mined, produced, or manufactured in the U.S. must exceed a specific threshold of the total cost of all components. 
-            </li>
+            <li>identify the exact Buy American or Trade Agreements clause incorporated in the solicitation or prime contract;</li>
+            <li>apply that clause's current definitions, thresholds, exceptions, and waiver process to the specific material or end product.</li>
           </ol>
           <p>
-            If you are installing complex electrical packages, emergency life safety systems, or specialized material assemblies, many of the internal components or drivers are sourced overseas. Even if the metal housing is bent and screwed together locally, if the cost of those foreign components exceeds the permitted regulatory threshold of the total build cost, the product is illegal for use on that federal site.
+            If you are installing complex electrical packages, emergency life safety systems, or specialized material assemblies, many of the internal components or drivers are sourced overseas. For manufactured end products subject to FAR 25.101's component test, the domestic component threshold is 65% for items delivered in 2024 through 2028, with scheduled changes thereafter. That rule should not be applied blindly to every construction material, commercially available off-the-shelf item, or trade-agreement acquisition.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -65,10 +63,10 @@ export default function BuyAmericanActArticle() {
             Subcontractors routinely get crushed because of a disconnect on bid day. A manufacturer's rep or supplier will verbally assure an estimator that a package is "compliant." 
           </p>
           <p>
-            But verbal promises don't satisfy a federal audit. When the general contractor demands a formal, written **Manufacturer's BAA Certification Letter**, the supplier frequently stalls, backpedals, or provides a useless marketing flyer that fails to explicitly state legal compliance with federal acquisition guidelines.
+            A supplier's verbal assurance may not be enough for the prime's submittal process. Ask what country-of-origin, manufacturing, component, or certification evidence the specific contract actually requires, and make the purchase order match that requirement.
           </p>
           <p>
-            By the time this paperwork failure is uncovered, you have already signed a subcontract binding you to the project schedule. If your materials are rejected, you are legally obligated to source a compliant alternative—often at a steep premium—entirely out of your own pocket.
+            By the time this paperwork failure is uncovered, you have already signed a subcontract binding you to the project schedule. If a proposed material is rejected, cost and schedule responsibility will depend on the subcontract, the reason for rejection, any approved exception or waiver, and the change/substitution process. Those allocation terms should be reviewed before ordering.
           </p>
 
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
@@ -111,13 +109,13 @@ export default function BuyAmericanActArticle() {
               <Building2 className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">
-              Stop Guessing on Federal Flow-Downs
+              Review Before You Commit
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't sign a predatory boilerplate contract that passes absolute BAA liability onto your trade business. 
+              Use the article as a checklist for terms, documents, and questions to resolve before bidding, signing, or committing resources.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Drop your agreement into the <strong className="text-[#1A3668]">SubShield AI Triage Engine</strong> to instantly identify hidden liability flags, isolate unfair material risk shifts, and receive an instant email talk-track to push back on the general contractor before placing a final document on your attorney's desk.
+              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.
             </p>
             <hr className="border-slate-100" />
             <a 

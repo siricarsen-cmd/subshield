@@ -10,12 +10,12 @@ export default function Footer() {
           <Link href="/" className="flex items-center group">
             <img 
               src="/Clean-Logo.png" 
-              alt="SubShield Logo" 
+              alt="SubPreCheck Logo" 
               className="h-10 w-auto object-contain brightness-0 invert opacity-90 transition-opacity group-hover:opacity-100"
             />
           </Link>
           <p className="text-xs text-slate-200 max-w-sm leading-relaxed font-medium pt-1">
-            Government subcontracting risk review for small businesses. Spot risks early, ask better questions, and protect your margins.
+            Federal subcontract risk review for small businesses. Surface issues early, organize the package, and prepare focused questions before you commit.
           </p>
         </div>
 
@@ -46,7 +46,7 @@ export default function Footer() {
       {/* METADATA BLOCK & REQUISITE RECOURSE LIABILITY SHIELD */}
       <div className="max-w-7xl mx-auto border-t border-slate-600 pt-8 flex flex-col md:flex-row justify-between items-center text-[11px] font-bold text-slate-300 space-y-3 md:space-y-0">
         <div>
-          &copy; {new Date().getFullYear()} SubShield. All rights reserved.
+          &copy; {new Date().getFullYear()} SubPreCheck. All rights reserved.
         </div>
         <div className="flex space-x-6">
           <Link href="/privacy" className="hover:text-[#FF5F1F] transition-colors">Privacy Policy</Link>
@@ -55,7 +55,7 @@ export default function Footer() {
       </div>
 
       <div className="max-w-7xl mx-auto mt-6 text-[10px] text-slate-300/80 leading-relaxed font-medium border-t border-slate-600/50 pt-4">
-        <strong>Disclaimer:</strong> SubShield is a contract risk-screening and document-organization tool. SubShield is not a law firm and does not provide legal advice, legal opinions, or legal representation. Reports are for informational and preparation purposes only. Contractors should consult qualified legal counsel before signing or relying on any subcontract, teaming agreement, or related government contract document.
+        <strong>Disclaimer:</strong> SubPreCheck is a contract risk-screening and document-organization tool. SubPreCheck is not a law firm and does not provide legal advice, legal opinions, or legal representation. Reports are for informational and preparation purposes only. Contractors should consult qualified legal counsel before signing or relying on any subcontract, teaming agreement, or related government contract document.
       </div>
     </footer>
   );

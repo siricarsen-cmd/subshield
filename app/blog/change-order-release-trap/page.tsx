@@ -19,10 +19,10 @@ export default function ChangeOrderTrapArticle() {
             </span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase leading-tight">
-            The Change Order Release Trap: How "Signing for Progress" Forfeits Delay Claims
+            Change Order Releases: Watch for Waiver Language Before You Sign
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-medium">
-            How general contractors leverage minor document print adjustments to trick trade subcontractors into waiving massive overhead and extension claims.
+            Review release, waiver, through-date, time-impact, and reservation language before signing change orders or payment documents.
           </p>
         </div>
       </div>
@@ -36,7 +36,7 @@ export default function ChangeOrderTrapArticle() {
             It is a routine part of construction operations. The field super requests an additional run of conduit or an emergency replacement fixture package. You submit a quick, $3,500 change order request. The GC processes it cleanly, issues a written modification, and asks you to sign it so they can include it in the upcoming monthly billings.
           </p>
           <p>
-            You sign the document, get paid your $3,500, and keep moving. But you may have just walked directly into one of the most devastating legal traps in commercial construction: **The Change Order Release Trap**.
+            You sign the document, get paid your $3,500, and keep moving. The important question is whether the modification contains release language that reaches beyond the specific change being priced.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -49,10 +49,10 @@ export default function ChangeOrderTrapArticle() {
             "By signing this modification, the Subcontractor hereby releases and waives any and all claims, demands, damages, or requests for extensions of time arising out of or related to the project up to the execution date of this Change Order."
           </div>
           <p>
-            Think about what that actually means. If the structural steel crews delayed your field installation by three weeks earlier that month, and you are currently putting together a $45,000 delay claim to cover your idle field crew costs, **signing that minor $3,500 change order completely vaporizes your $45,000 claim**. 
+            Think about what that actually means. If the structural steel crews delayed your field installation by three weeks earlier that month, and you are currently putting together a $45,000 delay claim to cover your idle field crew costs, **the release may create a waiver argument against that unresolved claim, depending on its wording and governing law**. 
           </p>
           <p>
-            Legally, you just signed a document stating that you are completely "square" with the GC for any delays or impacts up to that exact date.
+            A broadly worded release may be read to settle more than the specific change order. Its effect is contract- and jurisdiction-specific, which is why unresolved time or cost impacts should be identified before signature.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -68,9 +68,9 @@ export default function ChangeOrderTrapArticle() {
               Related Field Intelligence
             </p>
             <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
-              Losing your right to schedule extension days via a routine change order signature strips away your absolute best defense against end-of-project back-charges. Read our comprehensive field guide on
+              Losing your right to schedule extension days via a routine change order signature strips away your strong defense against end-of-project back-charges. Read our comprehensive field guide on
               <a href="/blog/fighting-liquidated-damages-delay-claims" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
-                Fighting Back Against Liquidated Damages: Defending Your Ledger from Unfair Delay Claims →
+                Liquidated Damages and Delay Claims: Terms to Review Before You Commit →
               </a>
             </p>
           </div>
@@ -82,7 +82,7 @@ export default function ChangeOrderTrapArticle() {
             Never treat a change order as a mere administrative formality. Protect your company’s outstanding claims with two steps:
           </p>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong className="text-[#1A3668]">Insert Exclusion Language:</strong> If a change order contains a sweeping release, write or stamp an explicit exception directly above your signature: *"Subject to and excluding Subcontractor's outstanding claim for structural delays on Area B."*</li>
+            <li><strong className="text-[#1A3668]">Insert Exclusion Language:</strong> If a change order contains a broad release, coordinate a written reservation that complies with the contract and is accepted by the appropriate party rather than assuming a handwritten notation will always preserve the claim: *"Subject to and excluding Subcontractor's outstanding claim for structural delays on Area B."*</li>
             <li><strong className="text-[#1A3668]">Audit Payment Waivers Monthly:</strong> Treat every change order and partial payment release form as an active legal negotiation. Make sure the release only applies to the specific dollars hitting your bank account, never to your overall time or overhead rights.</li>
           </ul>
         </div>
@@ -94,13 +94,13 @@ export default function ChangeOrderTrapArticle() {
               <FileSpreadsheet className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">
-              Guard Your Outstanding Claims
+              Review Before You Commit
             </h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Don't let a general contractor trick you into waiving thousands in delay overhead just to get a minor material modification signed.
+              Use the article as a checklist for terms, documents, and questions to resolve before bidding, signing, or committing resources.
             </p>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Use <strong className="text-[#1A3668]">SubShield</strong> to continuously audit incoming paperwork modifications, isolate hidden waiver language, and ensure your right to equitable compensation remains legally locked down.
+              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.
             </p>
             <hr className="border-slate-100" />
             <a href="/pricing" className="block w-full py-2.5 text-center text-xs font-black uppercase tracking-wider text-white bg-[#FF5F1F] hover:bg-[#E04F1A] rounded-lg transition shadow-sm">

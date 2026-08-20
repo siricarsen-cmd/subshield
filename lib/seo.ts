@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { resolveCanonicalProductionOrigin } from "./production-origin";
 
-export const SITE_NAME = "SubShield";
+export const SITE_NAME = "SubPreCheck";
 export const SITE_ORIGIN = resolveCanonicalProductionOrigin();
-export const DEFAULT_TITLE = "Government Subcontract Risk Review | SubShield";
+export const DEFAULT_TITLE = "Federal Subcontract Risk Review | SubPreCheck";
 export const DEFAULT_DESCRIPTION =
-  "Review government subcontract and teaming packages before you sign. SubShield flags payment traps, missing documents, flow-down risks, and negotiation questions.";
+  "Review federal subcontract, teaming, and prime-provided bid packages before you commit. SubPreCheck surfaces payment, scope, flowdown, compliance, and missing-document risks for a better-prepared attorney handoff.";
 
 type ChangeFrequency =
   | "always"
@@ -36,7 +36,7 @@ const staticPublicRoutes: readonly PublicRoute[] = [
     path: "/pricing",
     title: "Pricing & Review Plans",
     description:
-      "Compare single reviews, credit packs, and subscription options for AI-assisted screening of government-contracting documents.",
+      "Compare single reviews, credit packs, and subscription options for structured first-pass screening of federal subcontract documents.",
     changeFrequency: "monthly",
     priority: 0.9,
   },
@@ -44,15 +44,15 @@ const staticPublicRoutes: readonly PublicRoute[] = [
     path: "/sample-report",
     title: "Sample Government Subcontract Risk Report",
     description:
-      "See how SubShield organizes evidence-grounded findings, risk explanations, and negotiation questions in a sample government subcontract review.",
+      "See how SubPreCheck organizes evidence-grounded findings, risk explanations, and negotiation questions in a sample government subcontract review.",
     changeFrequency: "monthly",
     priority: 0.9,
   },
   {
     path: "/about",
-    title: "About SubShield",
+    title: "About SubPreCheck",
     description:
-      "Learn why SubShield was built to help contractors organize government contract risk review before signing or consulting qualified counsel.",
+      "Learn why SubPreCheck was built to help contractors organize government contract risk review before signing or consulting qualified counsel.",
     changeFrequency: "yearly",
     priority: 0.7,
   },
@@ -66,9 +66,9 @@ const staticPublicRoutes: readonly PublicRoute[] = [
   },
   {
     path: "/contact",
-    title: "Contact SubShield",
+    title: "Contact SubPreCheck",
     description:
-      "Contact SubShield with questions about document fit, pricing and credits, account access, billing, privacy, security, or technical support.",
+      "Contact SubPreCheck with questions about document fit, pricing and credits, account access, billing, privacy, security, or technical support.",
     changeFrequency: "yearly",
     priority: 0.5,
   },
@@ -76,7 +76,7 @@ const staticPublicRoutes: readonly PublicRoute[] = [
     path: "/faq",
     title: "Government Subcontract Review FAQ",
     description:
-      "Find answers about SubShield document reviews, supported files, processing, privacy, credits, and the role of qualified legal counsel.",
+      "Find answers about SubPreCheck document reviews, supported files, processing, privacy, credits, and the role of qualified legal counsel.",
     changeFrequency: "monthly",
     priority: 0.7,
   },
@@ -84,7 +84,7 @@ const staticPublicRoutes: readonly PublicRoute[] = [
     path: "/privacy",
     title: "Privacy Policy",
     description:
-      "Read how SubShield handles account information, submitted documents, reports, payments, Contact messages, and related service data.",
+      "Read how SubPreCheck handles account information, submitted documents, reports, payments, Contact messages, and related service data.",
     changeFrequency: "yearly",
     priority: 0.3,
   },
@@ -92,7 +92,7 @@ const staticPublicRoutes: readonly PublicRoute[] = [
     path: "/terms",
     title: "Terms of Use",
     description:
-      "Read the terms governing SubShield accounts, document reviews, payments, acceptable use, reports, disclaimers, and service access.",
+      "Read the terms governing SubPreCheck accounts, document reviews, payments, acceptable use, reports, disclaimers, and service access.",
     changeFrequency: "yearly",
     priority: 0.3,
   },
@@ -101,7 +101,7 @@ const staticPublicRoutes: readonly PublicRoute[] = [
 const blogArticleRoutes: readonly PublicRoute[] = [
   {
     path: "/blog/government-contracting-payment-traps",
-    title: 'The "Pay-When-Paid" Illusion: Weaponizing FAR Compliance to Mask Prime Overreach',
+    title: 'Pay-When-Paid and Pay-If-Paid: What Federal Subcontractors Should Review',
     description:
       "Examine how pay-when-paid clauses interact with federal prompt-payment requirements and what subcontractors can review before signing.",
     changeFrequency: "monthly",
@@ -109,7 +109,7 @@ const blogArticleRoutes: readonly PublicRoute[] = [
   },
   {
     path: "/blog/understanding-far-flow-down-clauses",
-    title: "Deciphering FAR Flow-Down Clauses: What Subcontractors Must Accept vs. What to Delete",
+    title: "Understanding FAR Flow-Down Clauses: What Belongs in Your Subcontract",
     description:
       "Learn how to distinguish mandatory FAR and DFARS flow-downs from broader prime-contract risk terms in a subcontract.",
     changeFrequency: "monthly",
@@ -117,7 +117,7 @@ const blogArticleRoutes: readonly PublicRoute[] = [
   },
   {
     path: "/blog/teaming-agreement-vague-scope-liabilities",
-    title: "The Teaming Agreement Bait-and-Switch: Preventing Vague Workshares After the Award",
+    title: "Teaming Agreement Workshare: Clarify Scope Before Award",
     description:
       "Review workshare, scope, exclusivity, and post-award risks that can arise when a government-contract teaming agreement is vague.",
     changeFrequency: "monthly",
@@ -125,7 +125,7 @@ const blogArticleRoutes: readonly PublicRoute[] = [
   },
   {
     path: "/blog/request-for-equitable-adjustment-under-far",
-    title: "Recovering from Scope Creep: The Subcontractor’s Guide to REAs Under the FAR",
+    title: "Requests for Equitable Adjustment: Notice and Documentation Basics for Subcontractors",
     description:
       "Review notice, documentation, causation, and cost support considerations for subcontractor requests for equitable adjustment under the FAR.",
     changeFrequency: "monthly",
@@ -141,7 +141,7 @@ const blogArticleRoutes: readonly PublicRoute[] = [
   },
   {
     path: "/blog/termination-for-convenience-subcontractor-rights",
-    title: "The T4C Exit Trap: Knowing Your Rights When the Prime Contractor Pulls the Plug",
+    title: "Termination for Convenience: What Subcontractors Should Review Before Signing",
     description:
       "Review cost recovery, supplier commitments, notice, and settlement language when a subcontract is terminated for convenience.",
     changeFrequency: "monthly",
@@ -149,7 +149,7 @@ const blogArticleRoutes: readonly PublicRoute[] = [
   },
   {
     path: "/blog/broad-form-indemnification-subcontractor-vulnerabilities",
-    title: "The Danger of Broad Indemnification: Stop Insuring the Prime Contractor's Mistakes",
+    title: "Broad Indemnification: How Risk Can Shift to the Subcontractor",
     description:
       "Examine broad indemnity and duty-to-defend language that can shift a prime contractor’s negligence risk to a subcontractor.",
     changeFrequency: "monthly",
@@ -157,7 +157,7 @@ const blogArticleRoutes: readonly PublicRoute[] = [
   },
   {
     path: "/blog/defective-pricing-tina-liability",
-    title: "Defective Pricing and TINA Liability: When the Prime’s Mistake Becomes Your Legal Problem",
+    title: "Defective Pricing and Certified Cost or Pricing Data: Subcontractor Risk Points",
     description:
       "Review defective-pricing, certified cost or pricing data, audit, and indemnity risks that can flow from a prime contract to a subcontractor.",
     changeFrequency: "monthly",
@@ -173,7 +173,7 @@ const blogArticleRoutes: readonly PublicRoute[] = [
   },
   {
     path: "/blog/fighting-liquidated-damages-delay-claims",
-    title: "Fighting Back Against Liquidated Damages: Defending Your Ledger from Unfair Delay Claims",
+    title: "Liquidated Damages and Delay Claims: Terms to Review Before You Commit",
     description:
       "Review milestone, causation, notice, apportionment, and waiver terms that affect subcontractor exposure to liquidated damages.",
     changeFrequency: "monthly",
@@ -181,7 +181,7 @@ const blogArticleRoutes: readonly PublicRoute[] = [
   },
   {
     path: "/blog/protecting-small-subcontractor-margins",
-    title: "Built for the Field: Why Small Trade Contractors Are the Target of Bad Contracts, and How to Fight Back",
+    title: "Protecting Small Subcontractor Margins Before You Sign",
     description:
       "Review payment, scope, indemnity, termination, change-order, and flow-down terms that can put small subcontractor margins at risk.",
     changeFrequency: "monthly",
@@ -189,7 +189,7 @@ const blogArticleRoutes: readonly PublicRoute[] = [
   },
   {
     path: "/blog/davis-bacon-certified-payroll-errors",
-    title: "The Certified Payroll Trap: How Labor Misclassifications Liquidate Your Project Retention",
+    title: "Davis-Bacon Certified Payroll: Classification and Documentation Risks",
     description:
       "Review certified payroll classifications, documentation, correction duties, and payment-withholding risks on Davis-Bacon work.",
     changeFrequency: "monthly",
@@ -197,7 +197,7 @@ const blogArticleRoutes: readonly PublicRoute[] = [
   },
   {
     path: "/blog/buy-american-act-sourcing-mistakes",
-    title: "The BAA Procurement Blindspot: Why Your Submittal Packages Are Gating Your Cash Flow",
+    title: "Buy American Act Sourcing: Domestic Content and Documentation Risks",
     description:
       "Review Buy American Act sourcing, domestic-content documentation, substitutions, and payment risks in government subcontracts.",
     changeFrequency: "monthly",
@@ -205,7 +205,7 @@ const blogArticleRoutes: readonly PublicRoute[] = [
   },
   {
     path: "/blog/change-order-release-trap",
-    title: 'The Change Order Release Trap: How "Signing for Progress" Forfeits Delay Claims',
+    title: 'Change Order Releases: Watch for Waiver Language Before You Sign',
     description:
       "Examine release and waiver language in change orders, payment applications, and amendments that may affect delay or impact claims.",
     changeFrequency: "monthly",
@@ -213,7 +213,7 @@ const blogArticleRoutes: readonly PublicRoute[] = [
   },
   {
     path: "/blog/incorporation-by-reference-ambush",
-    title: "The Incorporation by Reference Ambush: Agreeing to Plans You’ve Never Seen",
+    title: "Incorporation by Reference: Review Documents You Are Being Asked to Accept",
     description:
       "Review incorporation-by-reference clauses, missing prime-contract documents, scope conflicts, and downstream obligations before signing.",
     changeFrequency: "monthly",
@@ -221,7 +221,7 @@ const blogArticleRoutes: readonly PublicRoute[] = [
   },
   {
     path: "/blog/dfars-data-trap-tech-subcontractors",
-    title: "The DFARS Data Trap: Protecting Your Tech Firm's IP from Predatory Subcontracts",
+    title: "DFARS Cybersecurity and Data Rights: Risk Points for Technology Subcontractors",
     description:
       "Review DFARS cybersecurity flow-downs, data-rights language, background IP, and licensing risks for technology subcontractors.",
     changeFrequency: "monthly",

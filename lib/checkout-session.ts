@@ -19,12 +19,12 @@ export async function createAllowedCheckoutSession(
   plans: StripePlanConfig[] = STRIPE_PLANS,
 ): Promise<{ url: string | null }> {
   if (typeof input.priceId !== "string" || input.priceId.trim().length === 0) {
-    throw new CheckoutRequestError("A valid SubShield price is required.");
+    throw new CheckoutRequestError("A valid SubPreCheck price is required.");
   }
 
   const plan = plans.find((candidate) => candidate.priceId === input.priceId);
   if (!plan) {
-    throw new CheckoutRequestError("That SubShield price is unavailable.");
+    throw new CheckoutRequestError("That SubPreCheck price is unavailable.");
   }
 
   const userId = typeof input.userId === "string" && input.userId.length > 0

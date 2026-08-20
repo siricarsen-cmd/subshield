@@ -188,7 +188,7 @@ export default function ContactPage() {
                   <span className="mr-2 mt-0.5 text-[#FF5F1F]" aria-hidden="true">
                     •
                   </span>
-                  <span>You are not sure whether your document fits SubShield</span>
+                  <span>You are not sure whether your document fits SubPreCheck</span>
                 </li>
                 <li className="flex items-start">
                   <span className="mr-2 mt-0.5 text-[#FF5F1F]" aria-hidden="true">
@@ -216,10 +216,10 @@ export default function ContactPage() {
                 Service Disclaimer
               </h2>
               <p className="text-xs font-medium leading-relaxed text-[#596A7D]">
-                SubShield is an AI-assisted contract risk-screening tool, not a
+                SubPreCheck is a structured first-pass contract risk-screening tool, not a
                 law firm. This form supports general questions about platform
                 features, supported document intake, privacy, and credit billing.
-                SubShield cannot provide legal advice, contract interpretations,
+                SubPreCheck cannot provide legal advice, contract interpretations,
                 or legal opinions.
               </p>
             </div>
@@ -448,7 +448,7 @@ export default function ContactPage() {
                     aria-live="polite"
                     className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold leading-relaxed text-emerald-900"
                   >
-                    Thank you. Your message was delivered to SubShield. We’ll
+                    Thank you. Your message was delivered to SubPreCheck. We’ll
                     review it and respond to the email address you provided.
                   </p>
                 )}
@@ -471,7 +471,7 @@ export default function ContactPage() {
           </h2>
           <p className="mx-auto max-w-2xl text-base font-medium leading-relaxed text-[#596A7D]">
             Upload your prime-provided subcontract, teaming, or bid package.
-            SubShield will flag common risk areas, missing documents, and
+            SubPreCheck will flag common risk areas, missing documents, and
             negotiation questions so you can go back to the prime before final
             attorney review.
           </p>

@@ -26,7 +26,7 @@ export default function Navbar() {
         <Link href="/" className="flex min-w-0 items-center h-full">
           <img 
             src="/Clean-Logo.png" 
-            alt="SubShield Logo" 
+            alt="SubPreCheck Logo" 
             className="h-9 w-auto object-contain transition-transform group-hover:scale-102 min-[375px]:h-12 md:h-16"
           />
         </Link>
