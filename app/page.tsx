@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import BrandName from "@/components/BrandName";
 import { 
   FileText, ArrowRight, CheckCircle, 
   FileSearch, FileWarning, AlertTriangle, Clock, 
@@ -212,8 +213,8 @@ export default function Home() {
       <section className="bg-[#1A3668] text-white py-20 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-2xl sm:text-3xl font-extrabold uppercase tracking-tight">
-              How SubPreCheck Works
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              How <BrandName /> Works
             </h2>
           </div>
           
@@ -260,8 +261,8 @@ export default function Home() {
           <span className="text-[10px] font-black text-[#FF5F1F] uppercase tracking-widest bg-orange-50 border border-orange-200/50 px-3 py-1 rounded-full">
             Review Scope
           </span>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-[#1A3668] uppercase tracking-tight mt-4">
-            What SubPreCheck Flags
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-[#1A3668] tracking-tight mt-4">
+            What <BrandName styled /> Flags
           </h2>
           <p className="text-sm text-[#596A7D] font-medium mt-2 leading-relaxed">
             SubPreCheck reviews the package for common government subcontract risk areas that can affect payment, scope, compliance, liability, and negotiation leverage.
