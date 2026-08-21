@@ -100,6 +100,54 @@ const staticPublicRoutes: readonly PublicRoute[] = [
 
 const blogArticleRoutes: readonly PublicRoute[] = [
   {
+    path: "/blog/federal-subcontract-agreement-checklist",
+    title: "Federal Subcontract Agreement Checklist: What to Review Before Signing",
+    description:
+      "Use a practical pre-award checklist to review payment, scope, flowdowns, changes, liability, termination, compliance, and missing documents before signing a federal subcontract.",
+    changeFrequency: "monthly",
+    priority: 0.7,
+  },
+  {
+    path: "/blog/mandatory-vs-optional-far-flowdowns",
+    title: "Mandatory vs. Optional FAR Flowdowns: What a Subcontractor Should Know",
+    description:
+      "Learn how to separate express and conditional FAR flowdowns from prime-drafted commercial terms before accepting a federal subcontract clause exhibit.",
+    changeFrequency: "monthly",
+    priority: 0.7,
+  },
+  {
+    path: "/blog/far-52-244-6-commercial-subcontracts",
+    title: "FAR 52.244-6 Explained for Commercial Product and Service Subcontractors",
+    description:
+      "Understand how FAR 52.244-6 affects commercial product and commercial service subcontracts and how to review a broad federal flowdown list.",
+    changeFrequency: "monthly",
+    priority: 0.7,
+  },
+  {
+    path: "/blog/missing-prime-contract-documents",
+    title: "Missing Prime Contract Documents: What a Subcontractor Should Request Before Signing",
+    description:
+      "Identify incorporated prime-contract sections, scope documents, flowdown exhibits, wage determinations, cyber attachments, and other missing material before signing.",
+    changeFrequency: "monthly",
+    priority: 0.7,
+  },
+  {
+    path: "/blog/far-flowdown-matrix",
+    title: "What Is a FAR Flowdown Matrix—and What If the Prime Does Not Provide One?",
+    description:
+      "Learn what a useful FAR and DFARS flowdown matrix should contain, how it supports clause applicability review, and what to do when the prime provides only a clause list.",
+    changeFrequency: "monthly",
+    priority: 0.7,
+  },
+  {
+    path: "/blog/cmmc-requirements-dod-subcontractors-2026",
+    title: "CMMC Requirements for DoD Subcontractors in 2026",
+    description:
+      "Review current CMMC subcontract flowdown, FCI and CUI questions, CMMC levels, SPRS status, and pre-award requirements under the 2026 DFARS framework.",
+    changeFrequency: "monthly",
+    priority: 0.7,
+  },
+  {
     path: "/blog/government-contracting-payment-traps",
     title: 'Pay-When-Paid and Pay-If-Paid: What Federal Subcontractors Should Review',
     description:
