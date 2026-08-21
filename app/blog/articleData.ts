@@ -8,6 +8,90 @@ export interface Post {
 
 export const posts: Post[] = [
   {
+    slug: "government-teaming-agreement-vs-subcontract",
+    title: "Government Teaming Agreement vs. Subcontract: What Changes After Award?",
+    description: "Compare a pre-award government teaming agreement with the post-award subcontract, including workshare, scope, pricing, flowdowns, payment, and superseding terms.",
+    category: "Teaming & Pre-Award",
+    date: "Aug 21, 2026"
+  },
+  {
+    slug: "teaming-agreement-exclusivity",
+    title: "Exclusivity in Government Teaming Agreements: What to Review Before You Commit",
+    description: "Review opportunity scope, duration, release events, post-award gaps, and other exclusivity terms before committing to a federal contracting pursuit.",
+    category: "Teaming & Pre-Award",
+    date: "Aug 21, 2026"
+  },
+  {
+    slug: "limitations-on-subcontracting-13-cfr-125-6",
+    title: "Limitations on Subcontracting Under 13 CFR 125.6: What Small Businesses Should Check",
+    description: "Understand current SBA limitations on subcontracting, similarly situated entities, workshare assumptions, and what subcontractors should verify before award.",
+    category: "Small Business Compliance",
+    date: "Aug 21, 2026"
+  },
+  {
+    slug: "similarly-situated-entity-rule",
+    title: "Similarly Situated Entity Rule: What Federal Contractors and Subcontractors Need to Know",
+    description: "Learn how SBA defines a similarly situated entity, why program status and subcontract NAICS matter, and how the rule affects subcontracting-limit calculations.",
+    category: "Small Business Compliance",
+    date: "Aug 21, 2026"
+  },
+  {
+    slug: "ostensible-subcontractor-rule",
+    title: "The Ostensible Subcontractor Rule: When a Small-Business Team Can Create Affiliation Risk",
+    description: "Review undue reliance, primary-and-vital work, management control, staffing, and similarly situated entity issues before structuring a small-business team.",
+    category: "Small Business Compliance",
+    date: "Aug 21, 2026"
+  },
+  {
+    slug: "subcontractor-pass-through-claims",
+    title: "Subcontractor Pass-Through Claims on Federal Contracts: What the Subcontract Should Address",
+    description: "Review sponsorship, indirect appeal, notice, cooperation, claim costs, settlement control, and documentation terms before a Government-caused subcontract claim arises.",
+    category: "Claims & Disputes",
+    date: "Aug 21, 2026"
+  },
+  {
+    slug: "prime-refuses-sponsor-subcontractor-claim",
+    title: "What If the Prime Refuses to Sponsor a Federal Subcontractor Claim?",
+    description: "Understand why claim-sponsorship language matters and what to review when a federal prime has discretion to refuse, control, settle, or decline a subcontractor claim.",
+    category: "Claims & Disputes",
+    date: "Aug 21, 2026"
+  },
+  {
+    slug: "subcontract-notice-deadlines",
+    title: "Federal Subcontract Notice Deadlines: Why Short Notice Clauses Matter",
+    description: "Review short notice periods for changes, delays, claims, differing conditions, payment disputes, and other events before field performance begins.",
+    category: "Changes & Claims",
+    date: "Aug 21, 2026"
+  },
+  {
+    slug: "continue-performance-during-dispute",
+    title: "Continue Performance During a Dispute: What Federal Subcontractors Should Review",
+    description: "Review continue-performance obligations together with change authority, notice, funding, payment, and disputed-work protections before signing a federal subcontract.",
+    category: "Claims & Disputes",
+    date: "Aug 21, 2026"
+  },
+  {
+    slug: "termination-for-default-cure-notice",
+    title: "Termination for Default and Cure Notices: What Federal Subcontractors Should Review",
+    description: "Compare federal default procedures with subcontract cure periods, immediate-default triggers, backcharge remedies, and notice requirements before signing.",
+    category: "Termination & Default",
+    date: "Aug 21, 2026"
+  },
+  {
+    slug: "order-of-precedence-subcontract-documents",
+    title: "Order of Precedence in Federal Subcontracts: Which Document Controls When Terms Conflict?",
+    description: "Understand how order-of-precedence clauses resolve conflicts among subcontract terms, statements of work, proposals, flowdowns, specifications, and attachments.",
+    category: "Contract Documents",
+    date: "Aug 21, 2026"
+  },
+  {
+    slug: "far-52-244-2-consent-to-subcontracts",
+    title: "FAR 52.244-2 and Consent to Subcontracts: What Government Approval Does—and Does Not—Mean",
+    description: "Learn what Government consent to a subcontract means under FAR Part 44, what it does not validate, and what subcontractors should still review themselves.",
+    category: "FAR & Subcontracting",
+    date: "Aug 21, 2026"
+  },
+  {
     slug: "federal-subcontractor-not-paid-prime-contractor",
     title: "Federal Subcontractor Not Paid by the Prime: What to Check Next",
     description: "A practical response guide for federal subcontractors dealing with nonpayment, including contract terms, documentation, contracting-officer channels, bond rights, and counsel questions.",
