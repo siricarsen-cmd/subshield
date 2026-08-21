@@ -6,8 +6,6 @@ import { ShieldAlert, FileText, CheckCircle, ArrowLeft, Network } from "lucide-r
 export default function FarFlowDownClausesArticle() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans antialiased pb-20">
-      
-      {/* Article Header Banner */}
       <div className="bg-[#1A3668] text-white py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -27,16 +25,13 @@ export default function FarFlowDownClausesArticle() {
         </div>
       </div>
 
-      {/* Main Content Layout */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Article Body */}
         <div className="lg:col-span-2 space-y-6 text-sm text-slate-700 leading-relaxed font-medium">
           <p>
-            It is a standard tactical move for a General Contractor during public procurement. They attach a massive addendum to your contract labeled <strong className="text-[#1A3668]">"Federal Acquisition Regulation (FAR) Flow-Down Provisions."</strong> It contains dozens of dense, alphanumeric legal codes, and the project manager tells you, *"Take it or leave it. Every line is legally mandated by the federal government."*
+            Federal subcontracts often include a separate FAR or DFARS flowdown exhibit with dozens of clause citations. The important question is not whether federal clauses exist. It is whether each cited requirement actually applies to your subcontract and what it requires your company to do.
           </p>
           <p>
-            If you sign the addendum without reviewing applicability, you may accept reporting, audit, cyber, labor, or commercial obligations that were not priced into your scope. 
+            A subcontractor should also separate federal flowdowns from payment, indemnity, termination, dispute, and other commercial terms the prime drafted for the subcontract itself. Both groups can matter, but they do not have the same source or applicability analysis.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
@@ -47,100 +42,93 @@ export default function FarFlowDownClausesArticle() {
           </p>
           <ol className="list-decimal pl-5 space-y-2 text-xs text-slate-600 bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
             <li>
-              <strong className="text-[#1A3668]">Required Flowdowns:</strong> Some clauses expressly direct the prime to include specified language in qualifying subcontracts, sometimes only when stated thresholds or scope triggers are met.
+              <strong className="text-[#1A3668]">Express or required flowdowns:</strong> Some clauses direct the prime to include specified language in qualifying subcontracts, sometimes only when stated thresholds or scope triggers are met.
             </li>
             <li>
-              <strong className="text-[#FF5F1F]">Additional Prime Terms:</strong> A prime may also include commercial risk-allocation terms or broader obligations for its own contract-management reasons. Those terms should be analyzed separately rather than assumed to be federally required.
+              <strong className="text-[#1A3668]">Conditional flowdowns:</strong> Some requirements reach a subcontract only when the work, value, information, place of performance, or other stated condition is present.
+            </li>
+            <li>
+              <strong className="text-[#1A3668]">Additional prime terms:</strong> A prime may also include commercial risk-allocation terms for its own contract-management reasons. Those provisions should be reviewed separately rather than assumed to be federally required.
             </li>
           </ol>
           <p>
-            Without that clause-by-clause review, a subcontractor can accept obligations that are broader than necessary for its scope or that carry unpriced administrative cost.
+            For a deeper breakdown, read <a href="/blog/mandatory-vs-optional-far-flowdowns" className="text-[#FF5F1F] font-bold hover:underline">Mandatory vs. Optional FAR Flowdowns</a>.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-[#FF5F1F]" /> Examples to Check Clause by Clause
+            <FileText className="w-5 h-5 text-[#FF5F1F]" /> Check Each Clause, Not Just the Title
           </h3>
           <p>
-            Do not decide applicability from a clause title alone. For each cited FAR or DFARS clause, check the text for subcontract instructions, thresholds, scope triggers, lower-tier requirements, and any permitted substitutions.
+            For each cited FAR or DFARS clause, read the current text for subcontract instructions, thresholds, scope triggers, lower-tier requirements, and permitted substitutions. A clause title alone is not enough to establish that it belongs in your subcontract.
           </p>
           <ul className="list-disc pl-5 space-y-1">
-            <li><strong className="text-[#1A3668]">FAR 52.222-26:</strong> Check whether the equal-opportunity clause and its subcontract requirements apply to the transaction.</li>
-            <li><strong className="text-[#1A3668]">FAR 52.222-41:</strong> Check whether the Service Contract Labor Standards clause applies to the covered services and workers.</li>
-            <li><strong className="text-[#1A3668]">FAR 52.203-13:</strong> Check the current clause text for value, performance-period, commercial-item, and lower-tier applicability conditions.</li>
+            <li><strong className="text-[#1A3668]">FAR 52.222-26:</strong> Check the clause's subcontract requirements and the facts of the transaction.</li>
+            <li><strong className="text-[#1A3668]">FAR 52.222-41:</strong> Check whether Service Contract Labor Standards apply to the covered services and workers.</li>
+            <li><strong className="text-[#1A3668]">FAR 52.203-13:</strong> Check the current clause text for value, performance-period, commercial-item, and lower-tier conditions.</li>
           </ul>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> Clauses That Deserve Commercial Review
+            <ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> Commercial Products and Services Need Their Own Review
           </h3>
           <p>
-            Some clauses deserve closer commercial review even when the prime has a reason to include them. The key question is what the clause actually requires of your company and whether that obligation has been priced and scoped.
+            FAR 44.402 and FAR 52.244-6 are especially important when the subcontract is for commercial products or commercial services. The FAR limits which clauses are required to be imposed on qualifying commercial suppliers, subject to the current rule and agency-specific requirements.
           </p>
-          <ul className="list-disc pl-5 space-y-4">
-            <li>
-              <strong className="text-[#1A3668]">Termination for Convenience:</strong> If the subcontract gives the prime a convenience-termination right, review the actual subcontract clause for notice, recoverable cost categories, committed materials, demobilization, settlement deadlines, overhead, and profit treatment rather than assuming the prime-contract FAR clause creates identical subcontractor rights.
-            </li>
-            <li>
-              <strong className="text-[#1A3668]">Audit and Records:</strong> Confirm which audit or record-access clause applies, what records are within scope, the retention period, and whether any prime access right is broader than the Government requirement being flowed down.
-            </li>
-          </ul>
+          <p>
+            If that describes your work, see <a href="/blog/far-52-244-6-commercial-subcontracts" className="text-[#FF5F1F] font-bold hover:underline">FAR 52.244-6 Explained for Commercial Product and Service Subcontractors</a>.
+          </p>
+
+          <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-[#FF5F1F]" /> Missing Documents Can Block the Analysis
+          </h3>
+          <p>
+            A flowdown clause may refer to a prime-contract section, agency supplement, wage determination, cybersecurity attachment, statement of work, or other document you were never given. Ask for the relevant material before signing rather than trying to infer the requirement from a clause number alone.
+          </p>
+          <p>
+            See <a href="/blog/missing-prime-contract-documents" className="text-[#FF5F1F] font-bold hover:underline">Missing Prime Contract Documents</a> and <a href="/blog/far-flowdown-matrix" className="text-[#FF5F1F] font-bold hover:underline">What a FAR Flowdown Matrix Should Contain</a>.
+          </p>
 
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
             <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">Substitutions and Mutatis Mutandis Language</h4>
             <p className="text-xs text-slate-600 leading-relaxed">
-              A substitution clause can adapt a prime-contract provision for the prime-subcontract relationship, but it can also create ambiguity if every Government reference is replaced mechanically. Review which terms are being substituted, which obligations make sense at the subcontract level, and how conflicts are resolved.
-            </p>
-          </div>
-
-          {/* Strategic Internal SEO Cross-Link */}
-          <div className="bg-slate-50 border-l-4 border-[#FF5F1F] p-4 my-6 rounded-r-xl">
-            <p className="text-[10px] font-black text-[#1A3668] uppercase tracking-widest">
-              Related Field Intelligence
-            </p>
-            <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
-              Incorporation language can extend the review beyond the face of the subcontract. See the related guide on documents incorporated by reference:
-              <a href="/blog/incorporation-by-reference-ambush" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
-                Incorporation by Reference: Review Documents You Are Being Asked to Accept →
-              </a>
+              A substitution clause can adapt a prime-contract provision for the prime-subcontract relationship, but it can also create ambiguity if Government references are replaced mechanically. Review which terms are being substituted and how conflicts are resolved.
             </p>
           </div>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-[#FF5F1F]" /> Drawing Your Compliance Line
+            <CheckCircle className="w-5 h-5 text-[#FF5F1F]" /> A Practical Flowdown Review Process
           </h3>
-          <p>
-            Take back your negotiating leverage during procurement by establishing a clean review process:
-          </p>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong className="text-[#1A3668]">Insist on Threshold Exemptions:</strong> FAR and DFARS clauses use different thresholds and applicability tests, and those thresholds can change. Verify the current text of each clause instead of relying on a single dollar cutoff.</li>
-            <li><strong className="text-[#1A3668]">Isolate True Flow-Down Lists:</strong> Ask the prime to identify the source of each flowdown, provide referenced attachments, and explain any contract-specific applicability assumptions that affect your scope or pricing.</li>
+            <li>Identify the source of each cited clause.</li>
+            <li>Check the current clause text and applicability trigger.</li>
+            <li>Separate federal requirements from prime-drafted commercial terms.</li>
+            <li>Request missing prime-contract sections and referenced attachments.</li>
+            <li>Record any lower-tier flowdown you will need to administer.</li>
+            <li>Send unresolved legal or applicability questions to qualified counsel before signing.</li>
           </ul>
-        </div>
 
-        {/* Strategic Call-to-Action Sidebar */}
-        <div className="space-y-6">
-          <div className="bg-white border-2 border-[#FF5F1F] rounded-xl p-6 shadow-md space-y-4 sticky top-6">
-            <div className="p-2 bg-[#FF5F1F]/10 rounded-lg text-[#FF5F1F] inline-block">
-              <Network className="w-6 h-6" />
+          <div className="bg-slate-50 border-l-4 border-[#FF5F1F] p-4 rounded-r-xl">
+            <p className="text-[10px] font-black text-[#1A3668] uppercase tracking-widest">Related guides</p>
+            <div className="mt-2 space-y-1 text-xs">
+              <p><a href="/blog/incorporation-by-reference-ambush" className="text-[#FF5F1F] font-bold hover:underline">Incorporation by Reference: Review Documents You Are Being Asked to Accept</a></p>
+              <p><a href="/blog/mandatory-vs-optional-far-flowdowns" className="text-[#FF5F1F] font-bold hover:underline">Mandatory vs. Optional FAR Flowdowns</a></p>
+              <p><a href="/blog/far-52-244-6-commercial-subcontracts" className="text-[#FF5F1F] font-bold hover:underline">FAR 52.244-6 for Commercial Subcontracts</a></p>
+              <p><a href="/blog/far-flowdown-matrix" className="text-[#FF5F1F] font-bold hover:underline">What Is a FAR Flowdown Matrix?</a></p>
+              <p><a href="/blog/cmmc-requirements-dod-subcontractors-2026" className="text-[#FF5F1F] font-bold hover:underline">CMMC Requirements for DoD Subcontractors in 2026</a></p>
             </div>
-            <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">
-              Review Before You Commit
-            </h4>
-            <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Use the article as a checklist for terms, documents, and questions to resolve before bidding, signing, or committing resources.
-            </p>
-            <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.
-            </p>
-            <hr className="border-slate-100" />
-            <a 
-              href="/pricing"
-              className="block w-full py-2.5 text-center text-xs font-black uppercase tracking-wider text-white bg-[#FF5F1F] hover:bg-[#E04F1A] rounded-lg transition shadow-sm"
-            >
-              See Review Plans
-            </a>
           </div>
         </div>
 
+        <div className="space-y-6">
+          <div className="bg-white border-2 border-[#FF5F1F] rounded-xl p-6 shadow-md space-y-4 sticky top-6">
+            <div className="p-2 bg-[#FF5F1F]/10 rounded-lg text-[#FF5F1F] inline-block"><Network className="w-6 h-6" /></div>
+            <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">Review Before You Commit</h4>
+            <p className="text-xs text-slate-600 leading-relaxed font-medium">Use the article as a checklist for clauses, documents, and questions to resolve before bidding, signing, or committing resources.</p>
+            <p className="text-xs text-slate-600 leading-relaxed font-medium"><strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.</p>
+            <hr className="border-slate-100" />
+            <a href="/sample-report" className="block w-full py-2.5 text-center text-xs font-black uppercase tracking-wider text-white bg-[#FF5F1F] hover:bg-[#E04F1A] rounded-lg transition shadow-sm">View Sample Report</a>
+            <a href="/pricing" className="block w-full py-2.5 text-center text-xs font-black uppercase tracking-wider text-[#1A3668] border border-slate-200 hover:border-[#FF5F1F] rounded-lg transition">See Review Plans</a>
+          </div>
+        </div>
       </div>
     </div>
   );
