@@ -100,6 +100,54 @@ const staticPublicRoutes: readonly PublicRoute[] = [
 
 const blogArticleRoutes: readonly PublicRoute[] = [
   {
+    path: "/blog/federal-subcontractor-not-paid-prime-contractor",
+    title: "Federal Subcontractor Not Paid by the Prime: What to Check Next",
+    description:
+      "Review practical next steps after prime-contractor nonpayment, including subcontract terms, records, contracting-officer channels, bond rights, and attorney-preparation questions.",
+    changeFrequency: "monthly",
+    priority: 0.7,
+  },
+  {
+    path: "/blog/prompt-payment-act-federal-subcontractors",
+    title: "Does the Prompt Payment Act Protect Federal Subcontractors?",
+    description:
+      "Understand how federal prompt-payment rules affect subcontractors, where direct rights are limited, and how construction and small-business payment provisions differ.",
+    changeFrequency: "monthly",
+    priority: 0.7,
+  },
+  {
+    path: "/blog/miller-act-payment-bond-claims",
+    title: "Miller Act Payment Bond Claims: Deadlines Federal Construction Subcontractors Should Know",
+    description:
+      "Review Miller Act payment-bond timing, lower-tier notice requirements, bond-copy requests, suit deadlines, and waiver limits on covered federal construction work.",
+    changeFrequency: "monthly",
+    priority: 0.7,
+  },
+  {
+    path: "/blog/fci-vs-cui-dod-subcontractors",
+    title: "FCI vs. CUI: What DoD Subcontractors Need to Know Before CMMC",
+    description:
+      "Understand the difference between Federal Contract Information and Controlled Unclassified Information and why the data handled can change CMMC requirements.",
+    changeFrequency: "monthly",
+    priority: 0.7,
+  },
+  {
+    path: "/blog/cmmc-level-1-vs-level-2",
+    title: "CMMC Level 1 vs. Level 2: Which Does a DoD Subcontractor Need?",
+    description:
+      "Compare CMMC Level 1 and Level 2, including FCI and CUI triggers, self-assessment and C3PAO paths, and pre-award questions for DoD subcontractors.",
+    changeFrequency: "monthly",
+    priority: 0.7,
+  },
+  {
+    path: "/blog/cmmc-flowdown-lower-tier-subcontractors",
+    title: "Does CMMC Flow Down to Lower-Tier Subcontractors?",
+    description:
+      "Review CMMC flowdown through the DoD supply chain, how FCI and CUI affect the required level, and what lower-tier subcontractors should verify before award.",
+    changeFrequency: "monthly",
+    priority: 0.7,
+  },
+  {
     path: "/blog/federal-subcontract-agreement-checklist",
     title: "Federal Subcontract Agreement Checklist: What to Review Before Signing",
     description:
