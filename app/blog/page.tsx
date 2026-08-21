@@ -62,7 +62,7 @@ export default function BlogDashboardPage() {
                   href={`/blog/${post.slug}`} 
                   className="inline-flex items-center gap-1.5 rounded-sm text-xs font-black uppercase tracking-wider text-[#1A3668] hover:text-[#FF5F1F] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5F1F] focus-visible:ring-offset-2"
                 >
-                  Read Operational Guide <ArrowUpRight className="w-4 h-4" />
+                  Read Guide <ArrowUpRight className="w-4 h-4" />
                 </Link>
               </div>
             </div>
