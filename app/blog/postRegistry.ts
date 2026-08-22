@@ -1,5 +1,7 @@
 import { posts as existingPosts, type Post } from "./articleData";
 import { batch4Posts } from "./batch4Data";
 import { batch5Posts } from "./batch5Data";
+import { batch6Posts } from "./batch6Data";
+import { batch7Posts } from "./batch7Data";
 
-export const posts: Post[] = [...batch5Posts, ...batch4Posts, ...existingPosts];
+export const posts: Post[] = [...batch7Posts, ...batch6Posts, ...batch5Posts, ...batch4Posts, ...existingPosts];
