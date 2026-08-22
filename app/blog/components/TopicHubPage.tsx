@@ -1,8 +1,10 @@
 import { ArrowLeft, BookOpenCheck, ArrowUpRight } from "lucide-react";
-import { hubPages, type HubSlug } from "../hubData";
+import { hubPages, type HubGroup, type HubSlug } from "../hubData";
 
 export function TopicHubPage({ slug }: { slug: HubSlug }) {
   const page = hubPages[slug];
+  const groups: HubGroup[] = page.groups;
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans antialiased pb-20">
       <div className="bg-[#1A3668] text-white py-16 px-4 sm:px-6 lg:px-8 border-b-4 border-[#FF5F1F]">
@@ -22,7 +24,7 @@ export function TopicHubPage({ slug }: { slug: HubSlug }) {
             {page.intro.map((p) => <p key={p}>{p}</p>)}
           </div>
 
-          {page.groups.map((group) => (
+          {groups.map((group) => (
             <section key={group.heading} className="space-y-4">
               <div className="space-y-2">
                 <h2 className="text-lg font-black text-[#1A3668] uppercase tracking-wide flex items-center gap-2"><BookOpenCheck className="w-5 h-5 text-[#FF5F1F]" /> {group.heading}</h2>
