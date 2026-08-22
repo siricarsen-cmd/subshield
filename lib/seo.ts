@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { posts } from "@/app/blog/articleData";
+import { posts } from "@/app/blog/postRegistry";
 import { resolveCanonicalProductionOrigin } from "./production-origin";
 
 export const SITE_NAME = "SubPreCheck";
