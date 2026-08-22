@@ -19,20 +19,12 @@ export default function TeamingAgreementsArticle() {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6 text-sm text-slate-700 leading-relaxed font-medium">
-          <p>
-            A teaming agreement can define how a prime and prospective subcontractor will pursue a federal opportunity, but vague workshare or post-award language can leave important commercial terms unresolved.
-          </p>
-          <p>
-            Before committing proposal resources, compare the promised role, scope, workshare, exclusivity, pricing assumptions, and subcontract-negotiation process. The more of that framework is left for later, the more uncertainty exists after award.
-          </p>
+          <p>A teaming agreement can define how a prime and prospective subcontractor will pursue a federal opportunity, but vague workshare or post-award language can leave important commercial terms unresolved.</p>
+          <p>Before committing proposal resources, compare the promised role, scope, workshare, exclusivity, pricing assumptions, and subcontract-negotiation process. The more of that framework is left for later, the more uncertainty exists after award.</p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2"><ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> Watch Future-Negotiation Language</h3>
-          <p>
-            Phrases such as “negotiate in good faith,” “mutually agreeable subcontract,” or “anticipated workshare” can signal that key terms remain open. Whether a teaming agreement creates enforceable obligations depends on the actual language and governing law.
-          </p>
-          <p>
-            Treat vague future-negotiation wording as a reason to clarify the business deal and obtain legal review, not as a guaranteed post-award scope commitment.
-          </p>
+          <p>Phrases such as “negotiate in good faith,” “mutually agreeable subcontract,” or “anticipated workshare” can signal that key terms remain open. Whether a teaming agreement creates enforceable obligations depends on the actual language and governing law.</p>
+          <p>Treat vague future-negotiation wording as a reason to clarify the business deal and obtain legal review, not as a guaranteed post-award scope commitment.</p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2"><FileText className="w-5 h-5 text-[#FF5F1F]" /> Define the Commercial Framework</h3>
           <ul className="list-disc pl-5 space-y-2 text-xs text-slate-600 bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
@@ -46,6 +38,7 @@ export default function TeamingAgreementsArticle() {
           <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3 shadow-sm">
             <h3 className="text-xs font-black text-[#1A3668] uppercase tracking-wide">Explore the Teaming & Small-Business Cluster</h3>
             <ul className="space-y-2 text-xs">
+              <li><a href="/blog/teaming-small-business-subcontracting-hub" className="text-[#1A3668] font-black hover:text-[#FF5F1F] hover:underline">Federal Teaming, Workshare & Small Business Subcontracting Hub</a></li>
               <li><a href="/blog/government-teaming-agreement-vs-subcontract" className="text-[#FF5F1F] font-bold hover:underline">Government Teaming Agreement vs. Subcontract: What Changes After Award?</a></li>
               <li><a href="/blog/teaming-agreement-exclusivity" className="text-[#FF5F1F] font-bold hover:underline">Exclusivity in Government Teaming Agreements</a></li>
               <li><a href="/blog/limitations-on-subcontracting-13-cfr-125-6" className="text-[#FF5F1F] font-bold hover:underline">Limitations on Subcontracting Under 13 CFR 125.6</a></li>
