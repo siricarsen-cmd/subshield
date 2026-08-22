@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import { SITE_NAME, createPublicMetadata, getPublicRoute } from "@/lib/seo";
-import { LegacyTopicHubCallout } from "./components/LegacyTopicHubCallout";
+import {
+  SITE_NAME,
+  createPublicMetadata,
+  getPublicRoute,
+} from "@/lib/seo";
 
 const blogRoute = getPublicRoute("/blog");
 
@@ -14,10 +17,5 @@ export const metadata: Metadata = {
 };
 
 export default function BlogLayout({ children }: { children: ReactNode }) {
-  return (
-    <>
-      {children}
-      <LegacyTopicHubCallout />
-    </>
-  );
+  return children;
 }
