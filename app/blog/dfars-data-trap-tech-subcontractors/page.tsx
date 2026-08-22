@@ -60,6 +60,16 @@ export default function DfarsDataTrapArticle() {
             <li><strong className="text-[#1A3668]">Markings and assertions:</strong> Identify any steps required to preserve the intended rights in restricted or proprietary material.</li>
           </ul>
 
+          <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3 shadow-sm">
+            <h3 className="text-xs font-black text-[#1A3668] uppercase tracking-wide">Explore the DoD Data-Rights Cluster</h3>
+            <ul className="space-y-2 text-xs">
+              <li><a href="/blog/dod-technical-data-rights-subcontracts" className="text-[#FF5F1F] font-bold hover:underline">Technical Data Rights in DoD Subcontracts: What to Review Before Delivery</a></li>
+              <li><a href="/blog/government-purpose-rights-vs-unlimited-rights" className="text-[#FF5F1F] font-bold hover:underline">Government Purpose Rights vs. Unlimited Rights</a></li>
+              <li><a href="/blog/background-ip-dod-subcontracts" className="text-[#FF5F1F] font-bold hover:underline">Background IP in DoD Subcontracts</a></li>
+              <li><a href="/blog/fci-vs-cui-dod-subcontractors" className="text-[#FF5F1F] font-bold hover:underline">FCI vs. CUI for DoD Subcontractors</a></li>
+            </ul>
+          </div>
+
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2"><CheckCircle className="w-5 h-5 text-[#FF5F1F]" /> 4. Build the Questions Before Attorney Review</h3>
           <p>
             A useful first-pass review should identify the cyber clauses, CMMC level, FCI/CUI references, system obligations, technical-data clauses, software-rights provisions, background-IP language, and missing attachments. Counsel can then focus on applicability, negotiation language, required markings or assertions, and final legal judgment.
