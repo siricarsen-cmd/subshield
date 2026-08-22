@@ -6,8 +6,6 @@ import { ShieldAlert, FileText, CheckCircle, ArrowLeft, Construction } from "luc
 export default function DavisBaconPayrollArticle() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans antialiased pb-20">
-      
-      {/* Header Banner */}
       <div className="bg-[#1A3668] text-white py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -27,10 +25,7 @@ export default function DavisBaconPayrollArticle() {
         </div>
       </div>
 
-      {/* Main Content Layout */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Article Body */}
         <div className="lg:col-span-2 space-y-6 text-sm text-slate-700 leading-relaxed font-medium">
           <p>
             When Davis-Bacon Related Acts requirements apply to a federal construction contract, the wage determination and labor clauses establish prevailing-wage, fringe, classification, and payroll obligations for covered workers. Confirm coverage and the actual wage determination before pricing the work.
@@ -40,89 +35,67 @@ export default function DavisBaconPayrollArticle() {
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> The Danger of the "General Laborer" Shortcut
+            <ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> Worker Classification Is a Core Risk
           </h3>
           <p>
-            The most common error that penalizes commercial subcontractors is worker misclassification. When estimators or field clerks fill out logs, it is incredibly tempting to classify field hands who don’t hold specific cards as a generic "Laborer" to fit a lower wage tier.
-          </p>
-          <p>
-            However, DOL inspectors do not care what a worker's internal title is. They care strictly about the **tools in their hands**. 
+            One recurring problem is assigning workers to a convenient internal title instead of the classification that matches the actual work and the applicable wage determination.
           </p>
           <p>
             Classification depends on the work actually performed, the applicable wage determination, and any recognized apprenticeship or classification rules. Do not assume an internal job title controls the required wage rate; verify mixed duties and apprenticeship status before payroll is submitted.
           </p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-[#FF5F1F]" /> The GC Cash-Flow Freeze
+            <FileText className="w-5 h-5 text-[#FF5F1F]" /> Payroll Errors Can Affect Cash Flow
           </h3>
-          <p>
-            Because federal prime contract clauses hold the General Contractor jointly liable for any labor compliance deficiencies on the job site, GCs monitor subcontractor submittals with extreme paranoia.
-          </p>
           <p>
             Payroll deficiencies can lead to correction requests, investigations, and withholding under applicable labor clauses. Whether a prime may withhold a particular subcontract payment also depends on the subcontract and the circumstances, so review the withholding and cure language before award.
           </p>
           <p>
-            A minor administrative error handled by an office clerk can quickly turn into a multi-week cash flow crisis that leaves you struggling to cover field payroll.
+            A correctable administrative error can still become a cash-flow issue if the subcontract gives the prime broad withholding or backcharge rights without a clear notice-and-cure process.
           </p>
 
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
-            <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">The Hidden Flow-Down Threat</h4>
+            <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">Review the Flowdown, Not Just the Payroll Form</h4>
             <p className="text-xs text-slate-600 leading-relaxed">
-              GC master contracts frequently dictate that any administrative expenses, legal compacting hours, or Department of Labor fines incurred due to a subcontractor's paperwork error will be directly back-charged to the sub. You aren't just protecting yourself from Uncle Sam; you are protecting your project ledger from the GC's legal team.
+              The labor obligation comes from the governing contract clauses and wage determination, not from a payroll template by itself. Review any prime-drafted backcharge, indemnity, cure, and withholding terms alongside the federal labor requirements.
             </p>
           </div>
 
-          {/* Strategic Internal SEO Cross-Link */}
-          <div className="bg-slate-50 border-l-4 border-[#FF5F1F] p-4 my-6 rounded-r-xl">
-            <p className="text-[10px] font-black text-[#1A3668] uppercase tracking-widest">
-              Related Field Intelligence
-            </p>
-            <p className="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
-              Administrative logging delays shouldn't give the general contractor a legal excuse to hold up your progress draws. Read our deep-dive analysis on 
-              <a href="/blog/government-contracting-payment-traps" className="text-[#FF5F1F] font-black hover:underline inline-flex items-center gap-0.5 ml-1 uppercase tracking-wide text-[11px]">
-                Pay-When-Paid and Pay-If-Paid: What Federal Subcontractors Should Review →
-              </a>
-            </p>
+          <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3 shadow-sm">
+            <h3 className="text-xs font-black text-[#1A3668] uppercase tracking-wide">Explore the Federal Labor Cluster</h3>
+            <ul className="space-y-2 text-xs">
+              <li><a href="/blog/davis-bacon-worker-classification" className="text-[#FF5F1F] font-bold hover:underline">Davis-Bacon Worker Classifications: How Misclassification Creates Payroll Risk</a></li>
+              <li><a href="/blog/how-to-read-federal-wage-determination" className="text-[#FF5F1F] font-bold hover:underline">How to Read a Federal Wage Determination Before Pricing</a></li>
+              <li><a href="/blog/missing-wage-determination-federal-subcontract" className="text-[#FF5F1F] font-bold hover:underline">Missing Wage Determination in a Federal Subcontract</a></li>
+              <li><a href="/blog/davis-bacon-vs-service-contract-labor-standards" className="text-[#FF5F1F] font-bold hover:underline">Davis-Bacon vs. Service Contract Labor Standards</a></li>
+              <li><a href="/blog/service-contract-labor-standards-subcontractors" className="text-[#FF5F1F] font-bold hover:underline">Service Contract Labor Standards for Federal Subcontractors</a></li>
+            </ul>
           </div>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-[#FF5F1F]" /> Implementing Pre-Award Defense
+            <CheckCircle className="w-5 h-5 text-[#FF5F1F]" /> Pre-Award Review Steps
           </h3>
-          <p>
-            To stop certified payroll traps from destroying your field morale and project performance, you must proactively manage the contract language before setting foot on the job site:
-          </p>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong className="text-[#1A3668]">Verify Wage Determinations Early:</strong> Ensure the exact, current federal wage decision document is attached to your contract files on day one, not a placeholder reference.</li>
-            <li><strong className="text-[#1A3668]">Review Cure and Withholding Language:</strong> Consider whether correctable payroll discrepancies should have a defined notice-and-cure process and confirm how any withholding right relates to the labor clauses and subcontract.</li>
-            <li><strong className="text-[#1A3668]">Audit the Flow-Down Framework:</strong> Run every incoming public procurement contract through an analytical check to make sure you aren't signing away your rights to equitable adjustment over audit-induced delays.</li>
+            <li><strong className="text-[#1A3668]">Verify the Wage Determination:</strong> Confirm the exact wage decision and revision that applies to the work before finalizing labor pricing.</li>
+            <li><strong className="text-[#1A3668]">Map Worker Classifications:</strong> Match planned duties to the classifications and fringe obligations in the wage determination.</li>
+            <li><strong className="text-[#1A3668]">Review Cure and Withholding Language:</strong> Understand what happens if payroll needs correction and how long you have to cure an issue.</li>
+            <li><strong className="text-[#1A3668]">Check the Flowdown Package:</strong> Make sure the labor clauses, wage determination, and related attachments are actually included or available.</li>
           </ul>
         </div>
 
-        {/* Dynamic Sidebar CTA */}
         <div className="space-y-6">
           <div className="bg-white border-2 border-[#FF5F1F] rounded-xl p-6 shadow-md space-y-4 sticky top-6">
             <div className="p-2 bg-[#FF5F1F]/10 rounded-lg text-[#FF5F1F] inline-block">
               <Construction className="w-6 h-6" />
             </div>
-            <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">
-              Review Before You Commit
-            </h4>
+            <h4 className="text-sm font-black text-[#1A3668] uppercase tracking-wide">Review Before You Commit</h4>
             <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              Use the article as a checklist for terms, documents, and questions to resolve before bidding, signing, or committing resources.
+              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface wage-determination references, labor flowdowns, classification issues, and missing attachments before you price or sign.
             </p>
-            <p className="text-xs text-slate-600 leading-relaxed font-medium">
-              <strong className="text-[#1A3668]">SubPreCheck</strong> can surface the relevant language, organize evidence-grounded issues, and prepare a focused package for discussion with the prime and qualified counsel.
-            </p>
-            <hr className="border-slate-100" />
-            <a 
-              href="/pricing"
-              className="block w-full py-2.5 text-center text-xs font-black uppercase tracking-wider text-white bg-[#FF5F1F] hover:bg-[#E04F1A] rounded-lg transition shadow-sm"
-            >
-              See Review Plans
-            </a>
+            <a href="/sample-report" className="block w-full py-2.5 text-center text-xs font-black uppercase tracking-wider text-white bg-[#FF5F1F] hover:bg-[#E04F1A] rounded-lg transition shadow-sm">View Sample Report</a>
+            <a href="/pricing" className="block w-full py-2.5 text-center text-xs font-black uppercase tracking-wider text-[#1A3668] border border-slate-200 hover:border-[#FF5F1F] rounded-lg transition">See Review Plans</a>
           </div>
         </div>
-
       </div>
     </div>
   );
