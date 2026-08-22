@@ -19,17 +19,11 @@ export default function PayWhenPaidTrapArticle() {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6 text-sm text-slate-700 leading-relaxed font-medium">
-          <p>
-            Federal subcontract payment terms can combine private contract language with federal payment clauses, bond remedies, and project-specific withholding rules. The label on the clause is less important than the actual wording and the law that governs it.
-          </p>
-          <p>
-            Before signing, identify whether payment is merely delayed until the prime is paid, whether Government payment is written as a condition precedent, and whether the subcontract contains an outside payment deadline.
-          </p>
+          <p>Federal subcontract payment terms can combine private contract language with federal payment clauses, bond remedies, and project-specific withholding rules. The label on the clause is less important than the actual wording and the law that governs it.</p>
+          <p>Before signing, identify whether payment is merely delayed until the prime is paid, whether Government payment is written as a condition precedent, and whether the subcontract contains an outside payment deadline.</p>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2"><ShieldAlert className="w-5 h-5 text-[#FF5F1F]" /> What FAR Prompt Payment Language Can Affect</h3>
-          <p>
-            On covered federal construction contracts, FAR 52.232-27 includes subcontract payment and interest provisions that the prime must include in qualifying subcontracts. Those provisions matter, but they do not make the Government a party to a private payment dispute between a prime and subcontractor.
-          </p>
+          <p>On covered federal construction contracts, FAR 52.232-27 includes subcontract payment and interest provisions that the prime must include in qualifying subcontracts. Those provisions matter, but they do not make the Government a party to a private payment dispute between a prime and subcontractor.</p>
           <ul className="list-disc pl-5 space-y-2 text-xs text-slate-600 bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
             <li>the stated deadline for paying subcontractors after the prime receives Government payment;</li>
             <li>interest terms for late subcontract payments;</li>
@@ -38,23 +32,18 @@ export default function PayWhenPaidTrapArticle() {
           </ul>
 
           <h3 className="text-base font-black text-[#1A3668] uppercase tracking-wide pt-4 flex items-center gap-2"><FileText className="w-5 h-5 text-[#FF5F1F]" /> Pay-If-Paid vs. Pay-When-Paid Language</h3>
-          <p>
-            A pay-when-paid provision may address timing, while a pay-if-paid or condition-precedent provision may attempt to shift owner nonpayment risk downstream. The effect of either clause depends on the actual language and governing law.
-          </p>
-          <p>
-            Review the complete payment section for outside deadlines, conditions precedent, retainage, disputed-invoice procedures, acceptance conditions, setoff, backcharges, and withholding rights.
-          </p>
+          <p>A pay-when-paid provision may address timing, while a pay-if-paid or condition-precedent provision may attempt to shift owner nonpayment risk downstream. The effect of either clause depends on the actual language and governing law.</p>
+          <p>Review the complete payment section for outside deadlines, conditions precedent, retainage, disputed-invoice procedures, acceptance conditions, setoff, backcharges, and withholding rights.</p>
 
           <div className="bg-slate-100 border-l-4 border-[#1A3668] p-4 rounded-r-xl space-y-2">
             <h4 className="text-xs font-black text-[#1A3668] uppercase tracking-wider">Construction Payment Has a Separate Bond Track</h4>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              On covered federal construction projects, the Miller Act payment bond can provide a separate remedy for qualifying claimants, subject to tier, notice, timing, and filing requirements. Bond rights should be evaluated separately from contingent-payment language.
-            </p>
+            <p className="text-xs text-slate-600 leading-relaxed">On covered federal construction projects, the Miller Act payment bond can provide a separate remedy for qualifying claimants, subject to tier, notice, timing, and filing requirements. Bond rights should be evaluated separately from contingent-payment language.</p>
           </div>
 
           <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3 shadow-sm">
             <h3 className="text-xs font-black text-[#1A3668] uppercase tracking-wide">Explore the Federal Payment Cluster</h3>
             <ul className="space-y-2 text-xs">
+              <li><a href="/blog/federal-subcontract-payment-hub" className="text-[#1A3668] font-black hover:text-[#FF5F1F] hover:underline">Federal Subcontract Payment & Cash Flow Hub</a></li>
               <li><a href="/blog/federal-subcontractor-not-paid-prime-contractor" className="text-[#FF5F1F] font-bold hover:underline">Federal Subcontractor Not Paid by the Prime: What to Check Next</a></li>
               <li><a href="/blog/prompt-payment-act-federal-subcontractors" className="text-[#FF5F1F] font-bold hover:underline">Does the Prompt Payment Act Protect Federal Subcontractors?</a></li>
               <li><a href="/blog/miller-act-payment-bond-claims" className="text-[#FF5F1F] font-bold hover:underline">Miller Act Payment Bond Claims and Deadlines</a></li>
