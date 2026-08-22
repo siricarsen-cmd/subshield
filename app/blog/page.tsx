@@ -2,94 +2,78 @@
 
 import React from "react";
 import Link from "next/link";
-import { posts } from "./postRegistry";
+import { posts, hubPosts } from "./postRegistry";
 import { ArrowUpRight } from "lucide-react";
+
+const hubSlugs = new Set(hubPosts.map((post) => post.slug));
+const articlePosts = posts.filter((post) => !hubSlugs.has(post.slug));
 
 export default function BlogDashboardPage() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans antialiased pb-20">
       <div className="bg-[#1A3668] text-white py-20 px-4 sm:px-6 lg:px-8 text-center border-b-4 border-[#FF5F1F]">
         <div className="max-w-4xl mx-auto space-y-4">
-          <span className="inline-block bg-[#FF5F1F] text-white text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-sm">
-            SubPreCheck Knowledge Hub
-          </span>
-          <h1 className="text-3xl md:text-5xl font-black tracking-tight uppercase leading-none">
-            Federal Subcontract Risk Guides
-          </h1>
-          <p className="text-slate-300 text-sm md:text-base max-w-2xl mx-auto font-medium leading-relaxed">
-            Practical guidance on federal subcontract terms, flowdowns, payment, scope, compliance, and the questions to resolve before you commit.
-          </p>
+          <span className="inline-block bg-[#FF5F1F] text-white text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-sm">SubPreCheck Knowledge Hub</span>
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight uppercase leading-none">Federal Subcontract Risk Guides</h1>
+          <p className="text-slate-300 text-sm md:text-base max-w-2xl mx-auto font-medium leading-relaxed">Practical guidance on federal subcontract terms, flowdowns, payment, scope, compliance, and the questions to resolve before you commit.</p>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {posts.map((post) => (
-            <div
-              key={post.slug}
-              className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-[#FF5F1F]/40 transition duration-200 flex flex-col justify-between group"
-            >
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[#FF5F1F] bg-[#FF5F1F]/5 px-2.5 py-1 rounded-md">
-                    {post.category}
-                  </span>
-                  <span className="text-[11px] text-slate-400 font-bold tracking-tight">
-                    {post.date}
-                  </span>
-                </div>
-
-                <h3 className="text-sm font-black uppercase tracking-wide leading-snug">
-                  <Link
-                    href={`/blog/${post.slug}`}
-                    className="rounded-sm text-[#1A3668] transition duration-150 hover:text-[#FF5F1F] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5F1F] focus-visible:ring-offset-2 group-hover:text-[#FF5F1F]"
-                  >
-                    {post.title}
-                  </Link>
-                </h3>
-
-                <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                  {post.description}
-                </p>
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14">
+        <div className="mb-7 space-y-2">
+          <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight text-[#1A3668]">Start With a Topic or Resource</h2>
+          <p className="text-sm text-slate-600 max-w-3xl">Use these hubs to move through related risks in a logical order, or start with the Before You Sign hub if you are reviewing a new prime-provided package.</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {hubPosts.map((post) => (
+            <Link key={post.slug} href={`/blog/${post.slug}`} className="group bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-[#FF5F1F]/50 transition">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#FF5F1F] bg-[#FF5F1F]/5 px-2.5 py-1 rounded-md">{post.category}</span>
+                <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-[#FF5F1F] transition" />
               </div>
+              <h3 className="text-sm font-black uppercase tracking-wide leading-snug text-[#1A3668] group-hover:text-[#FF5F1F] transition">{post.title}</h3>
+              <p className="mt-3 text-xs text-slate-600 leading-relaxed font-medium">{post.description}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
 
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16">
+        <div className="mb-7 space-y-2">
+          <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight text-[#1A3668]">All Federal Subcontract Guides</h2>
+          <p className="text-sm text-slate-600">Browse individual guides for a specific clause, compliance question, payment issue, or negotiation risk.</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {articlePosts.map((post) => (
+            <div key={post.slug} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-[#FF5F1F]/40 transition duration-200 flex flex-col justify-between group">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#FF5F1F] bg-[#FF5F1F]/5 px-2.5 py-1 rounded-md">{post.category}</span>
+                  <span className="text-[11px] text-slate-400 font-bold tracking-tight">{post.date}</span>
+                </div>
+                <h3 className="text-sm font-black uppercase tracking-wide leading-snug">
+                  <Link href={`/blog/${post.slug}`} className="rounded-sm text-[#1A3668] transition duration-150 hover:text-[#FF5F1F] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5F1F] focus-visible:ring-offset-2 group-hover:text-[#FF5F1F]">{post.title}</Link>
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed font-medium">{post.description}</p>
+              </div>
               <div className="pt-6">
                 <hr className="border-slate-100 pb-4" />
-                <Link
-                  href={`/blog/${post.slug}`}
-                  className="inline-flex items-center gap-1.5 rounded-sm text-xs font-black uppercase tracking-wider text-[#1A3668] hover:text-[#FF5F1F] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5F1F] focus-visible:ring-offset-2"
-                >
-                  Read Guide <ArrowUpRight className="w-4 h-4" />
-                </Link>
+                <Link href={`/blog/${post.slug}`} className="inline-flex items-center gap-1.5 rounded-sm text-xs font-black uppercase tracking-wider text-[#1A3668] hover:text-[#FF5F1F] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF5F1F] focus-visible:ring-offset-2">Read Guide <ArrowUpRight className="w-4 h-4" /></Link>
               </div>
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-24">
         <div className="bg-[#1A3668] text-white rounded-3xl p-8 md:p-12 text-center space-y-6 border-2 border-[#FF5F1F] shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-[#FF5F1F]/5 rounded-full blur-2xl transform translate-x-10 -translate-y-10"></div>
           <div className="max-w-2xl mx-auto space-y-4">
-            <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tight">
-              Review the Terms Before They Become Your Obligation
-            </h2>
-            <p className="text-slate-300 text-xs md:text-sm font-medium leading-relaxed">
-              Surface risk-shifting terms, missing flowdowns, and payment questions before you bid, sign, or commit resources — then organize the package for final legal review.
-            </p>
+            <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tight">Review the Terms Before They Become Your Obligation</h2>
+            <p className="text-slate-300 text-xs md:text-sm font-medium leading-relaxed">Surface risk-shifting terms, missing flowdowns, and payment questions before you bid, sign, or commit resources — then organize the package for final legal review.</p>
             <div className="pt-4 flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link
-                href="/pricing"
-                className="w-full sm:w-auto px-6 py-3 bg-[#FF5F1F] hover:bg-[#E04F1A] text-white text-xs font-black uppercase tracking-wider rounded-xl transition shadow-md"
-              >
-                See Review Plans
-              </Link>
-              <Link
-                href="/sample-report"
-                className="w-full sm:w-auto px-6 py-3 bg-transparent hover:bg-white/5 text-white border border-white/20 text-xs font-black uppercase tracking-wider rounded-xl transition"
-              >
-                View Sample Report
-              </Link>
+              <Link href="/sample-report" className="w-full sm:w-auto px-6 py-3 bg-[#FF5F1F] hover:bg-[#E04F1A] text-white text-xs font-black uppercase tracking-wider rounded-xl transition shadow-md">View Sample Report</Link>
+              <Link href="/pricing" className="w-full sm:w-auto px-6 py-3 bg-transparent hover:bg-white/5 text-white border border-white/20 text-xs font-black uppercase tracking-wider rounded-xl transition">See Review Plans</Link>
             </div>
           </div>
         </div>
