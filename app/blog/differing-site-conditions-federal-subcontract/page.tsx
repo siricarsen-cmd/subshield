@@ -1,0 +1,1 @@
+import { Batch5ArticlePage } from "../components/Batch5ArticlePage"; import { createPublicMetadata } from "@/lib/seo"; export const metadata=createPublicMetadata("/blog/differing-site-conditions-federal-subcontract"); export default function Page(){return <Batch5ArticlePage slug="differing-site-conditions-federal-subcontract"/>;}
