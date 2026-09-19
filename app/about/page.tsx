@@ -31,7 +31,7 @@ export default function About() {
             {/* Profile Image Container */}
             <div className="w-24 h-24 mb-6 rounded-full overflow-hidden border-2 border-orange-300 bg-[#596A7D] shrink-0 shadow-lg">
               <img 
-                src="/founder.jpg" 
+                src="/founder-2026.jpg" 
                 alt="Carsen Siri, Founder of SubPreCheck"
                 className="w-full h-full object-cover"
               />
